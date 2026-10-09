@@ -5,6 +5,8 @@ import Modal from '../../components/Modal';
 import type { RecyclingBatch } from '../../types';
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import Pagination, { pageRecords } from '../../components/Pagination';
+import DocumentViewer from '../../components/DocumentViewer';
+import { recyclingDocument } from '../../documentPrint';
 
 function BatchDetails({ batch }: { batch: RecyclingBatch }) {
   const metrics = batch.recoveredKg == null
@@ -41,6 +43,7 @@ export default function ProductionRecycling() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
   const period = usePeriod();
   const query = search.trim().toLowerCase();
   const filteredRejected = rejectedMaterials.filter(record =>
@@ -50,6 +53,7 @@ export default function ProductionRecycling() {
     dateInPeriod(batch.date, period.range)
     && (!query || [batch.batchNo, batch.sourcePO, batch.product, batch.status].some(value => String(value || '').toLowerCase().includes(query))));
   const selected = recyclingBatches.find(batch => batch.id === selectedId);
+  const documentBatch = recyclingBatches.find(batch => batch.id === documentAction?.id);
   const status = totalRejectedKg >= 50 ? 'RECYCLING REQUIRED' : totalRejectedKg >= 40 ? 'NEARING LIMIT' : 'COLLECTING';
   const runAction = (batchId: string, action: Parameters<typeof updateRecyclingStage>[1]) => {
     const result = updateRecyclingStage(batchId, action);
@@ -103,6 +107,7 @@ export default function ProductionRecycling() {
             <td><StatusBadge status={batch.status} size="sm" /></td>
             <td><div className="button-group">
               <button className="btn-secondary btn-compact" onClick={() => { setSelectedId(batch.id); setMessage(''); }}>View</button>
+              <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: batch.id, autoPrint: true })}>Print</button>
               {batch.status === 'Ready for Cutting' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-cutting')}>Start Cutting</button>}
               {batch.status === 'Cutting' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'complete-cutting')}>Complete Cutting</button>}
               {batch.status === 'Weighing' && <button className="btn-primary btn-compact" onClick={() => { setSelectedId(batch.id); setWeightMode('cut'); setWeight(''); }}>Submit Weight</button>}
@@ -136,10 +141,13 @@ export default function ProductionRecycling() {
         </label>}
         {message && <div className="alert-error">{message}</div>}
         <div className="form-actions">
+          <button className="btn-secondary" onClick={() => setDocumentAction({ id: selected.id, autoPrint: false })}>View Document</button>
+          <button className="btn-primary" onClick={() => setDocumentAction({ id: selected.id, autoPrint: true })}>Print</button>
           <button className="btn-secondary" onClick={() => { setSelectedId(null); setWeightMode(null); }}>Close</button>
           {weightMode && <button className="btn-primary" onClick={submitWeight}>{weightMode === 'cut' ? 'Submit Weight' : 'Complete & Create Bags'}</button>}
         </div>
       </div>
     </Modal>}
+    <DocumentViewer open={!!documentAction} document={documentBatch ? recyclingDocument(documentBatch) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
   </div>;
 }

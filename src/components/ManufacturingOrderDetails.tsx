@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import StatusBadge from './StatusBadge';
 import type { CustomerOrder, ManufacturingOrder, MaterialRequest, PelletInventory, ProductionOrder } from '../types';
+import DocumentViewer from './DocumentViewer';
+import { manufacturingOrderDocument } from '../documentPrint';
 
 interface ManufacturingOrderDetailsProps {
   mo: ManufacturingOrder;
@@ -36,6 +38,7 @@ export default function ManufacturingOrderDetails({
   onRequestPellets,
 }: ManufacturingOrderDetailsProps) {
   const [showCustomerOrder, setShowCustomerOrder] = useState(false);
+  const [documentAction, setDocumentAction] = useState<'view' | 'print' | null>(null);
   const progress = productionOrder && productionOrder.targetQty > 0 ? Math.round(productionOrder.completedQty / productionOrder.targetQty * 100) : 0;
   const availablePellets = pellets
     .filter(item => item.grade === mo.grade && item.availableKg > 0)
@@ -134,6 +137,8 @@ export default function ManufacturingOrderDetails({
 
     <div className="mo-actions">
       <button className="btn-secondary" onClick={onBack}>Back</button>
+      <button className="btn-secondary" onClick={() => setDocumentAction('view')}>View Document</button>
+      <button className="btn-primary" onClick={() => setDocumentAction('print')}>Print</button>
       {customerOrder && <button className="btn-secondary" onClick={() => setShowCustomerOrder(value => !value)}>
         {showCustomerOrder ? 'Hide Customer Order' : 'View Customer Order'}
       </button>}
@@ -141,5 +146,11 @@ export default function ManufacturingOrderDetails({
       {canCreatePO && <button className="btn-primary" onClick={onCreateProductionOrder}>Create Production Order</button>}
       {role === 'plantmanager' && onRequestPellets && <button className="btn-secondary" onClick={onRequestPellets}>Request Pellets</button>}
     </div>
+    <DocumentViewer
+      open={documentAction !== null}
+      document={manufacturingOrderDocument(mo, customerOrder?.customerName)}
+      autoPrint={documentAction === 'print'}
+      onClose={() => setDocumentAction(null)}
+    />
   </div>;
 }

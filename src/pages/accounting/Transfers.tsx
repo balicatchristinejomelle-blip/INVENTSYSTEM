@@ -5,6 +5,8 @@ import Modal from '../../components/Modal';
 import CategoryTabs from '../../components/CategoryTabs';
 import Pagination, { pageRecords } from '../../components/Pagination';
 import { MATERIAL_REQUEST_CATEGORIES, requestCategory, transferCategory, type MaterialRequestCategory } from '../../inventoryCategories';
+import DocumentViewer from '../../components/DocumentViewer';
+import { transferDocument } from '../../documentPrint';
 
 export default function Transfers() {
   const { transfers, materialRequests, createTransfer } = useApp();
@@ -15,18 +17,23 @@ export default function Transfers() {
   const [requestId, setRequestId] = useState('');
   const [message, setMessage] = useState('');
   const [page, setPage] = useState(1);
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const statuses = ['All', 'Preparing', 'In Transit', 'Received'];
   const categoryTabs: readonly ('All' | MaterialRequestCategory)[] = ['All', ...MATERIAL_REQUEST_CATEGORIES];
   const filtered = transfers.filter(t => (filter === 'All' || t.status === filter) && (category === 'All' || transferCategory(t) === category));
   const viewTransfer = transfers.find(t => t.id === viewId);
+  const documentTransfer = transfers.find(t => t.id === documentAction?.id);
 
   if (viewId && viewTransfer) return (
     <div style={{ maxWidth: 580 }}>
       <div className="flex items-center gap-3 mb-4">
         <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
+        <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: false })}>View Document</button>
+        <button className="btn-primary" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: true })}>Print</button>
         <h2 style={{ fontSize: 14, fontWeight: 700 }}>Transfer — {viewTransfer.refNo}</h2>
       </div>
+      <DocumentViewer open={!!documentAction} document={documentTransfer ? transferDocument(documentTransfer) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
       <div className="app-card" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {[
@@ -87,7 +94,7 @@ export default function Transfers() {
                 <td style={{ fontSize: 12 }}>{t.destination}</td>
                 <td><StatusBadge status={t.status} size="sm" /></td>
                 <td onClick={e => e.stopPropagation()}>
-                  <button className="btn-secondary btn-compact" onClick={() => setViewId(t.id)}>View</button>
+                  <div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setViewId(t.id)}>View Details</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })}>Print</button></div>
                 </td>
               </tr>
             ))}
@@ -110,6 +117,7 @@ export default function Transfers() {
           }}>Confirm</button></div>
         </div>
       </Modal>}
+      <DocumentViewer open={!!documentAction} document={documentTransfer ? transferDocument(documentTransfer) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 }

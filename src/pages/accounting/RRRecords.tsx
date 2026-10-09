@@ -4,6 +4,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Modal from '../../components/Modal';
 import Pagination, { pageRecords } from '../../components/Pagination';
 import { MATERIAL_GRADES } from '../../inventoryCategories';
+import DocumentViewer from '../../components/DocumentViewer';
+import { receivingReportDocument } from '../../documentPrint';
 
 export default function RRRecords() {
   const { rrRecords, pellets, createReceivingReport } = useApp();
@@ -23,7 +25,9 @@ export default function RRRecords() {
     remarks: '',
   });
   const [formError, setFormError] = useState('');
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
   const viewRR = rrRecords.find(r => r.id === viewId);
+  const documentRR = rrRecords.find(r => r.id === documentAction?.id);
   const viewPellets = pellets.filter(p => p.batchNo === viewRR?.batchNo);
   const filtered = useMemo(() => rrRecords.filter(rr =>
     (pelletTypeFilter === 'All' || rr.pelletType === pelletTypeFilter)
@@ -50,6 +54,8 @@ export default function RRRecords() {
     <div style={{ maxWidth: 600 }}>
       <div className="flex items-center gap-3 mb-4">
         <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
+        <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: false })}>View Document</button>
+        <button className="btn-primary" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: true })}>Print</button>
         <h2 style={{ fontSize: 14, fontWeight: 700 }}>RR Record — {viewRR.rrNumber}</h2>
       </div>
       <div className="page-stack">
@@ -80,6 +86,7 @@ export default function RRRecords() {
         </div>
       </div>
       </div>
+      <DocumentViewer open={!!documentAction} document={documentRR ? receivingReportDocument(documentRR) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 
@@ -109,7 +116,7 @@ export default function RRRecords() {
                 <td style={{ fontSize: 12 }}>{rr.destination}</td>
                 <td><StatusBadge status={rr.status} size="sm" /></td>
                 <td onClick={e => e.stopPropagation()}>
-                  <button className="btn-secondary btn-compact" onClick={() => setViewId(rr.id)}>View</button>
+                  <div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setViewId(rr.id)}>View Details</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: rr.id, autoPrint: true })}>Print</button></div>
                 </td>
               </tr>
             ))}
@@ -118,6 +125,7 @@ export default function RRRecords() {
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
+      <DocumentViewer open={!!documentAction} document={documentRR ? receivingReportDocument(documentRR) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
       <Modal open={showNew} title="New Receiving Report" onClose={() => setShowNew(false)} width="620px">
         <div className="page-stack">
           <div className="alert-info">

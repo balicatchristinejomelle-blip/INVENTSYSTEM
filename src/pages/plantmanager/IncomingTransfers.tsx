@@ -4,6 +4,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Modal, { ConfirmModal } from '../../components/Modal';
 import CategoryTabs from '../../components/CategoryTabs';
 import { MATERIAL_REQUEST_CATEGORIES, transferCategory, type MaterialRequestCategory } from '../../inventoryCategories';
+import DocumentViewer from '../../components/DocumentViewer';
+import { transferDocument } from '../../documentPrint';
 
 type FilterTab = 'All' | 'Preparing' | 'In Transit' | 'Receiving Discrepancy' | 'Received';
 
@@ -17,6 +19,7 @@ export default function IncomingTransfers() {
   const [discrepancyReason, setDiscrepancyReason] = useState<'Missing' | 'Damaged' | 'Wrong Item' | 'Quantity Error' | 'Other' | ''>('');
   const [discrepancyNotes, setDiscrepancyNotes] = useState('');
   const [receiptError, setReceiptError] = useState('');
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const tabs: FilterTab[] = ['All', 'Preparing', 'In Transit', 'Receiving Discrepancy', 'Received'];
 
@@ -25,6 +28,7 @@ export default function IncomingTransfers() {
   const categoryTabs: readonly ('All' | MaterialRequestCategory)[] = ['All', ...MATERIAL_REQUEST_CATEGORIES];
   const filtered = transfers.filter(t => (tab === 'All' || t.status === tab) && (category === 'All' || transferCategory(t) === category));
   const detail = transfers.find(t => t.id === viewId);
+  const documentTransfer = transfers.find(t => t.id === documentAction?.id);
 
   const handleAccept = () => {
     if (confirmAcceptId) {
@@ -136,6 +140,7 @@ export default function IncomingTransfers() {
                         >
                           View
                         </button>
+                        <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })}>Print</button>
                         {effectiveStatus === 'In Transit' && (
                           <button
                             className="btn-success btn-compact"
@@ -229,6 +234,8 @@ export default function IncomingTransfers() {
           )}
 
           <div className="form-actions">
+            <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
+            <button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button>
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {getEffectiveStatus(detail) === 'In Transit' && (
               <button
@@ -244,6 +251,7 @@ export default function IncomingTransfers() {
           </div>
         </Modal>
       )}
+      <DocumentViewer open={!!documentAction} document={documentTransfer ? transferDocument(documentTransfer) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
       {/* Accept Confirmation Modal */}
       <ConfirmModal

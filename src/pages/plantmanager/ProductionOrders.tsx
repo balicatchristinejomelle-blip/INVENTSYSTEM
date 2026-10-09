@@ -3,13 +3,17 @@ import { useApp } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
 import Modal from '../../components/Modal';
 import ManufacturingOrderDetails from '../../components/ManufacturingOrderDetails';
+import DocumentViewer from '../../components/DocumentViewer';
+import { productionOrderDocument } from '../../documentPrint';
 
 export default function PMProductionOrders() {
   const { productionOrders, manufacturingOrders, pellets, orders, materialRequests, createProductionOrder, navigate } = useApp();
   const [viewId, setViewId] = useState<string | null>(null);
   const [showMO, setShowMO] = useState<string | null>(null);
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
   const viewPO = productionOrders.find(p => p.id === viewId);
   const viewMO = manufacturingOrders.find(m => m.id === showMO);
+  const documentPO = productionOrders.find(p => p.id === documentAction?.id);
   const relatedPO = viewMO ? productionOrders.find(order => order.moRef === viewMO.moNo) : undefined;
   const relatedOrder = viewMO ? orders.find(order => order.orderNo === viewMO.orderRef) : undefined;
   const relatedRequest = viewMO ? materialRequests.find(request => request.moRef === viewMO.moNo) : undefined;
@@ -85,7 +89,7 @@ export default function PMProductionOrders() {
                     <td style={{ fontSize: 12 }}>{po.requiredDate}</td>
                     <td><StatusBadge status={po.status} size="sm" /></td>
                     <td onClick={e => e.stopPropagation()}>
-                      <button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View</button>
+                      <div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View Details</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button></div>
                     </td>
                   </tr>
                 );
@@ -135,8 +139,11 @@ export default function PMProductionOrders() {
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{viewPO.completedQty} / {viewPO.targetQty} units ({viewPO.targetQty > 0 ? Math.round(viewPO.completedQty/viewPO.targetQty*100) : 0}%)</div>
           </div>
           <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
+          <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
+          <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
         </Modal>
       )}
+      <DocumentViewer open={!!documentAction} document={documentPO ? productionOrderDocument(documentPO) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 }

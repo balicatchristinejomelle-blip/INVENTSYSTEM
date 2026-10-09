@@ -5,6 +5,16 @@ import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/Period
 import StatusBadge from '../../components/StatusBadge';
 import { useApp } from '../../store';
 import { MATERIAL_GRADES } from '../../inventoryCategories';
+import DocumentViewer, { type PrintableDocument } from '../../components/DocumentViewer';
+import {
+  customerOrderDocument,
+  manufacturingOrderDocument,
+  materialRequestDocument,
+  productionOrderDocument,
+  receivingReportDocument,
+  recyclingDocument,
+  transferDocument,
+} from '../../documentPrint';
 
 const AREAS = ['Company Records', 'Inventory & Finished Goods', 'Production & Recycling'] as const;
 const SECTIONS = {
@@ -25,6 +35,7 @@ export default function OwnerRecords() {
   const [grade, setGrade] = useState('All Grades');
   const [location, setLocation] = useState('All Locations');
   const [search, setSearch] = useState('');
+  const [documentAction, setDocumentAction] = useState<{ module: string; id: string; autoPrint: boolean } | null>(null);
 
   const sourceRows = useMemo<RecordRow[]>(() => {
     const orders: RecordRow[] = [
@@ -73,6 +84,41 @@ export default function OwnerRecords() {
   const grades = MATERIAL_GRADES;
   const locations = Array.from(new Set(sourceRows.map(item => item.location).filter(Boolean))).sort() as string[];
   const inventoryArea = area === 'Inventory & Finished Goods';
+  const selectedDocument = useMemo<PrintableDocument | null>(() => {
+    if (!documentAction) return null;
+    const { module, id } = documentAction;
+    if (module === 'Receiving Report') {
+      const item = app.rrRecords.find(record => record.id === id);
+      return item ? receivingReportDocument(item) : null;
+    }
+    if (module === 'Material Request') {
+      const item = app.materialRequests.find(record => record.id === id);
+      return item ? materialRequestDocument(item) : null;
+    }
+    if (module === 'Transfer') {
+      const item = app.transfers.find(record => record.id === id);
+      return item ? transferDocument(item) : null;
+    }
+    if (module === 'Customer Order') {
+      const item = app.orders.find(record => record.id === id);
+      return item ? customerOrderDocument(item) : null;
+    }
+    if (module === 'Manufacturing Order') {
+      const item = app.manufacturingOrders.find(record => record.id === id);
+      const order = item ? app.orders.find(record => record.orderNo === item.orderRef) : undefined;
+      return item ? manufacturingOrderDocument(item, order?.customerName) : null;
+    }
+    if (module === 'Production Order') {
+      const item = app.productionOrders.find(record => record.id === id);
+      return item ? productionOrderDocument(item) : null;
+    }
+    if (module === 'Recycling Batch') {
+      const item = app.recyclingBatches.find(record => record.id === id);
+      return item ? recyclingDocument(item) : null;
+    }
+    return null;
+  }, [app, documentAction]);
+  const printableModules = ['Receiving Report', 'Material Request', 'Transfer', 'Customer Order', 'Manufacturing Order', 'Production Order', 'Recycling Batch'];
 
   const resetFilters = () => {
     setPage(1);
@@ -95,11 +141,12 @@ export default function OwnerRecords() {
     </div>
     <div className="app-card table-scroll">
       <div className="table-title">{section} · {period.range.label}</div>
-      <table className="app-table"><thead><tr><th>Date</th><th>Reference</th><th>Record Type</th><th>Details</th><th>Quantity / Activity</th><th>Status</th></tr></thead><tbody>
-        {pageRecords(rows, page).map(item => <tr key={`${item.module}-${item.id}`}><td>{item.date}</td><td className="font-mono">{item.reference}</td><td>{item.module}</td><td>{item.detail}</td><td>{item.quantity}</td><td><StatusBadge status={item.status} /></td></tr>)}
+      <table className="app-table"><thead><tr><th>Date</th><th>Reference</th><th>Record Type</th><th>Details</th><th>Quantity / Activity</th><th>Status</th><th data-actions>Actions</th></tr></thead><tbody>
+        {pageRecords(rows, page).map(item => <tr key={`${item.module}-${item.id}`}><td>{item.date}</td><td className="font-mono">{item.reference}</td><td>{item.module}</td><td>{item.detail}</td><td>{item.quantity}</td><td><StatusBadge status={item.status} /></td><td>{printableModules.includes(item.module) && <div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ module: item.module, id: item.id, autoPrint: false })}>View Document</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ module: item.module, id: item.id, autoPrint: true })}>Print</button></div>}</td></tr>)}
       </tbody></table>
       {!rows.length && <div className="empty-state">No authorized records match the selected date and filters.</div>}
       <Pagination page={page} totalRecords={rows.length} onPageChange={setPage} />
     </div>
+    <DocumentViewer open={!!documentAction} document={selectedDocument} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
   </div>;
 }

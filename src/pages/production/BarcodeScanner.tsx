@@ -46,7 +46,6 @@ export default function BarcodeScanner() {
   } = useApp();
   const [mode, setMode] = useState<ScannerMode>('Load Pellets');
   const expected: Category = mode === 'Receive Pellets' || mode === 'Load Pellets' ? 'Pellet' : 'Finished Pipe';
-  const [barcode, setBarcode] = useState('');
   const [manualBarcode, setManualBarcode] = useState('');
   const [manualOpen, setManualOpen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState('READY TO SCAN');
@@ -61,8 +60,11 @@ export default function BarcodeScanner() {
   const [sessionItems, setSessionItems] = useState<Record<string, SessionScan[]>>({});
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
   const [completion, setCompletion] = useState('');
-  const hardwareInputRef = useRef<HTMLInputElement>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
+  const scannerBufferRef = useRef('');
+  const scannerLastKeyRef = useRef(0);
+  const scannerStartRef = useRef(0);
+  const submitHardwareRef = useRef<(value: string) => void>(() => undefined);
   const lastSubmissionRef = useRef({ value: '', time: 0 });
   const processedRef = useRef(new Map<string, SessionScan>());
   const initialLoadedRef = useRef(new Map<string, number>());
@@ -83,10 +85,7 @@ export default function BarcodeScanner() {
   const storedThisSession = scans.reduce((sum, item) => sum + item.quantity, 0);
   const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode;
 
-  const focusHardwareInput = () => {
-    window.setTimeout(() => hardwareInputRef.current?.focus(), 0);
-  };
-  useEffect(focusHardwareInput, []);
+  const focusHardwareInput = () => undefined;
   useEffect(() => {
     processedRef.current.clear();
     initialLoadedRef.current.clear();
@@ -94,7 +93,6 @@ export default function BarcodeScanner() {
     setLastScan(null);
     setCompletion('');
     setResult(null);
-    setBarcode('');
     setManualBarcode('');
     setManualOpen(false);
     setScannerStatus('READY TO SCAN');
@@ -254,14 +252,46 @@ export default function BarcodeScanner() {
       return;
     }
     lastSubmissionRef.current = { value: clean, time: now };
-    if (source === 'hardware') setBarcode('');
-    else {
+    if (source === 'manual') {
       setManualBarcode('');
       setManualOpen(false);
     }
     processBarcode(clean);
     focusHardwareInput();
   };
+
+  submitHardwareRef.current = value => submitBarcode(value, 'hardware');
+  useEffect(() => {
+    const captureScannerInput = (event: KeyboardEvent) => {
+      if (manualOpen || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+      const now = performance.now();
+      if (event.key === 'Enter') {
+        const captured = scannerBufferRef.current;
+        const elapsed = scannerStartRef.current ? now - scannerStartRef.current : Number.POSITIVE_INFINITY;
+        const averageInterval = captured.length > 1 ? elapsed / (captured.length - 1) : Number.POSITIVE_INFINITY;
+        scannerBufferRef.current = '';
+        scannerLastKeyRef.current = 0;
+        scannerStartRef.current = 0;
+        if (captured.length >= 4 && averageInterval <= 50) {
+          event.preventDefault();
+          submitHardwareRef.current(captured);
+        }
+        return;
+      }
+      if (event.key.length !== 1) return;
+      if (scannerLastKeyRef.current && now - scannerLastKeyRef.current > 80) {
+        scannerBufferRef.current = '';
+        scannerStartRef.current = 0;
+      }
+      if (!scannerBufferRef.current) scannerStartRef.current = now;
+      scannerBufferRef.current += event.key;
+      scannerLastKeyRef.current = now;
+    };
+    window.addEventListener('keydown', captureScannerInput);
+    return () => window.removeEventListener('keydown', captureScannerInput);
+  }, [manualOpen]);
 
   useEffect(() => {
     if (!error) return;
@@ -323,7 +353,7 @@ export default function BarcodeScanner() {
       message: '1 bag · 25 kg loaded',
       detail: `Raw available: ${item.beforeInventory} kg → ${item.afterInventory} kg · WIP loaded: 25 kg · PO total: ${item.poTotal} kg`,
     });
-    setResult(null); setBarcode('');
+    setResult(null);
   };
 
   const confirmStorage = () => {
@@ -367,7 +397,7 @@ export default function BarcodeScanner() {
       message: '1 pipe stored',
       detail: `${location} · ${item.time}`,
     });
-    setResult(null); setSection(''); setRack(''); setStoragePurpose(''); setStorageOrderId(''); setBarcode('');
+    setResult(null); setSection(''); setRack(''); setStoragePurpose(''); setStorageOrderId('');
   };
 
   const confirmRelocation = () => {
@@ -386,7 +416,7 @@ export default function BarcodeScanner() {
       message: `Item relocated to ${location}`,
       detail: `Reason: ${relocationReason.trim()} · ${currentUser?.name || ''}`,
     });
-    setResult(null); setSection(''); setRack(''); setRelocating(false); setRelocationReason(''); setBarcode('');
+    setResult(null); setSection(''); setRack(''); setRelocating(false); setRelocationReason('');
   };
 
   const confirmReceive = () => {
@@ -421,7 +451,7 @@ export default function BarcodeScanner() {
     processedRef.current.set(duplicateKey(item.barcode), item);
     setSessionItems(items => ({ ...items, [sessionKey]: [...(items[sessionKey] || []), item] }));
     setLastScan({ kind: 'success', barcode: item.barcode, itemType: `${result.record.type} Pellet Bag`, weight: 25, time: item.time, status: item.status, message: `25 kg ${item.status.toLowerCase()} in ${destination}`, detail: `${item.reference} · ${result.record.currentLocation || 'Not Yet Assigned'} → ${destination}` });
-    setResult(null); setBarcode('');
+    setResult(null);
   };
 
   const confirmRelease = () => {
@@ -458,7 +488,7 @@ export default function BarcodeScanner() {
     processedRef.current.set(duplicateKey(item.barcode), item);
     setSessionItems(items => ({ ...items, [sessionKey]: [...(items[sessionKey] || []), item] }));
     setLastScan({ kind: 'success', barcode: item.barcode, itemType: 'Finished Pipe', time: item.time, status: 'Released', message: `${item.quantity} pipe released`, detail: `${matchingOrder.orderNo} · Released by ${item.employee} at ${item.time}` });
-    setResult(null); setBarcode('');
+    setResult(null);
   };
 
   useEffect(() => {
@@ -506,30 +536,20 @@ export default function BarcodeScanner() {
         <div><div className="section-title">Hardware Scanner</div><strong>Honeywell Voyager XP 1470g</strong></div>
         <div className="scanner-status" aria-live="polite"><span>Status</span><strong>{scannerStatus}</strong></div>
       </div>
-      <label className="block-label" htmlFor="hardware-barcode-input">Scan the physical barcode using the Honeywell scanner.</label>
-      <input
-        ref={hardwareInputRef}
-        id="hardware-barcode-input"
-        className="app-input font-mono hardware-scanner-input"
-        value={barcode}
-        onChange={event => setBarcode(event.target.value)}
-        onKeyDown={event => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          submitBarcode(event.currentTarget.value, 'hardware');
-        }}
-        placeholder="Ready for Honeywell scan"
-        autoComplete="off"
-        autoFocus
-      />
-      <div className="helper-text">The scanner enters the Code 128 value as keyboard input and submits it once with Enter.</div>
+      <div className="block-label">Scan the physical barcode using the Honeywell scanner.</div>
+      <div className="hardware-scanner-display font-mono" role="status" aria-live="polite">
+        <span className="scanner-capture-indicator" aria-hidden="true" />
+        <span>Ready for Honeywell scan</span>
+      </div>
+      <div className="helper-text">Scanner capture is active. This panel is not editable; the Honeywell Enter suffix submits one scan.</div>
       <div className="action-row">
         <button className="btn-secondary" onClick={() => { setManualOpen(true); window.setTimeout(() => manualInputRef.current?.focus(), 0); }}>Enter Manually</button>
         <button className="btn-secondary" onClick={() => navigate('production-dashboard')}>Close</button>
       </div>
     </section>
     {manualOpen && <section className="app-card detail-card">
-      <label className="block-label" htmlFor="manual-barcode-input">Manual Barcode Entry</label>
+      <div className="section-title">Enter Barcode Manually</div>
+      <label className="block-label" htmlFor="manual-barcode-input">Barcode</label>
       <div className="input-action">
         <input
           ref={manualInputRef}
@@ -545,7 +565,7 @@ export default function BarcodeScanner() {
           placeholder="Enter the exact barcode value"
           autoComplete="off"
         />
-        <button className="btn-primary" onClick={() => submitBarcode(manualBarcode, 'manual')}>Look Up</button>
+        <button className="btn-primary" onClick={() => submitBarcode(manualBarcode, 'manual')}>Submit</button>
         <button className="btn-secondary" onClick={() => { setManualOpen(false); setManualBarcode(''); focusHardwareInput(); }}>Cancel</button>
       </div>
       <div className="helper-text">Use the complete value printed below the physical barcode label.</div>

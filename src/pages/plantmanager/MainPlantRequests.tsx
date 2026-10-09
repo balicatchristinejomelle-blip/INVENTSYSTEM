@@ -11,6 +11,8 @@ import {
   requestCategory,
   type MaterialRequestCategory,
 } from '../../inventoryCategories';
+import DocumentViewer from '../../components/DocumentViewer';
+import { materialRequestDocument } from '../../documentPrint';
 
 type RequestTab = 'All' | MaterialRequestCategory;
 
@@ -35,11 +37,13 @@ export default function MainPlantRequests() {
   const [quantityKg, setQuantityKg] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const activePOs = productionOrders.filter(po => !['Completed', 'Cancelled'].includes(po.status));
   const selectedPO = productionOrders.find(po => po.id === poId);
   const filtered = materialRequests.filter(request => tab === 'All' || requestCategory(request) === tab);
   const detail = materialRequests.find(request => request.id === viewId);
+  const documentRequest = materialRequests.find(request => request.id === documentAction?.id);
   const requestedBags = Number(bags);
   const requestedKg = category === 'Colorant' ? Number(quantityKg) : requestedBags * 25;
   const colors = usageType === 'BASE_COLORANT' ? BASE_COLORANTS : STRIPE_COLORANTS;
@@ -130,7 +134,7 @@ export default function MainPlantRequests() {
                 <td className="font-mono">{request.poRef || 'Not PO-based'}</td>
                 <td>{request.destination || 'Branch Plant'}</td>
                 <td><StatusBadge status={request.status} /></td>
-                <td><button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View</button></td>
+                <td><div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View Details</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })}>Print</button></div></td>
               </tr>;
             })}
           </tbody>
@@ -153,7 +157,9 @@ export default function MainPlantRequests() {
           <Info label="PO Number" value={detail.poRef || 'Not PO-based'} />
           <Info label="Destination" value={detail.destination || 'Branch Plant'} />
         </div>
+        <div className="form-actions mt-4"><button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button><button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button></div>
       </Modal>}
+      <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
       {showNew && <Modal open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
         <div className="page-stack">

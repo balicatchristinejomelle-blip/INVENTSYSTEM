@@ -5,6 +5,8 @@ import { ConfirmModal } from '../../components/Modal';
 import CategoryTabs from '../../components/CategoryTabs';
 import Pagination, { pageRecords } from '../../components/Pagination';
 import { MATERIAL_REQUEST_CATEGORIES, requestCategory, type MaterialRequestCategory } from '../../inventoryCategories';
+import DocumentViewer from '../../components/DocumentViewer';
+import { materialRequestDocument } from '../../documentPrint';
 
 export default function BranchRequests() {
   const { materialRequests, approveMaterialRequest, rejectMaterialRequest } = useApp();
@@ -14,17 +16,21 @@ export default function BranchRequests() {
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [viewId, setViewId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const statuses = ['All', 'New', 'Pending', 'Approved', 'Rejected'];
   const categoryTabs: readonly ('All' | MaterialRequestCategory)[] = ['All', ...MATERIAL_REQUEST_CATEGORIES];
   const filtered = materialRequests.filter(r => (filter === 'All' || r.status === filter) && (category === 'All' || requestCategory(r) === category));
   const selected = materialRequests.find(r => r.id === selectedId);
   const viewReq = materialRequests.find(r => r.id === viewId);
+  const documentRequest = materialRequests.find(r => r.id === documentAction?.id);
 
   if (viewId && viewReq) return (
     <div style={{ maxWidth: 620 }}>
       <div className="flex items-center gap-3 mb-4">
         <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
+        <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: false })}>View Document</button>
+        <button className="btn-primary" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: true })}>Print</button>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Material Request — {viewReq.refNo}</h2>
       </div>
       <div className="app-card" style={{ padding: 20 }}>
@@ -70,6 +76,7 @@ export default function BranchRequests() {
         }}
         onCancel={() => setConfirmAction(null)}
       />
+      <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 
@@ -111,6 +118,7 @@ export default function BranchRequests() {
                 <td onClick={e => e.stopPropagation()}>
                   <div className="button-group">
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(req.id)}>View</button>
+                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: req.id, autoPrint: true })}>Print</button>
                     {(req.status === 'New' || req.status === 'Pending') && (
                       <>
                         <button className="btn-success btn-compact" onClick={() => { setSelectedId(req.id); setConfirmAction('approve'); }}>Approve</button>
@@ -142,6 +150,7 @@ export default function BranchRequests() {
         }}
         onCancel={() => { setConfirmAction(null); setSelectedId(null); }}
       />
+      <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 }

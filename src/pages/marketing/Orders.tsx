@@ -4,6 +4,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Modal from '../../components/Modal';
 import Pagination, { pageRecords } from '../../components/Pagination';
 import { HPAI_PRODUCT_MASTER, lengthsForForm, sizesForProduct } from '../../productMaster';
+import DocumentViewer from '../../components/DocumentViewer';
+import { customerOrderDocument } from '../../documentPrint';
 
 export default function Orders() {
   const { orders, finishedGoods, customers, reserveFinishedGoods, createCustomerOrder } = useApp();
@@ -13,6 +15,7 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [stockCheck, setStockCheck] = useState<{ available: number; shortage: number } | null>(null);
   const [reservationMessage, setReservationMessage] = useState('');
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   // New order form
   const [form, setForm] = useState({ customerId: '', product: 'HDPE Pipe', diameter: '110mm', length: '6m', sdr: 'SDR17', grade: 'PE100', color: 'Black (BK)', stripe: 'No Stripe', construction: 'Solid Wall Pipe', productForm: 'Straight Length', quantity: '', requiredDate: '', notes: '' });
@@ -20,6 +23,7 @@ export default function Orders() {
   const statuses = ['All', 'New', 'Active', 'In Production', 'Ready for Release', 'Completed'];
   const filtered = filter === 'All' ? orders : orders.filter(o => o.status === filter);
   const viewOrder = orders.find(o => o.id === viewId);
+  const documentOrder = orders.find(o => o.id === documentAction?.id);
   const availableSizes = sizesForProduct(form.product);
   const availableLengths = lengthsForForm(form.productForm);
   const updateProduct = (product: string) => {
@@ -110,7 +114,10 @@ export default function Orders() {
                 <td style={{ fontSize: 12 }}>{o.requiredDate}</td>
                 <td><StatusBadge status={o.status} size="sm" /></td>
                 <td onClick={e => e.stopPropagation()}>
-                  <button className="btn-secondary btn-compact" onClick={() => setViewId(o.id)}>View</button>
+                  <div className="button-group">
+                    <button className="btn-secondary btn-compact" onClick={() => setViewId(o.id)}>View Details</button>
+                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: o.id, autoPrint: true })}>Print</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -137,6 +144,8 @@ export default function Orders() {
             </div>
           </div>
           <div className="mt-4 form-actions">
+            <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: false })}>View Document</button>
+            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: true })}>Print</button>
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {viewOrder.status !== 'Released' && (viewOrder.reservedQuantity || 0) < viewOrder.quantity && <button className="btn-primary" onClick={() => {
               const remaining = Math.max(0, viewOrder.quantity - (viewOrder.reservedQuantity || 0) - (viewOrder.releasedQuantity || 0));
@@ -147,6 +156,12 @@ export default function Orders() {
           {reservationMessage && <div className={reservationMessage.includes('reserved.') ? 'alert-success mt-3' : 'alert-error mt-3'} style={{ whiteSpace: 'pre-line' }}>{reservationMessage.split('|').join('\n')}</div>}
         </Modal>
       )}
+      <DocumentViewer
+        open={!!documentAction}
+        document={documentOrder ? customerOrderDocument(documentOrder) : null}
+        autoPrint={documentAction?.autoPrint}
+        onClose={() => setDocumentAction(null)}
+      />
 
       {/* New order modal */}
       <Modal open={showNew} title="New Customer Order" onClose={() => { setShowNew(false); setStockCheck(null); }} width="580px">

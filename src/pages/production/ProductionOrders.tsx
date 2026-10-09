@@ -5,6 +5,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Modal from '../../components/Modal';
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import Pagination, { pageRecords } from '../../components/Pagination';
+import DocumentViewer from '../../components/DocumentViewer';
+import { productionOrderDocument } from '../../documentPrint';
 
 const OUTPUT_DRAFT_KEY = 'hpai:production-output-draft';
 const MATERIAL_REVIEW_KEY = 'hpai:material-review-request';
@@ -49,6 +51,7 @@ export default function ProdOrders() {
   const [orderView, setOrderView] = useState<OrderView>('Ready');
   const [search, setSearch] = useState('');
   const [pages, setPages] = useState<Record<OrderView, number>>({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
   const period = usePeriod();
   const query = search.trim().toLowerCase();
   const filteredOrders = productionOrders.filter(po => {
@@ -63,6 +66,7 @@ export default function ProdOrders() {
   const page = pages[orderView];
   const resetPages = () => setPages({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
   const viewPO = productionOrders.find(p => p.id === viewId);
+  const documentPO = productionOrders.find(p => p.id === documentAction?.id);
   const viewPOMaterialUsage = viewPO
     ? materialUsageTransactions.filter(transaction => transaction.productionOrderId === viewPO.id)
     : [];
@@ -214,6 +218,7 @@ export default function ProdOrders() {
                   <td onClick={e => e.stopPropagation()}>
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View</button>
+                      <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button>
                       {po.status === 'In Production' && <button className="btn-primary btn-compact" onClick={() => { setViewId(po.id); setShowOutput(true); }}>Record Output</button>}
                     </div>
                   </td>
@@ -237,6 +242,8 @@ export default function ProdOrders() {
           </div>
           {viewPO.completedQty > 0 && viewPOMaterialUsage.length === 0 && <div className="alert-warning mb-3"><strong>MATERIAL USAGE MISSING</strong><div>Production output has been recorded, but no material usage is linked to this Production Order.</div><button className="btn-secondary btn-compact mt-3" onClick={() => { setShowOutput(true); setReviewMaterials(true); }}>Review Materials</button></div>}
           <div className="form-actions">
+            <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
+            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {viewPO.status === 'In Production' && (
               <><button className="btn-primary" onClick={() => navigate('prod-barcode')}>Scan with Honeywell</button>
@@ -245,6 +252,7 @@ export default function ProdOrders() {
           </div>
         </Modal>
       )}
+      <DocumentViewer open={!!documentAction} document={documentPO ? productionOrderDocument(documentPO) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
       {/* Record Output */}
       {showOutput && viewPO && (

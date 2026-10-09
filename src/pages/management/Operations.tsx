@@ -5,6 +5,8 @@ import CategoryTabs from '../../components/CategoryTabs';
 import { MATERIAL_CATEGORIES, MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type MaterialCategoryTab, type PipeProductType } from '../../inventoryCategories';
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import Pagination, { pageRecords } from '../../components/Pagination';
+import DocumentViewer from '../../components/DocumentViewer';
+import { productionOrderDocument } from '../../documentPrint';
 
 type ProductionView = 'Active / Ready' | 'In Progress' | 'Pending Turnover' | 'Completed';
 type PelletView = 'All' | 'Available' | 'Open / WIP' | 'Fully Consumed';
@@ -19,6 +21,7 @@ export default function Operations() {
   const [productionView, setProductionView] = useState<ProductionView>('Active / Ready');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
   const period = usePeriod('month');
   const query = search.trim().toLowerCase();
   const includesSearch = (values: unknown[]) => !query || values.some(value => String(value ?? '').toLowerCase().includes(query));
@@ -44,6 +47,7 @@ export default function Operations() {
           ? po.status === 'Awaiting Shift Turnover'
           : po.status === 'Completed')
   );
+  const documentPO = productionOrders.find(po => po.id === documentAction?.id);
   const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
   const selectedFinishedGoods = finishedGoods.filter(item =>
     dateInPeriod(item.productionDate, period.range)
@@ -115,7 +119,7 @@ export default function Operations() {
         <div className="app-card" style={{ overflow: 'hidden' }}>
           <table className="app-table">
             <thead>
-              <tr><th>PO No.</th><th>Product</th><th>Target</th><th>Completed</th><th>Progress</th><th>Line</th><th>Status</th></tr>
+              <tr><th>PO No.</th><th>Product</th><th>Target</th><th>Completed</th><th>Progress</th><th>Line</th><th>Status</th><th data-actions>Actions</th></tr>
             </thead>
             <tbody>
               {pageRecords(selectedProductionOrders, page).map(po => {
@@ -132,6 +136,7 @@ export default function Operations() {
                     </td>
                     <td style={{ fontSize: 12 }}>{po.productionLine}</td>
                     <td><StatusBadge status={po.status} size="sm" /></td>
+                    <td><div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: false })}>View Document</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button></div></td>
                   </tr>
                 );
               })}
@@ -193,6 +198,7 @@ export default function Operations() {
           <Pagination page={page} totalRecords={selectedAttendance.length} onPageChange={setPage} />
         </div>
       )}
+      <DocumentViewer open={!!documentAction} document={documentPO ? productionOrderDocument(documentPO) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
     </div>
   );
 }
