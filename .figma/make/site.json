@@ -1,0 +1,11 @@
+{
+  "title": "IMS-TIN",
+  "description": "Streamline inventory and production management for Hydro Phil Asia Inc. with a secure, role-based web application that connects main and branch plants.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

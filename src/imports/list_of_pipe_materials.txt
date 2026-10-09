@@ -1,0 +1,125 @@
+Products
+HDPE Pipe 
+CTS HDPE Pipe 
+Commercial HDPE Pipe (CGPE) 
+Spiral Pipe 
+Polytube
+
+DIAMETER
+Size
+13mm 
+20mm 
+25mm 
+32mm 
+40mm 
+50mm 
+63mm 
+75mm 
+90mm 
+110mm 
+160mm 
+225mm 
+280mm 
+315mm 
+355mm 
+400mm 
+450mm 
+500mm
+
+CTC Sizes
+1/2", 3/4", 1"
+
+Spiral Pipe Sizes
+12", 16"
+
+LENGTH
+straight pipe
+5m
+5.5m
+5.86m
+6m
+8.873m
+10m
+
+coil length
+25m
+30m
+50m
+60m
+90m
+100m
+150m
+200m
+250m
+300m
+350m
+
+SDR RATING
+SDR9 
+SDR11 
+SDR13.5 
+SDR13.6 
+SDR17 
+SDR21 
+SDR24 
+SDR26 
+SDR33
+
+MATERIAL GRADE
+HDPE Standard
+PE100
+Commercial Grade (CGPE)
+CTS Grade
+
+Black (BK)
+Blue (BE)
+Orange (OR)
+Red Orange (RO)
+Green (GRN)
+
+STRIPE COLOR
+No Stripe
+Blue Stripe
+Orange Stripe
+Green Stripe
+Black Stripe
+
+PIPE CONSTRUCTION
+Solid Wall Pipe
+CTS Pipe
+Commercial Pipe
+Spiral Tube
+Polytube
+
+PRODUCT FORM
+Straight Length 
+COil
+
+MANUFACTURER
+Hydro Phil Asia INC. (HPAI)
+
+VENDOR
+Hydro Phil Asia Inc.
+
+INVENTORY CLASS
+Raw Materials
+Work in Progress (WIP)
+FInished Goods
+
+Stock Type
+Manufactured
+Pruchased
+
+STATUS
+Active
+Inactive
+Discontinued
+
+BAR CODE TYPE
+Individual
+Coil Bundle
+Finished Goods Bundle
+Product Batch
+
+
+
