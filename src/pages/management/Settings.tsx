@@ -127,7 +127,7 @@ export default function Settings() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--card-border)', paddingBottom: 0 }}>
+      <div className="report-tabs" style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--card-border)', paddingBottom: 0 }}>
         {TABS.map(tab => (
           <button
             key={tab}
@@ -160,7 +160,7 @@ export default function Settings() {
             </p>
 
             {/* Editable sections table */}
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
               <table className="app-table" style={{ width: '100%' }}>
                 <thead>
                   <tr>

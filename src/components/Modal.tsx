@@ -14,7 +14,7 @@ export default function Modal({ open, onClose, title, children, width = '480px' 
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box" style={{ '--modal-width': width } as React.CSSProperties}>
         {title && (
-          <div className="flex items-center justify-between mb-4">
+          <div className="modal-header flex items-center justify-between mb-4">
             <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 15 }}>{title}</h3>
             <button className="modal-close" aria-label="Close dialog" onClick={onClose}>&#x2715;</button>
           </div>

@@ -84,7 +84,7 @@ export default function Orders() {
     <div>
       {reservationMessage && !viewId && <div className={reservationMessage.includes('created:') ? 'alert-success mb-3' : 'alert-error mb-3'}>{reservationMessage}</div>}
       <div className="flex items-center justify-between mb-4 page-toolbar">
-        <div className="flex gap-1">
+        <div className="report-tabs flex gap-1">
           {statuses.map(s => (
             <button key={s} onClick={() => { setFilter(s); setPage(1); }} style={{
               padding: '5px 10px', borderRadius: 5, border: `1px solid ${filter === s ? 'var(--accent-blue)' : 'var(--card-border)'}`, cursor: 'pointer',

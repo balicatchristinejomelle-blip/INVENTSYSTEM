@@ -152,7 +152,7 @@ export default function Reports() {
       <PeriodSelector period={period} />
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--card-border)', paddingBottom: 0 }}>
+      <div className="report-tabs" style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--card-border)', paddingBottom: 0 }}>
         {TABS.map(tab => (
           <button
             key={tab}
