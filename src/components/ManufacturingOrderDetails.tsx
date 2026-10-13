@@ -3,6 +3,8 @@ import StatusBadge from './StatusBadge';
 import type { CustomerOrder, ManufacturingOrder, MaterialRequest, PelletInventory, ProductionOrder } from '../types';
 import DocumentViewer from './DocumentViewer';
 import { manufacturingOrderDocument } from '../documentPrint';
+import { Lifecycle, LinkedRecords, RecordHistory } from './RecordContext';
+import type { LifecycleStep, LinkedRecord, RecordHistoryEvent } from '../types';
 
 interface ManufacturingOrderDetailsProps {
   mo: ManufacturingOrder;
@@ -46,6 +48,23 @@ export default function ManufacturingOrderDetails({
   const shortage = Math.max(0, mo.requestedQty - mo.availableQty);
   const reserved = Math.min(mo.availableQty, mo.requestedQty);
   const canCreatePO = role === 'plantmanager' && !productionOrder;
+  const lifecycleLabels = ['Created', 'Scheduled', 'In Production', 'Completed'];
+  const currentLifecycleIndex = productionOrder?.status === 'Completed' || mo.status === 'Completed'
+    ? 3
+    : productionOrder && ['In Production', 'Partially Completed', 'Awaiting Shift Turnover'].includes(productionOrder.status)
+      ? 2
+      : productionOrder
+        ? 1
+        : 0;
+  const lifecycle: LifecycleStep[] = lifecycleLabels.map((label, index) => ({ label, state: index < currentLifecycleIndex ? 'complete' : index === currentLifecycleIndex ? 'current' : 'upcoming' }));
+  const history: RecordHistoryEvent[] = [
+    { id: `${mo.id}-created`, datetime: mo.createdDate, title: 'Manufacturing Order created', description: `${mo.moNo} created from ${mo.orderRef}.`, actor: mo.createdBy },
+    ...(productionOrder ? [{ id: `${productionOrder.id}-created`, datetime: productionOrder.requiredDate, title: 'Production Order linked', description: `${productionOrder.poNo} · ${productionOrder.status}` }] : []),
+  ];
+  const linkedRecords: LinkedRecord[] = [
+    ...(customerOrder ? [{ id: customerOrder.id, label: 'Customer Order', reference: customerOrder.orderNo, page: 'customer-order', status: customerOrder.status }] : []),
+    ...(productionOrder ? [{ id: productionOrder.id, label: 'Production Order', reference: productionOrder.poNo, page: 'production-order', status: productionOrder.status }] : []),
+  ];
 
   return <div className="mo-detail page-stack">
     <div className="mo-detail-header">
@@ -68,11 +87,16 @@ export default function ManufacturingOrderDetails({
       <Field label="Status" value={<StatusBadge status={mo.status} size="sm" />} />
     </Section>
 
+    <section className="mo-section">
+      <div className="section-title">Lifecycle</div>
+      <Lifecycle steps={lifecycle} label={`${mo.moNo} lifecycle`} />
+    </section>
+
     <Section title="Product Specifications">
       <Field label="Product" value={mo.product} />
       <Field label="Diameter / Size" value={mo.diameter} />
       <Field label="Length" value={mo.length} />
-      <Field label="SDR" value={mo.sdr} />
+      <Field label="SDR / Thickness" value={mo.sdr} />
       <Field label="Grade" value={mo.grade} />
       <Field label="Color" value={mo.color} />
       <Field label="Stripe" value={mo.stripe} />
@@ -134,6 +158,13 @@ export default function ManufacturingOrderDetails({
         <Field label="Status" value={<StatusBadge status={customerOrder.status} size="sm" />} />
       </div>
     </section>}
+
+    <LinkedRecords records={linkedRecords} onOpen={record => {
+      if (record.page === 'customer-order') setShowCustomerOrder(true);
+      if (record.page === 'production-order') onViewProductionOrder?.();
+    }} />
+
+    <RecordHistory events={history} />
 
     <div className="mo-actions">
       <button className="btn-secondary" onClick={onBack}>Back</button>

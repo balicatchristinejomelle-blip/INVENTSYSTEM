@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { AppProvider, useApp } from './store';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import AccessRestricted from './components/AccessRestricted';
+import type { Role } from './types';
 
 // Pages
 import Login from './pages/Login';
@@ -65,7 +67,7 @@ import ProductionShiftTurnover from './pages/production/ShiftTurnover';
 import ProductionHistory from './pages/production/History';
 
 function PageRenderer() {
-  const { currentPage } = useApp();
+  const { currentPage, currentUser } = useApp();
 
   const pageMap: Record<string, React.ReactNode> = {
     // Owner / Super Admin — monitoring and administration, not operations
@@ -129,6 +131,18 @@ function PageRenderer() {
     'profile': <Profile />,
   };
 
+  const allowedPrefixes: Record<Role, string[]> = {
+    OWNER_SUPER_ADMIN: ['owner-'],
+    accounting: ['accounting-', 'acc-'],
+    marketing: ['marketing-', 'mkt-'],
+    management: ['management-', 'mgmt-'],
+    plantmanager: ['pm-'],
+    production: ['production-', 'prod-'],
+  };
+  const sharedPages = ['notifications', 'profile', 'edit-profile', 'change-password'];
+  const knownPage = Object.prototype.hasOwnProperty.call(pageMap, currentPage);
+  const authorized = !!currentUser && (sharedPages.includes(currentPage) || allowedPrefixes[currentUser.role].some(prefix => currentPage.startsWith(prefix)));
+  if (knownPage && !authorized) return <AccessRestricted />;
   return <>{pageMap[currentPage] || <GenericPage title="Page Not Found" description="The requested page could not be found." />}</>;
 }
 

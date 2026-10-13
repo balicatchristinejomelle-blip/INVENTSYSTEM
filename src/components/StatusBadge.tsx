@@ -3,6 +3,12 @@ import React from 'react';
 const BADGE_MAP: Record<string, string> = {
   // Generic statuses
   'Active': 'badge-blue',
+  'Available': 'badge-green',
+  'LOW STOCK': 'badge-red',
+  'OUT OF STOCK': 'badge-red',
+  'NORMAL': 'badge-green',
+  'REQUEST PENDING': 'badge-amber',
+  'REPLENISHMENT IN PROGRESS': 'badge-blue',
   'Clocked In': 'badge-blue',
   'Clocked Out': 'badge-gray',
   'Day Shift': 'badge-blue',
@@ -47,6 +53,7 @@ const BADGE_MAP: Record<string, string> = {
   'RECYCLING REQUIRED': 'badge-red',
   // Material request
   'action required': 'badge-amber',
+  'Action Required': 'badge-amber',
   'Information': 'badge-blue',
   'Urgent': 'badge-red',
   // Account

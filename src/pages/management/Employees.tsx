@@ -1,41 +1,63 @@
-import React, { useMemo, useState } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import { ConfirmModal } from '../../components/Modal';
+import { matchesRecord } from "../../components/RecordSearch"
+
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useMemo, useState } from "react"
+
+import { useApp } from "../../store"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import { ConfirmModal } from "../../components/Modal"
+
 import Pagination, { pageRecords } from '../../components/Pagination';
 
-type Shift = 'Day' | 'Night';
+type Shift = "Day" | "Night"
 
 export default function Employees() {
   const { employees, attendance, assignEmployeeShift } = useApp();
-  const [search, setSearch] = useState('');
+
+  const [search, setSearch] = useState("")
+
   const [shiftFilter, setShiftFilter] = useState<'All' | Shift>('All');
+
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('Active');
-  const [page, setPage] = useState(1);
+
+  const [page, setPage] = useState(1)
+
   const [pending, setPending] = useState<{ id: string; shift: Shift } | null>(null);
+
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   const productionEmployees = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search.trim().toLowerCase()
+
     return employees
       .filter(employee => employee.role === 'production')
       .filter(employee => statusFilter === 'All' || employee.status === statusFilter)
       .filter(employee => shiftFilter === 'All' || employee.defaultShift === shiftFilter)
-      .filter(employee => !query || [
+      .filter(
+        (employee) =>
+          !query || [
         employee.employeeId,
         employee.firstName,
         employee.lastName,
         employee.username,
         employee.defaultShift,
-      ].some(value => value.toLowerCase().includes(query)))
-      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
-  }, [employees, search, shiftFilter, statusFilter]);
+      ].some(value => value.toLowerCase().includes(query)) ||
+            matchesRecord(employee, query),
+      )
+
+      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`),
+      )
+  }, [employees, search, shiftFilter, statusFilter])
 
   const pendingEmployee = employees.find(employee => employee.id === pending?.id);
+
   const activeAttendanceFor = (employeeId: string) =>
     attendance.find(record => record.employeeId === employeeId && record.status === 'Active');
 
-  const resetPage = () => setPage(1);
+  const resetPage = () => setPage(1)
 
   return (
     <div className="page-stack">
@@ -48,7 +70,11 @@ export default function Employees() {
         <span className="badge-blue">Management controlled</span>
       </div>
 
-      {feedback && <div className={feedback.kind === 'success' ? 'alert-success' : 'alert-error'}>{feedback.message}</div>}
+      {feedback && (
+        <div className={feedback.kind === 'success' ? 'alert-success' : 'alert-error'}>
+          {feedback.message}
+        </div>
+      )}
 
       <div className="filter-panel">
         <div className="filter-row">
@@ -58,16 +84,20 @@ export default function Employees() {
             onChange={event => { setSearch(event.target.value); resetPage(); }}
             placeholder="Search employee name, ID, username, or shift..."
           />
-          <select className="app-select" value={shiftFilter} onChange={event => { setShiftFilter(event.target.value as typeof shiftFilter); resetPage(); }}>
+          <SearchableDropdown
+            className="app-select" value={shiftFilter} onChange={event => { setShiftFilter(event.target.value as typeof shiftFilter); resetPage(); }}
+          >
             <option value="All">All Shifts</option>
             <option value="Day">Day Shift</option>
             <option value="Night">Night Shift</option>
-          </select>
-          <select className="app-select" value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); resetPage(); }}>
+          </SearchableDropdown>
+          <SearchableDropdown
+            className="app-select" value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); resetPage(); }}
+          >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-          </select>
+          </SearchableDropdown>
         </div>
       </div>
 
@@ -84,17 +114,43 @@ export default function Employees() {
             </tr>
           </thead>
           <tbody>
-            {pageRecords(productionEmployees, page).map(employee => {
+            {pageRecords(productionEmployees, page).map((employee) => {
               const activeAttendance = activeAttendanceFor(employee.employeeId);
+
               const currentShift = employee.defaultShift === 'Day' || employee.defaultShift === 'Night' ? employee.defaultShift : null;
+
               const newShift: Shift = currentShift === 'Day' ? 'Night' : 'Day';
+
               return (
                 <tr key={employee.id}>
-                  <td><strong>{employee.firstName} {employee.lastName}</strong><div className="helper-text font-mono">{employee.username}</div></td>
+                  <td>
+                    <strong>
+                      {employee.firstName} {employee.lastName}
+                    </strong>
+                    <div className="helper-text font-mono">
+                      {employee.username}
+                    </div>
+                  </td>
                   <td className="font-mono">{employee.employeeId}</td>
-                  <td>{currentShift ? <StatusBadge status={`${currentShift} Shift`} /> : <StatusBadge status="Not Assigned" />}</td>
-                  <td>{activeAttendance ? <><StatusBadge status="Clocked In" /><div className="helper-text">{activeAttendance.shift} Shift · {activeAttendance.clockIn}</div></> : <StatusBadge status="Clocked Out" />}</td>
-                  <td><StatusBadge status={employee.status} /></td>
+                  <td>
+                    {currentShift ? <StatusBadge status={`${currentShift} Shift`} /> : <StatusBadge status="Not Assigned" />}
+                  </td>
+                  <td>
+                    {activeAttendance ? (
+                      <>
+                        <StatusBadge status="Clocked In" />
+                        <div className="helper-text">
+                          {activeAttendance.shift} Shift ·{" "}
+                          {activeAttendance.clockIn}
+                        </div>
+                      </>
+                    ) : (
+                      <StatusBadge status="Clocked Out" />
+                    )}
+                  </td>
+                  <td>
+                    <StatusBadge status={employee.status} />
+                  </td>
                   <td>
                     <button
                       className="btn-secondary btn-compact"
@@ -106,7 +162,7 @@ export default function Employees() {
                     </button>
                   </td>
                 </tr>
-              );
+              )
             })}
           </tbody>
         </table>
@@ -140,5 +196,5 @@ export default function Employees() {
         onCancel={() => setPending(null)}
       />
     </div>
-  );
+  )
 }

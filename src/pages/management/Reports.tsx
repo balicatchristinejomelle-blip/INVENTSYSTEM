@@ -1,11 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { useApp } from '../../store';
+import {
+  withRecordSearch,
+  useSearchableApp,
+  useSearchPaginationReset,
+  useRecordQuery,
+  matchesRecord,
+} from "../../components/RecordSearch"
+
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useEffect, useState } from "react"
+
 import { BarChart, DonutChart, LineChart, HorizontalBar, ReportCard } from '../../components/MiniChart';
+
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
+
 import Pagination, { pageRecords } from '../../components/Pagination';
 
 const TABS = ['Executive Overview', 'Production', 'Inventory', 'Workforce', 'Quality'] as const;
-type Tab = typeof TABS[number];
+
+type Tab = typeof TABS[number]
 
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
   <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
@@ -13,7 +26,7 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => (
   </h3>
 );
 
-export default function Reports() {
+function Reports() {
   const {
     pellets,
     colorants,
@@ -25,74 +38,119 @@ export default function Reports() {
     rejectedMaterials,
     totalRejectedKg,
     employees,
-  } = useApp();
+  } = useSearchableApp()
 
   const [activeTab, setActiveTab] = useState<Tab>('Executive Overview');
-  const [viewByBatch, setViewByBatch] = useState(false);
-  const [qualitySearch, setQualitySearch] = useState('');
+
+  const [viewByBatch, setViewByBatch] = useState(false)
+
+  const qualitySearch = useRecordQuery()
+
   const [qualityStaff, setQualityStaff] = useState('All Staff');
+
   const [qualityProduct, setQualityProduct] = useState('All Products');
+
   const [qualityResult, setQualityResult] = useState('All Results');
-  const [detailPage, setDetailPage] = useState(1);
-  const period = usePeriod('month');
+
+  const [detailPage, setDetailPage] = useState(1)
+
+  useSearchPaginationReset(setDetailPage)
+
+  const period = usePeriod("month")
+
   const periodUsage = materialUsageTransactions.filter(item => dateInPeriod(item.dateTime, period.range));
+
   const periodAttendance = attendance.filter(item => dateInPeriod(item.date, period.range));
+
   const periodTurnovers = turnovers.filter(item => dateInPeriod(item.date, period.range));
+
   const periodRejected = rejectedMaterials.filter(item => dateInPeriod(item.date, period.range));
+
   const productionStaff = employees.filter(employee => employee.role === 'production');
+
   const qualityProducts = Array.from(new Set(periodRejected.map(item => item.product)));
-  const filteredQuality = periodRejected.filter(item => {
-    const query = qualitySearch.trim().toLowerCase();
-    const result = item.quantity > 0 ? 'Rejected' : 'Good';
-    return (qualityStaff === 'All Staff' || item.employee === qualityStaff)
+
+  const filteredQuality = periodRejected.filter((item) => {
+    const query = qualitySearch.trim().toLowerCase()
+
+    const result = item.quantity > 0 ? "Rejected" : "Good"
+
+    return (
+      (qualityStaff === 'All Staff' || item.employee === qualityStaff)
       && (qualityProduct === 'All Products' || item.product === qualityProduct)
-      && (qualityResult === 'All Results' || result === qualityResult)
-      && (!query || [item.employee, item.poRef, item.product, item.rejectionId, item.reason]
-        .some(value => value?.toLowerCase().includes(query)));
-  });
+      && (qualityResult === 'All Results' || result === qualityResult) &&
+      ((!query || [item.employee, item.poRef, item.product, item.rejectionId, item.reason]
+        .some(value => value?.toLowerCase().includes(query))) ||
+          matchesRecord(item, query))
+    )
+  })
+
   useEffect(() => setDetailPage(1), [activeTab, qualitySearch, qualityStaff, qualityProduct, qualityResult, period.range.start, period.range.end, viewByBatch]);
 
   // ── Derived values ──────────────────────────────────────────────────────────
-  const activePO = productionOrders.find(p => p.id === 'po1'); // PO-2026-0012
+
+  const activePO = productionOrders.find((p) => p.id === "po1") // PO-2026-0012
+
   const completedPO = productionOrders.find(p => p.status === 'Completed');
+
   const scheduledPO = productionOrders.find(p => p.status === 'Scheduled');
 
   const totalTarget = productionOrders.reduce((s, p) => s + p.targetQty, 0);
+
   const totalCompleted = productionOrders.reduce((s, p) => s + p.completedQty, 0);
-  const activeTarget = 500;
-  const activeCompleted = 325;
-  const activeRemaining = 175;
+
+  const activeTarget = 500
+
+  const activeCompleted = 325
+
+  const activeRemaining = 175
+
   const completionRate = Math.round((activeCompleted / activeTarget) * 100);
 
   const virginKg = pellets.filter(p => p.type === 'Virgin' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const recycledKg = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
-  const totalPelletKg = virginKg + recycledKg;
+
+  const totalPelletKg = virginKg + recycledKg
+
   const pelletUtilPct = totalPelletKg > 0 ? Math.round((recycledKg / totalPelletKg) * 100) : 0;
 
   const totalRejectedPcs = periodRejected.reduce((s, r) => s + r.quantity, 0);
+
   const rejectedRatePct = activeCompleted + totalRejectedPcs > 0
     ? Math.round((totalRejectedPcs / (activeCompleted + totalRejectedPcs)) * 100)
     : 0;
 
   const fgAvailable = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+
   const fgReserved = finishedGoods.reduce((s, f) => s + f.reservedQty, 0);
 
   const dayPresent = periodAttendance.filter(a => a.shift === 'Day').length;
+
   const nightPresent = periodAttendance.filter(a => a.shift === 'Night').length;
+
   const pendingTurnovers = periodTurnovers.filter(t => t.status === 'Pending').length;
+
   const usedVirginKg = periodUsage.filter(transaction => transaction.materialType === 'VIRGIN_PELLET').reduce((sum, transaction) => sum + transaction.quantity, 0);
+
   const usedRecycledKg = periodUsage.filter(transaction => transaction.materialType === 'RECYCLED_PELLET').reduce((sum, transaction) => sum + transaction.quantity, 0);
+
   const usedColorantKg = periodUsage.filter(transaction => transaction.materialType === 'COLORANT').reduce((sum, transaction) => sum + transaction.quantity, 0);
+
   const usedBaseColorantKg = periodUsage.filter(transaction => transaction.materialType === 'COLORANT' && (transaction.usageType || 'BASE_COLORANT') === 'BASE_COLORANT').reduce((sum, transaction) => sum + transaction.quantity, 0);
+
   const usedStripeColorantKg = periodUsage.filter(transaction => transaction.materialType === 'COLORANT' && transaction.usageType === 'STRIPE_COLORANT').reduce((sum, transaction) => sum + transaction.quantity, 0);
+
   const colorantUsed = (colorantId: string) => periodUsage
     .filter(transaction => transaction.materialType === 'COLORANT' && transaction.materialId === colorantId)
     .reduce((sum, transaction) => sum + transaction.quantity, 0);
 
-  const rejectedLimit = 50;
-  const rejectedRemaining = rejectedLimit - totalRejectedKg;
+  const rejectedLimit = 50
+
+  const rejectedRemaining = rejectedLimit - totalRejectedKg
 
   // Mock daily production trend (last 7 days)
+
   const dailyTrend = [
     { label: 'Sep 24', value: 0 },
     { label: 'Sep 25', value: 0 },
@@ -104,6 +162,7 @@ export default function Reports() {
   ];
 
   // Shift output bar chart
+
   const shiftOutput = [
     { label: 'Day Sep 26', value: 300, color: '#2563eb' },
     { label: 'Night Sep 28', value: 400, color: '#7c3aed' },
@@ -112,6 +171,7 @@ export default function Reports() {
   ];
 
   // PO completion horizontal bars
+
   const poCompletionData = [
     { label: 'PO-2026-0012 (Active)', value: 65, max: 100, color: '#d97706', unit: '%' },
     { label: 'PO-2026-0011 (Completed)', value: 100, max: 100, color: '#16a34a', unit: '%' },
@@ -119,6 +179,7 @@ export default function Reports() {
   ];
 
   // Pellet stock horizontal bars
+
   const pelletStockData = pellets.map(p => ({
     label: `${p.batchNo} — ${p.grade}`,
     value: p.availableKg,
@@ -128,18 +189,21 @@ export default function Reports() {
   }));
 
   // Virgin vs Recycled donut
+
   const pelletDonut = [
     { label: `Virgin (${virginKg.toFixed(0)} kg)`, value: Math.round(virginKg), color: '#2563eb' },
     { label: `Recycled (${recycledKg.toFixed(1)} kg)`, value: Math.round(recycledKg), color: '#7c3aed' },
   ];
 
   // Finished goods donut
+
   const fgDonut = [
     { label: `Available (${fgAvailable})`, value: fgAvailable, color: '#16a34a' },
     { label: `Reserved (${fgReserved})`, value: fgReserved, color: '#d97706' },
   ];
 
   // Rejected progress width
+
   const rejectedPct = Math.min(100, Math.round((totalRejectedKg / rejectedLimit) * 100));
 
   return (
@@ -176,11 +240,13 @@ export default function Reports() {
       </div>
 
       {/* ── EXECUTIVE OVERVIEW ─────────────────────────────────────────────── */}
-      {activeTab === 'Executive Overview' && (
+      {activeTab === "Executive Overview" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Alert */}
           <div className="alert-warning" style={{ fontSize: 12 }}>
-            <strong>WARNING:</strong> Rejected materials at <strong>{totalRejectedKg} kg</strong> — only <strong>{rejectedRemaining} kg</strong> from the 50 kg limit. Recycling batch RP-2026-0009 is active.
+            <strong>WARNING:</strong> Rejected materials at{" "}
+            <strong>{totalRejectedKg} kg</strong> — only{" "}
+            <strong>{rejectedRemaining} kg</strong> from the 50 kg limit. Recycling batch RP-2026-0009 is active.
           </div>
 
           {/* KPI cards */}
@@ -214,7 +280,7 @@ export default function Reports() {
           {/* Summary table */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Key Metrics at a Glance</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>Category</th>
@@ -228,47 +294,61 @@ export default function Reports() {
                   <td>Production</td>
                   <td>Active PO Completion</td>
                   <td className="font-mono">{completionRate}%</td>
-                  <td><span className="badge-amber">Behind</span></td>
+                  <td>
+                    <span className="badge-amber">Behind</span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Production</td>
                   <td>Output Today</td>
                   <td className="font-mono">{activeCompleted} units</td>
-                  <td><span className="badge-blue">Active</span></td>
+                  <td>
+                    <span className="badge-blue">Active</span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Inventory</td>
                   <td>Virgin Pellet Stock</td>
                   <td className="font-mono">{virginKg.toFixed(0)} kg</td>
-                  <td><span className={virginKg < 500 ? 'badge-amber' : 'badge-green'}>
+                  <td>
+                    <span className={virginKg < 500 ? 'badge-amber' : 'badge-green'}>
                     {virginKg < 500 ? 'Low' : 'OK'}
-                  </span></td>
+                  </span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Inventory</td>
                   <td>Finished Goods Available</td>
                   <td className="font-mono">{fgAvailable} pcs</td>
-                  <td><span className="badge-green">OK</span></td>
+                  <td>
+                    <span className="badge-green">OK</span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Quality</td>
                   <td>Rejected Materials</td>
                   <td className="font-mono">{totalRejectedKg} kg / 50 kg</td>
-                  <td><span className="badge-amber">Nearing Limit</span></td>
+                  <td>
+                    <span className="badge-amber">Nearing Limit</span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Workforce</td>
                   <td>Employees Present Today</td>
                   <td className="font-mono">{dayPresent} (Day)</td>
-                  <td><span className="badge-green">Active</span></td>
+                  <td>
+                    <span className="badge-green">Active</span>
+                  </td>
                 </tr>
                 <tr className="table-row-hover">
                   <td>Workforce</td>
                   <td>Pending Turnovers</td>
                   <td className="font-mono">{pendingTurnovers}</td>
-                  <td><span className={pendingTurnovers > 0 ? 'badge-amber' : 'badge-green'}>
+                  <td>
+                    <span className={pendingTurnovers > 0 ? 'badge-amber' : 'badge-green'}>
                     {pendingTurnovers > 0 ? 'Pending' : 'Clear'}
-                  </span></td>
+                  </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -282,8 +362,8 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ── PRODUCTION ─────────────────────────────────────────────────────── */}
-      {activeTab === 'Production' && (
+      {/* ── EXECUTIVE OVERVIEW ─────────────────────────────────────────────── */}
+      {activeTab === "Production" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* PO progress cards */}
           <div className="app-card" style={{ padding: 14 }}>
@@ -370,31 +450,76 @@ export default function Reports() {
               <ReportCard label="Total Colorant Weight" value={`${usedColorantKg.toFixed(2)} kg`} />
               <ReportCard label="Total Material Consumption" value={`${(usedVirginKg + usedRecycledKg + usedColorantKg).toFixed(2)} kg`} />
             </div>
-            <table className="app-table" style={{ width: '100%' }}>
-              <thead><tr><th>PO</th><th>Material Type</th><th>Material</th><th>Quantity</th><th>Shift</th><th>Employee</th><th>Date / Time</th></tr></thead>
-              <tbody>{pageRecords(periodUsage, detailPage).map(transaction => <tr key={transaction.id}>
-                <td className="font-mono">{transaction.productionOrderRef}</td>
-                <td>{transaction.materialType.replace(/_/g, ' ')}</td>
-                <td>{transaction.materialName}</td>
-                <td className="font-mono">{transaction.quantity.toFixed(2)} kg</td>
-                <td>{transaction.shift}</td>
-                <td>{transaction.employeeName}</td>
-                <td>{new Date(transaction.dateTime).toLocaleString('en-PH')}</td>
-              </tr>)}</tbody>
+            <table className="app-table" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>PO</th>
+                  <th>Material Type</th>
+                  <th>Material</th>
+                  <th>Quantity</th>
+                  <th>Shift</th>
+                  <th>Employee</th>
+                  <th>Date / Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRecords(periodUsage, detailPage).map((transaction) => (
+                  <tr key={transaction.id}>
+                    <td className="font-mono">
+                      {transaction.productionOrderRef}
+                    </td>
+                    <td>{transaction.materialType.replace(/_/g, " ")}</td>
+                    <td>{transaction.materialName}</td>
+                    <td className="font-mono">
+                      {transaction.quantity.toFixed(2)} kg
+                    </td>
+                    <td>{transaction.shift}</td>
+                    <td>{transaction.employeeName}</td>
+                    <td>
+                      {new Date(transaction.dateTime).toLocaleString("en-PH")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
             <Pagination page={detailPage} totalRecords={periodUsage.length} onPageChange={setDetailPage} />
           </div>
         </div>
       )}
 
-      {/* ── INVENTORY ──────────────────────────────────────────────────────── */}
-      {activeTab === 'Inventory' && (
+      {/* ── EXECUTIVE OVERVIEW ─────────────────────────────────────────────── */}
+      {activeTab === "Inventory" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="kpi-grid">
-            <div className="app-card kpi-card"><div>Virgin Pellets — Current Balance</div><strong>{virginKg.toFixed(1)} kg</strong><small>{usedVirginKg.toFixed(1)} kg consumed during selected period</small></div>
-            <div className="app-card kpi-card"><div>Recycled Pellets — Current Balance</div><strong>{recycledKg.toFixed(1)} kg</strong><small>{usedRecycledKg.toFixed(1)} kg consumed during selected period</small></div>
-            <div className="app-card kpi-card"><div>Colorants — Current Balance</div><strong>{colorants.reduce((sum, item) => sum + item.availableKg, 0).toFixed(1)} kg</strong><small>{usedColorantKg.toFixed(1)} kg consumed during selected period</small></div>
-            <div className="app-card kpi-card"><div>Finished Pipes — Current Balance</div><strong>{fgAvailable} pcs</strong><small>{fgReserved} pcs reserved</small></div>
+            <div className="app-card kpi-card">
+              <div>Virgin Pellets — Current Balance</div>
+              <strong>{virginKg.toFixed(1)} kg</strong>
+              <small>
+                {usedVirginKg.toFixed(1)} kg consumed during selected period
+              </small>
+            </div>
+            <div className="app-card kpi-card">
+              <div>Recycled Pellets — Current Balance</div>
+              <strong>{recycledKg.toFixed(1)} kg</strong>
+              <small>
+                {usedRecycledKg.toFixed(1)} kg consumed during selected period
+              </small>
+            </div>
+            <div className="app-card kpi-card">
+              <div>Colorants — Current Balance</div>
+              <strong>
+                {colorants.reduce((sum, item) => sum + item.availableKg, 0).toFixed(1)}{" "}
+                kg
+              </strong>
+              <small>
+                {usedColorantKg.toFixed(1)} kg consumed during selected period
+              </small>
+            </div>
+            <div className="app-card kpi-card">
+              <div>Finished Pipes — Current Balance</div>
+              <strong>{fgAvailable} pcs</strong>
+              <small>{fgReserved} pcs reserved</small>
+            </div>
           </div>
 
           {/* Charts row */}
@@ -410,15 +535,21 @@ export default function Reports() {
           </div>
 
           <div className="category-panel-header">
-            <div><SectionHeader>Pellet Traceability</SectionHeader><p className="helper-text">Batch and RR details remain available as an optional traceability drill-down.</p></div>
-            <button className="btn-secondary" onClick={() => setViewByBatch(value => !value)}>{viewByBatch ? 'Hide Batch Details' : 'View by Batch'}</button>
+            <div>
+              <SectionHeader>Pellet Traceability</SectionHeader>
+              <p className="helper-text">Batch and RR details remain available as an optional traceability drill-down.</p>
+            </div>
+            <button className="btn-secondary" onClick={() => setViewByBatch(value => !value)}>
+              {viewByBatch ? "Hide Batch Details" : "View by Batch"}
+            </button>
           </div>
 
-          {viewByBatch && <div className="app-card" style={{ padding: 14 }}>
-            <SectionHeader>Pellet Stock by Batch</SectionHeader>
-            <HorizontalBar data={pelletStockData} />
-            <table className="app-table" style={{ width: '100%' }}>
-              <thead>
+          {viewByBatch && (
+            <div className="app-card" style={{ padding: 14 }}>
+              <SectionHeader>Pellet Stock by Batch</SectionHeader>
+              <HorizontalBar data={pelletStockData} />
+              <table className="app-table" style={{ width: "100%" }}>
+                <thead>
                 <tr>
                   <th>Batch No</th>
                   <th>Type</th>
@@ -428,36 +559,66 @@ export default function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {pageRecords(pellets, detailPage).map(p => (
-                  <tr key={p.id} className="table-row-hover">
-                    <td className="font-mono">{p.batchNo}</td>
-                    <td><span className={p.type === 'Recycled' ? 'badge-blue' : 'badge-green'}>{p.type}</span></td>
-                    <td>{p.grade}</td>
-                    <td className="font-mono">{p.availableKg.toFixed(1)} kg</td>
-                    <td>{p.color}</td>
-                    <td><span className="badge-green">Available</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination page={detailPage} totalRecords={pellets.length} onPageChange={setDetailPage} />
-          </div>}
+                <tbody>
+                  {pageRecords(pellets, detailPage).map((p) => (
+                    <tr key={p.id} className="table-row-hover">
+                      <td className="font-mono">{p.batchNo}</td>
+                      <td>
+                        <span className={p.type === 'Recycled' ? 'badge-blue' : 'badge-green'}>
+                          {p.type}
+                        </span>
+                      </td>
+                      <td>{p.grade}</td>
+                      <td className="font-mono">
+                        {p.availableKg.toFixed(1)} kg
+                      </td>
+                      <td>{p.color}</td>
+                      <td>
+                        <span className="badge-green">Available</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination page={detailPage} totalRecords={pellets.length} onPageChange={setDetailPage} />
+            </div>
+          )}
 
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Colorant Inventory</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
-              <thead><tr><th>Colorant ID</th><th>Name</th><th>Usage Type</th><th>Color</th><th>Available</th><th>Used</th><th>Status</th><th>Last Updated</th></tr></thead>
-              <tbody>{pageRecords(colorants, detailPage).map(colorant => <tr key={colorant.id}>
-                <td className="font-mono">{colorant.colorantId}</td>
-                <td>{colorant.name}</td>
-                <td>{colorant.usageType}</td>
-                <td>{colorant.color} ({colorant.colorCode})</td>
-                <td className="font-mono">{colorant.availableKg.toFixed(2)} kg</td>
-                <td className="font-mono">{colorantUsed(colorant.id).toFixed(2)} kg</td>
-                <td>{colorant.status}</td>
-                <td>{colorant.lastUpdated}</td>
-              </tr>)}</tbody>
+            <table className="app-table" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Colorant ID</th>
+                  <th>Name</th>
+                  <th>Usage Type</th>
+                  <th>Color</th>
+                  <th>Available</th>
+                  <th>Used</th>
+                  <th>Status</th>
+                  <th>Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRecords(colorants, detailPage).map((colorant) => (
+                  <tr key={colorant.id}>
+                    <td className="font-mono">{colorant.colorantId}</td>
+                    <td>{colorant.name}</td>
+                    <td>{colorant.usageType}</td>
+                    <td>
+                      {colorant.color} ({colorant.colorCode})
+                    </td>
+                    <td className="font-mono">
+                      {colorant.availableKg.toFixed(2)} kg
+                    </td>
+                    <td className="font-mono">
+                      {colorantUsed(colorant.id).toFixed(2)} kg
+                    </td>
+                    <td>{colorant.status}</td>
+                    <td>{colorant.lastUpdated}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
             <Pagination page={detailPage} totalRecords={colorants.length} onPageChange={setDetailPage} />
           </div>
@@ -465,7 +626,7 @@ export default function Reports() {
           {/* Finished goods table */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Finished Goods Summary</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>FG ID</th>
@@ -478,14 +639,18 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(finishedGoods, detailPage).map(fg => (
+                {pageRecords(finishedGoods, detailPage).map((fg) => (
                   <tr key={fg.id} className="table-row-hover">
                     <td className="font-mono">{fg.fgId}</td>
                     <td>{fg.product}</td>
-                    <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fg.diameter} {fg.length} {fg.sdr}</td>
+                    <td style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      {fg.diameter} {fg.length} {fg.sdr}
+                    </td>
                     <td className="font-mono">{fg.availableQty}</td>
                     <td className="font-mono">{fg.reservedQty}</td>
-                    <td style={{ fontSize: 11 }}>{fg.currentLocation || 'Not Yet Assigned'}</td>
+                    <td style={{ fontSize: 11 }}>
+                      {fg.currentLocation || "Not Yet Assigned"}
+                    </td>
                     <td>
                       <span className={fg.status === 'Available' ? 'badge-green' : fg.status === 'Reserved' ? 'badge-amber' : 'badge-gray'}>
                         {fg.status}
@@ -500,8 +665,8 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ── WORKFORCE ──────────────────────────────────────────────────────── */}
-      {activeTab === 'Workforce' && (
+      {/* ── EXECUTIVE OVERVIEW ─────────────────────────────────────────────── */}
+      {activeTab === "Workforce" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Employee count cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
@@ -514,7 +679,7 @@ export default function Reports() {
           {/* Attendance table */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Attendance Records</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>Employee</th>
@@ -527,15 +692,23 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(attendance, detailPage).map(a => (
+                {pageRecords(attendance, detailPage).map((a) => (
                   <tr key={a.id} className="table-row-hover">
                     <td>{a.employeeName}</td>
                     <td className="font-mono">{a.employeeId}</td>
-                    <td><span className={a.shift === 'Day' ? 'badge-blue' : 'badge-gray'}>{a.shift}</span></td>
+                    <td>
+                      <span className={a.shift === 'Day' ? 'badge-blue' : 'badge-gray'}>
+                        {a.shift}
+                      </span>
+                    </td>
                     <td className="font-mono">{a.date}</td>
                     <td className="font-mono">{a.clockIn}</td>
-                    <td className="font-mono">{a.clockOut || '—'}</td>
-                    <td><span className={a.status === 'Active' ? 'badge-green' : 'badge-gray'}>{a.status}</span></td>
+                    <td className="font-mono">{a.clockOut || "—"}</td>
+                    <td>
+                      <span className={a.status === 'Active' ? 'badge-green' : 'badge-gray'}>
+                        {a.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -546,7 +719,7 @@ export default function Reports() {
           {/* Employee list */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Branch Plant Employees</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -558,14 +731,22 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(employees, detailPage).map(e => (
+                {pageRecords(employees, detailPage).map((e) => (
                   <tr key={e.id} className="table-row-hover">
-                    <td>{e.firstName} {e.lastName}</td>
+                    <td>
+                      {e.firstName} {e.lastName}
+                    </td>
                     <td className="font-mono">{e.employeeId}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{e.role}</td>
+                    <td style={{ textTransform: "capitalize" }}>{e.role}</td>
                     <td>{e.defaultShift}</td>
-                    <td className="font-mono" style={{ fontSize: 11 }}>{e.lastLogin || '—'}</td>
-                    <td><span className={e.status === 'Active' ? 'badge-green' : 'badge-gray'}>{e.status}</span></td>
+                    <td className="font-mono" style={{ fontSize: 11 }}>
+                      {e.lastLogin || "—"}
+                    </td>
+                    <td>
+                      <span className={e.status === 'Active' ? 'badge-green' : 'badge-gray'}>
+                        {e.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -591,7 +772,7 @@ export default function Reports() {
                 color="#16a34a"
               />
             </div>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>Turnover No</th>
@@ -604,15 +785,27 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(turnovers, detailPage).map(t => (
+                {pageRecords(turnovers, detailPage).map((t) => (
                   <tr key={t.id} className="table-row-hover">
                     <td className="font-mono">{t.turnoverNo}</td>
                     <td>{t.outgoingEmployee}</td>
-                    <td><span className={t.outgoingShift === 'Day' ? 'badge-blue' : 'badge-gray'}>{t.outgoingShift}</span></td>
-                    <td><span className={t.incomingShift === 'Day' ? 'badge-blue' : 'badge-gray'}>{t.incomingShift}</span></td>
+                    <td>
+                      <span className={t.outgoingShift === 'Day' ? 'badge-blue' : 'badge-gray'}>
+                        {t.outgoingShift}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={t.incomingShift === 'Day' ? 'badge-blue' : 'badge-gray'}>
+                        {t.incomingShift}
+                      </span>
+                    </td>
                     <td className="font-mono">{t.poRef}</td>
                     <td className="font-mono">{t.completedThisShift}</td>
-                    <td><span className={t.status === 'Pending' ? 'badge-amber' : 'badge-green'}>{t.status}</span></td>
+                    <td>
+                      <span className={t.status === 'Pending' ? 'badge-amber' : 'badge-green'}>
+                        {t.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -622,20 +815,51 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ── QUALITY ────────────────────────────────────────────────────────── */}
-      {activeTab === 'Quality' && (
+      {/* ── EXECUTIVE OVERVIEW ─────────────────────────────────────────────── */}
+      {activeTab === "Quality" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="app-card detail-card">
             <div className="form-grid">
-              <label>Search<input className="app-input" value={qualitySearch} onChange={event => setQualitySearch(event.target.value)} placeholder="Staff, employee ID, PO, barcode, product, or reference" /></label>
-              <label>Production Staff<select className="app-select" value={qualityStaff} onChange={event => setQualityStaff(event.target.value)}><option>All Staff</option>{productionStaff.map(employee => <option key={employee.id}>{employee.firstName} {employee.lastName}</option>)}</select></label>
-              <label>Product Type<select className="app-select" value={qualityProduct} onChange={event => setQualityProduct(event.target.value)}><option>All Products</option>{qualityProducts.map(product => <option key={product}>{product}</option>)}</select></label>
-              <label>Quality Result<select className="app-select" value={qualityResult} onChange={event => setQualityResult(event.target.value)}><option>All Results</option><option>Good</option><option>Rejected</option></select></label>
+              <label>
+                Production Staff
+                <SearchableDropdown
+                  className="app-select" value={qualityStaff} onChange={event => setQualityStaff(event.target.value)}
+                >
+                  <option>All Staff</option>
+                  {productionStaff.map((employee) => (
+                    <option key={employee.id}>
+                      {employee.firstName} {employee.lastName}
+                    </option>
+                  ))}
+                </SearchableDropdown>
+              </label>
+              <label>
+                Product Type
+                <SearchableDropdown
+                  className="app-select" value={qualityProduct} onChange={event => setQualityProduct(event.target.value)}
+                >
+                  <option>All Products</option>
+                  {qualityProducts.map(product => <option key={product}>{product}</option>)}
+                </SearchableDropdown>
+              </label>
+              <label>
+                Quality Result
+                <SearchableDropdown
+                  className="app-select" value={qualityResult} onChange={event => setQualityResult(event.target.value)}
+                >
+                  <option>All Results</option>
+                  <option>Good</option>
+                  <option>Rejected</option>
+                </SearchableDropdown>
+              </label>
             </div>
           </div>
           {/* Critical alert */}
           <div className="alert-warning" style={{ fontSize: 12 }}>
-            <strong>NEARING LIMIT:</strong> Rejected materials at <strong>{totalRejectedKg} kg</strong> of the 50 kg limit ({rejectedPct}% used). Only <strong>{rejectedRemaining} kg</strong> remaining before mandatory recycling halt.
+            <strong>NEARING LIMIT:</strong> Rejected materials at{" "}
+            <strong>{totalRejectedKg} kg</strong> of the 50 kg limit (
+            {rejectedPct}% used). Only <strong>{rejectedRemaining} kg</strong>{" "}
+            remaining before mandatory recycling halt.
           </div>
 
           {/* Rejection progress tracker */}
@@ -683,15 +907,21 @@ export default function Reports() {
 
             <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               <div style={{ textAlign: 'center', padding: '8px', background: 'var(--input-bg)', borderRadius: 6, border: '1px solid var(--card-border)' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#dc2626' }}>{totalRejectedKg} kg</div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#dc2626' }}>
+                  {totalRejectedKg} kg
+                </div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Total Rejected</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: 'var(--input-bg)', borderRadius: 6, border: '1px solid var(--card-border)' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#d97706' }}>{rejectedPct}%</div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#d97706' }}>
+                  {rejectedPct}%
+                </div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Of 50 kg Limit Used</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: 'var(--input-bg)', borderRadius: 6, border: '1px solid var(--card-border)' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#2563eb' }}>{rejectedRemaining} kg</div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#2563eb' }}>
+                  {rejectedRemaining} kg
+                </div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Remaining Before Limit</div>
               </div>
             </div>
@@ -705,7 +935,7 @@ export default function Reports() {
           {/* Rejected materials table */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Rejected Material Records</SectionHeader>
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>Rejection ID</th>
@@ -720,7 +950,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(filteredQuality, detailPage).map(r => (
+                {pageRecords(filteredQuality, detailPage).map((r) => (
                   <tr key={r.id} className="table-row-hover">
                     <td className="font-mono">{r.rejectionId}</td>
                     <td className="font-mono">{r.poRef}</td>
@@ -729,20 +959,56 @@ export default function Reports() {
                     <td className="font-mono">{r.weightKg} kg</td>
                     <td>{r.reason}</td>
                     <td>{r.employee}</td>
-                    <td><span className={r.shift === 'Day' ? 'badge-blue' : 'badge-gray'}>{r.shift}</span></td>
-                    <td className="font-mono" style={{ fontSize: 11 }}>{r.date}</td>
+                    <td>
+                      <span className={r.shift === 'Day' ? 'badge-blue' : 'badge-gray'}>
+                        {r.shift}
+                      </span>
+                    </td>
+                    <td className="font-mono" style={{ fontSize: 11 }}>
+                      {r.date}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!filteredQuality.length && <div className="empty-state"><strong>NO RECORDS FOUND</strong><div>No records match the selected period, search, or filters.</div><button className="btn-secondary btn-compact" onClick={() => { setQualitySearch(''); setQualityStaff('All Staff'); setQualityProduct('All Products'); setQualityResult('All Results'); }}>Clear Filters</button></div>}
+            {!filteredQuality.length && (
+              <div className="empty-state">
+                <strong>NO RECORDS FOUND</strong>
+                <div>No records match the selected period, search, or filters.</div>
+                <button
+                  className="btn-secondary btn-compact"
+                  onClick={() => {
+                    setQualityStaff("All Staff")
+                    setQualityProduct("All Products")
+                    setQualityResult("All Results")
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
             <Pagination page={detailPage} totalRecords={filteredQuality.length} onPageChange={setDetailPage} />
             <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>
-              Filtered total: {filteredQuality.reduce((s, r) => s + r.quantity, 0)} pcs — {filteredQuality.reduce((s, r) => s + r.weightKg, 0).toFixed(2)} kg
+              Filtered total:{" "}
+              {filteredQuality.reduce((s, r) => s + r.quantity, 0)} pcs —{" "}
+              {filteredQuality.reduce((s, r) => s + r.weightKg, 0).toFixed(2)}{" "}
+              kg
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }
+
+export default withRecordSearch(Reports, [
+  "pellets",
+  "colorants",
+  "materialUsageTransactions",
+  "productionOrders",
+  "finishedGoods",
+  "attendance",
+  "turnovers",
+  "rejectedMaterials",
+  "employees",
+])

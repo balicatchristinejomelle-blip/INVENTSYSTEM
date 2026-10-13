@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { useApp } from '../../store';
+import RecordRows from "../../components/RecordRows"
+
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import React, { useState } from "react"
+
 import { BarChart, DonutChart, LineChart, HorizontalBar, ReportCard } from '../../components/MiniChart';
-import StatusBadge from '../../components/StatusBadge';
+
+import StatusBadge from "../../components/StatusBadge"
+
 import PeriodSelector, { dateInPeriod, usePeriod, type PeriodRange } from '../../components/PeriodSelector';
 
 type Tab = 'overview' | 'inventory' | 'transfers' | 'requests';
@@ -39,15 +48,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function OverviewTab({ period }: { period: PeriodRange }) {
-  const { pellets, transfers, materialRequests, rrRecords } = useApp();
+  const { pellets, transfers, materialRequests, rrRecords } = useSearchableApp()
 
   const totalKg = pellets.filter(p => p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const activeTransfers = transfers.filter(t => dateInPeriod(t.date, period) && (t.status === 'Preparing' || t.status === 'In Transit')).length;
+
   const pendingRequests = materialRequests.filter(r => dateInPeriod(r.date, period) && (r.status === 'New' || r.status === 'Pending')).length;
+
   const verifiedRRs = rrRecords.filter(r => dateInPeriod(r.date, period) && (r.status === 'Completed' || r.status === 'Ready for Transfer')).length;
 
   const virginKg = pellets.filter(p => p.type === 'Virgin' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const recycledKg = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const intakeData = rrRecords.filter(item => dateInPeriod(item.date, period)).map(item => ({
     label: item.date.slice(5),
     value: item.weightKg,
@@ -89,9 +103,10 @@ function OverviewTab({ period }: { period: PeriodRange }) {
 }
 
 function InventoryTab() {
-  const { pellets } = useApp();
+  const { pellets } = useSearchableApp()
 
   const virginKg = pellets.filter(p => p.type === 'Virgin' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const recycledKg = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
 
   return (
@@ -111,7 +126,7 @@ function InventoryTab() {
 
       <div className="app-card" style={{ padding: 16 }}>
         <SectionLabel>Pellet Batch Details</SectionLabel>
-        <table className="app-table" style={{ width: '100%' }}>
+        <table className="app-table" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th>Batch No.</th>
@@ -124,21 +139,28 @@ function InventoryTab() {
             </tr>
           </thead>
           <tbody>
-            {pellets.map(p => (
-              <tr key={p.id} className="table-row-hover">
-                <td className="font-mono">{p.batchNo}</td>
-                <td>
+            {
+              <RecordRows
+                records={pellets}
+                render={(p) => (
+                  <tr key={p.id} className="table-row-hover">
+                    <td className="font-mono">{p.batchNo}</td>
+                    <td>
                   <span className={p.type === 'Virgin' ? 'badge-blue' : 'badge-gray'}>
                     {p.type}
                   </span>
                 </td>
-                <td>{p.grade}</td>
-                <td>{p.color}</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>{p.availableKg.toFixed(1)}</td>
-                <td>{p.currentLocation || 'Not Yet Assigned'}</td>
-                <td>{p.receivedDate}</td>
-              </tr>
-            ))}
+                    <td>{p.grade}</td>
+                    <td>{p.color}</td>
+                    <td className="font-mono" style={{ textAlign: "right" }}>
+                      {p.availableKg.toFixed(1)}
+                    </td>
+                    <td>{p.currentLocation || "Not Yet Assigned"}</td>
+                    <td>{p.receivedDate}</td>
+                  </tr>
+                )}
+              />
+            }
           </tbody>
         </table>
       </div>
@@ -148,14 +170,16 @@ function InventoryTab() {
         <ReportCard label="Total Recycled kg" value={`${recycledKg.toFixed(1)} kg`} color="#7c3aed" sub="1 active batch" />
       </div>
     </div>
-  );
+  )
 }
 
 function TransfersTab({ period }: { period: PeriodRange }) {
-  const { transfers } = useApp();
+  const { transfers } = useSearchableApp()
+
   const periodTransfers = transfers.filter(item => dateInPeriod(item.date, period));
 
-  const statusCounts: Record<string, number> = {};
+  const statusCounts: Record<string, number> = {}
+
   periodTransfers.forEach(t => {
     statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
   });
@@ -165,6 +189,7 @@ function TransfersTab({ period }: { period: PeriodRange }) {
     'In Transit': '#2563eb',
     Received: '#16a34a',
   };
+
   const transferTrend = periodTransfers.map(item => ({ label: item.date.slice(5), value: item.weightKg }));
 
   return (
@@ -183,7 +208,7 @@ function TransfersTab({ period }: { period: PeriodRange }) {
 
       <div className="app-card" style={{ padding: 16 }}>
         <SectionLabel>Transfer Records</SectionLabel>
-        <table className="app-table" style={{ width: '100%' }}>
+        <table className="app-table" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th>Transfer No.</th>
@@ -196,19 +221,26 @@ function TransfersTab({ period }: { period: PeriodRange }) {
             </tr>
           </thead>
           <tbody>
-            {periodTransfers.map(t => (
-              <tr key={t.id} className="table-row-hover">
-                <td className="font-mono">{t.refNo}</td>
-                <td>{t.date}</td>
-                <td className="font-mono">{t.batchNo}</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>{t.weightKg}</td>
-                <td>{t.source}</td>
-                <td>{t.destination}</td>
-                <td>
+            {
+              <RecordRows
+                records={periodTransfers}
+                render={(t) => (
+                  <tr key={t.id} className="table-row-hover">
+                    <td className="font-mono">{t.refNo}</td>
+                    <td>{t.date}</td>
+                    <td className="font-mono">{t.batchNo}</td>
+                    <td className="font-mono" style={{ textAlign: "right" }}>
+                      {t.weightKg}
+                    </td>
+                    <td>{t.source}</td>
+                    <td>{t.destination}</td>
+                    <td>
                   <StatusBadge status={t.status} />
                 </td>
-              </tr>
-            ))}
+                  </tr>
+                )}
+              />
+            }
           </tbody>
         </table>
       </div>
@@ -223,11 +255,12 @@ function TransfersTab({ period }: { period: PeriodRange }) {
         />
       </div>
     </div>
-  );
+  )
 }
 
 function RequestsTab({ period }: { period: PeriodRange }) {
-  const { materialRequests } = useApp();
+  const { materialRequests } = useSearchableApp()
+
   const periodRequests = materialRequests.filter(item => dateInPeriod(item.date, period));
 
   const counts = {
@@ -248,7 +281,7 @@ function RequestsTab({ period }: { period: PeriodRange }) {
 
       <div className="app-card" style={{ padding: 16 }}>
         <SectionLabel>Material Request Log</SectionLabel>
-        <table className="app-table" style={{ width: '100%' }}>
+        <table className="app-table" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th>Ref No.</th>
@@ -260,18 +293,29 @@ function RequestsTab({ period }: { period: PeriodRange }) {
             </tr>
           </thead>
           <tbody>
-            {periodRequests.map(r => (
-              <tr key={r.id} className="table-row-hover">
-                <td className="font-mono">{r.refNo}</td>
-                <td>{r.date}</td>
-                <td>{r.pelletType} {r.grade} — {r.color}</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>{r.requestedKg}</td>
-                <td>
+            {
+              <RecordRows
+                records={periodRequests}
+                render={(r) => (
+                  <tr key={r.id} className="table-row-hover">
+                    <td className="font-mono">{r.refNo}</td>
+                    <td>{r.date}</td>
+                    <td>
+                      {r.pelletType} {r.grade} — {r.color}
+                    </td>
+                    <td className="font-mono" style={{ textAlign: "right" }}>
+                      {r.requestedKg}
+                    </td>
+                    <td>
                   <StatusBadge status={r.status} />
                 </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{r.approvedBy || '—'}</td>
-              </tr>
-            ))}
+                    <td style={{ color: "var(--text-secondary)" }}>
+                      {r.approvedBy || "—"}
+                    </td>
+                  </tr>
+                )}
+              />
+            }
           </tbody>
         </table>
       </div>
@@ -285,10 +329,10 @@ function RequestsTab({ period }: { period: PeriodRange }) {
         />
       </div>
     </div>
-  );
+  )
 }
 
-export default function AccountingReports() {
+function AccountingReports() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const period = usePeriod('month');
 
@@ -335,3 +379,11 @@ export default function AccountingReports() {
     </div>
   );
 }
+
+export default withRecordSearch(AccountingReports, [
+  "rrRecords",
+  "pellets",
+  "colorants",
+  "transfers",
+  "materialRequests",
+])

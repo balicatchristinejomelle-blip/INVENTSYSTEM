@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
-import type { ShiftTurnover } from '../../types';
+import RecordRows from "../../components/RecordRows"
+
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import React, { useState } from "react"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal from "../../components/Modal"
+
+import type { ShiftTurnover } from "../../types"
+
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
-const TABS = ['All', 'Pending', 'Accepted'] as const;
-type Tab = typeof TABS[number];
+const TABS = ["All", "Pending", "Accepted"] as const
+
+type Tab = typeof TABS[number]
 
 function MachineConditionDot({ condition }: { condition: string }) {
-  const isNormal = condition === 'Normal';
-  const color = isNormal ? '#16a34a' : '#d97706';
+  const isNormal = condition === "Normal"
+
+  const color = isNormal ? "#16a34a" : "#d97706"
+
   return (
     <span className="flex items-center gap-1.5" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <span
@@ -24,20 +37,24 @@ function MachineConditionDot({ condition }: { condition: string }) {
           display: 'inline-block',
         }}
       />
-      <span style={{ fontSize: 12, color: color, fontWeight: 600 }}>{condition}</span>
+      <span style={{ fontSize: 12, color: color, fontWeight: 600 }}>
+        {condition}
+      </span>
     </span>
-  );
+  )
 }
 
 function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
+        {label}
+      </div>
       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>
         {value}
       </div>
     </div>
-  );
+  )
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -57,12 +74,14 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function PMShiftTurnover() {
-  const { turnovers } = useApp();
+function PMShiftTurnover() {
+  const { turnovers } = useSearchableApp()
 
-  const [activeTab, setActiveTab] = useState<Tab>('All');
+  const [activeTab, setActiveTab] = useState<Tab>("All")
+
   const [viewRec, setViewRec] = useState<ShiftTurnover | null>(null);
-  const period = usePeriod('week');
+
+  const period = usePeriod("week")
 
   const filtered = turnovers.filter(t => {
     if (!dateInPeriod(t.date, period.range)) return false;
@@ -78,7 +97,11 @@ export default function PMShiftTurnover() {
       <PeriodSelector period={period} compact />
       {pendingCount > 0 && (
         <div className="alert-warning mb-4" style={{ fontSize: 12 }}>
-          <strong>{pendingCount} shift turnover{pendingCount > 1 ? 's' : ''} pending acceptance.</strong> Review the details and confirm that the incoming shift has acknowledged the handover.
+          <strong>
+            {pendingCount} shift turnover{pendingCount > 1 ? "s" : ""} pending
+            acceptance.
+          </strong>{" "}
+          Review the details and confirm that the incoming shift has acknowledged the handover.
         </div>
       )}
 
@@ -119,7 +142,7 @@ export default function PMShiftTurnover() {
       </div>
 
       {/* Table */}
-      <div className="app-card" style={{ overflow: 'hidden' }}>
+      <div className="app-card" style={{ overflow: "hidden" }}>
         <table className="app-table">
           <thead>
             <tr>
@@ -142,39 +165,59 @@ export default function PMShiftTurnover() {
                 </td>
               </tr>
             ) : (
-              filtered.map(rec => (
-                <tr
+              <RecordRows
+                records={filtered}
+                render={(rec) => (
+                  <tr
                   key={rec.id}
                   className="table-row-hover"
                   style={{ cursor: 'pointer' }}
                   onClick={() => setViewRec(rec)}
                 >
-                  <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 700 }}>
+                    <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 700 }}>
                     {rec.turnoverNo}
                   </td>
-                  <td>
-                    <div className="font-mono" style={{ fontSize: 11 }}>{rec.date}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{rec.time}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{rec.outgoingEmployee}</div>
-                    <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{rec.outgoingEmployeeId}</div>
-                  </td>
-                  <td style={{ fontSize: 12 }}>
-                    <span style={{ color: '#7c3aed', fontWeight: 600 }}>{rec.outgoingShift}</span>
-                    <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>→</span>
-                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{rec.incomingShift}</span>
-                  </td>
-                  <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)' }}>{rec.poRef}</td>
-                  <td>
+                    <td>
+                      <div className="font-mono" style={{ fontSize: 11 }}>
+                        {rec.date}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                        {rec.time}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>
+                        {rec.outgoingEmployee}
+                      </div>
+                      <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                        {rec.outgoingEmployeeId}
+                      </div>
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      <span style={{ color: "#7c3aed", fontWeight: 600 }}>
+                        {rec.outgoingShift}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>→</span>
+                      <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>
+                        {rec.incomingShift}
+                      </span>
+                    </td>
+                    <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)' }}>
+                      {rec.poRef}
+                    </td>
+                    <td>
                     <div className="font-mono" style={{ fontSize: 12, fontWeight: 600 }}>
                       {rec.completedThisShift} / {rec.totalCompleted}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>of {rec.targetQty} target</div>
                   </td>
-                  <td><MachineConditionDot condition={rec.machineCondition} /></td>
-                  <td><StatusBadge status={rec.status} size="sm" /></td>
-                  <td onClick={e => e.stopPropagation()}>
+                    <td>
+                      <MachineConditionDot condition={rec.machineCondition} />
+                    </td>
+                    <td>
+                      <StatusBadge status={rec.status} size="sm" />
+                    </td>
+                    <td onClick={e => e.stopPropagation()}>
                     <button
                       className="btn-secondary btn-compact"
                       onClick={() => setViewRec(rec)}
@@ -182,8 +225,9 @@ export default function PMShiftTurnover() {
                       View
                     </button>
                   </td>
-                </tr>
-              ))
+                  </tr>
+                )}
+              />
             )}
           </tbody>
         </table>
@@ -253,13 +297,24 @@ export default function PMShiftTurnover() {
                 label="Shift"
                 value={
                   <span>
-                    <span style={{ color: '#7c3aed', fontWeight: 600 }}>{viewRec.outgoingShift}</span>
+                    <span style={{ color: "#7c3aed", fontWeight: 600 }}>
+                      {viewRec.outgoingShift}
+                    </span>
                     <span style={{ color: 'var(--text-muted)', margin: '0 6px' }}>→</span>
-                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{viewRec.incomingShift}</span>
+                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>
+                      {viewRec.incomingShift}
+                    </span>
                   </span>
                 }
               />
-              <DetailField label="PO Reference" value={<span className="font-mono" style={{ color: 'var(--accent-blue)' }}>{viewRec.poRef}</span>} />
+              <DetailField
+                label="PO Reference"
+                value={
+                  <span className="font-mono" style={{ color: 'var(--accent-blue)' }}>
+                    {viewRec.poRef}
+                  </span>
+                }
+              />
               <DetailField label="Production Line" value={viewRec.productionLine} />
               <DetailField label="Production Stage" value={viewRec.productionStage} />
               <DetailField label="Target Qty" value={viewRec.targetQty} mono />
@@ -355,10 +410,14 @@ export default function PMShiftTurnover() {
                 {viewRec.notesForIncoming || 'No additional notes.'}
               </div>
             </div>
-            {viewRec.importantInstructions && <div style={{ marginTop: 12 }}>
-              <div className="field-label">Important Instructions for Next Shift</div>
-              <div className="field-value">{viewRec.importantInstructions}</div>
-            </div>}
+            {viewRec.importantInstructions && (
+              <div style={{ marginTop: 12 }}>
+                <div className="field-label">Important Instructions for Next Shift</div>
+                <div className="field-value">
+                  {viewRec.importantInstructions}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer: acceptance status */}
@@ -369,7 +428,7 @@ export default function PMShiftTurnover() {
               marginBottom: 14,
             }}
           >
-            {viewRec.status === 'Accepted' && viewRec.acceptedBy ? (
+            {viewRec.status === "Accepted" && viewRec.acceptedBy ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span
                   style={{
@@ -377,12 +436,18 @@ export default function PMShiftTurnover() {
                   }}
                 />
                 <div>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Accepted by </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{viewRec.acceptedBy}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Accepted by{" "}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {viewRec.acceptedBy}
+                  </span>
                   {viewRec.acceptedTime && (
                     <>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 6px' }}>at</span>
-                      <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>{viewRec.acceptedTime}</span>
+                      <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                        {viewRec.acceptedTime}
+                      </span>
                     </>
                   )}
                 </div>
@@ -407,5 +472,7 @@ export default function PMShiftTurnover() {
         </Modal>
       )}
     </div>
-  );
+  )
 }
+
+export default withRecordSearch(PMShiftTurnover, ["turnovers"])

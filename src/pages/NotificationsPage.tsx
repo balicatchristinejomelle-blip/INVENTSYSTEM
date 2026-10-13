@@ -1,49 +1,123 @@
-import React from 'react';
-import { useApp } from '../store';
-import type { Role } from '../types';
+import React, { useMemo, useState } from "react"
 
-const priorityColor: Record<string, string> = {
-  'Urgent': '#dc2626',
-  'Action Required': '#d97706',
-  'Information': '#2563eb',
-};
+import { useApp } from "../store"
+
+import { formatNotificationTime, notificationReference, notificationsForRole, notificationTarget, useInventoryStockNotifications } from '../components/NotificationPanel';
+
+import StatusBadge from "../components/StatusBadge"
+
+import { matchesRecord } from "../components/RecordSearch"
+
+import Pagination, { pageRecords } from "../components/Pagination"
 
 export default function NotificationsPage() {
-  const { notifications, currentUser, markNotificationsRead } = useApp();
-  const role = currentUser?.role as Role | undefined;
-  const myNotifs = role ? notifications.filter(n => role === 'OWNER_SUPER_ADMIN' || n.roles.includes(role)) : [];
+  const { notifications, currentUser, markNotificationsRead, markNotificationRead, navigate } = useApp();
+
+  const stockNotifications = useInventoryStockNotifications()
+
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  const [search, setSearch] = useState("")
+
+  const [page, setPage] = useState(1)
+
+  const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role), [notifications, currentUser?.role, stockNotifications.notifications]);
+
+  const unreadCount = myNotifications.filter(notification => !notification.read).length;
+
+  const visible = myNotifications.filter(
+    (notification) =>
+      (filter !== "unread" || !notification.read) &&
+      matchesRecord(notification, search),
+  )
+
+  const openNotification = (id: string) => {
+    const notification = myNotifications.find(item => item.id === id);
+    if (!notification) return;
+    if (id.startsWith('stock-')) stockNotifications.markOne(id);
+    else markNotificationRead(id);
+    const target = notificationTarget(notification, currentUser?.role);
+    if (target) navigate(target);
+  };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{myNotifs.filter(n => !n.read).length} unread</span>
-        <button className="btn-secondary" onClick={markNotificationsRead}>Mark All as Read</button>
+    <div className="page-stack">
+      <div className="section-heading">
+        <div>
+          <h2>Notification history</h2>
+          <p>Authorized alerts for {currentUser?.name}. Notification access is role-specific.</p>
+        </div>
+        {unreadCount > 0 && <button className="btn-secondary" onClick={() => { markNotificationsRead(); stockNotifications.markAll(); }}>Mark all as read</button>}
       </div>
-      <div className="app-card" style={{ overflow: 'hidden' }}>
-        {myNotifs.map(n => (
-          <div key={n.id} style={{
-            padding: '14px 16px', borderBottom: '1px solid var(--card-border)',
-            background: n.read ? 'transparent' : 'rgba(37,99,235,0.03)',
-            display: 'flex', gap: 12, alignItems: 'flex-start',
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: priorityColor[n.priority] || '#94a3b8', marginTop: 5, flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span style={{ fontWeight: n.read ? 500 : 700, fontSize: 13, color: 'var(--text-primary)' }}>{n.title}</span>
-                  <span style={{ marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 3, background: priorityColor[n.priority] + '22', color: priorityColor[n.priority], fontWeight: 600 }}>{n.priority}</span>
-                </div>
-                {!n.read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', marginTop: 3, flexShrink: 0 }} />}
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 6px', lineHeight: 1.5 }}>{n.description}</p>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{n.datetime}</span>
+      <div className="category-tabs" role="tablist" aria-label="Notification history filter">
+        <button
+          className={filter === "all" ? "active" : ""}
+          onClick={() => {
+            setFilter("all")
+            setPage(1)
+          }}
+        >
+          All ({myNotifications.length})
+        </button>
+        <button
+          className={filter === "unread" ? "active" : ""}
+          onClick={() => {
+            setFilter("unread")
+            setPage(1)
+          }}
+        >
+          Unread ({unreadCount})
+        </button>
+      </div>
+      <div className="record-filter-bar">
+        <input
+          className="app-input record-search"
+          type="search"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value)
+            setPage(1)
+          }}
+          aria-label="Search notifications"
+          placeholder="Search notification, reference, priority, or date..."
+        />
+      </div>
+      <div className="app-card notification-history">
+        {pageRecords(visible, page).map((notification) => (
+          <button key={notification.id} className={`notification-history-row${notification.read ? '' : ' is-unread'}`} onClick={() => openNotification(notification.id)}>
+            <div className="notification-history-heading">
+              <strong>{notification.title}</strong>
+              <StatusBadge status={notification.priority} size="sm" />
             </div>
-          </div>
+            {notificationReference(notification) && (
+              <span className="notification-reference">
+                {notificationReference(notification)}
+              </span>
+            )}
+            <p>{notification.description}</p>
+            <div className="notification-meta">
+              <time>{formatNotificationTime(notification.datetime)}</time>
+              <span>Open related record →</span>
+            </div>
+          </button>
         ))}
-        {myNotifs.length === 0 && (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No notifications.</div>
+        {!visible.length && (
+          <div className="empty-state empty-state-action">
+            <strong>
+              {filter === 'unread' ? 'NO UNREAD NOTIFICATIONS' : 'NO NOTIFICATIONS'}
+            </strong>
+            <span>
+              {filter === 'unread' ? 'You are all caught up.' : 'No notifications are available for your role.'}
+            </span>
+          </div>
         )}
       </div>
+      <Pagination
+        page={page}
+        totalRecords={visible.length}
+        onPageChange={setPage}
+        noun="notifications"
+      />
     </div>
-  );
+  )
 }

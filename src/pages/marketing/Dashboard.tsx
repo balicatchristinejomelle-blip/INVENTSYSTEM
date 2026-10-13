@@ -1,18 +1,28 @@
-import React from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import React from "react"
+
+import StatusBadge from "../../components/StatusBadge"
 
 function Stat({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
-    <div className="app-card" style={{ padding: '12px 16px' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
+    <div className="app-card" style={{ padding: "12px 16px" }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
+        {value}
+      </div>
     </div>
-  );
+  )
 }
 
-export default function MarketingDashboard() {
-  const { orders, finishedGoods, manufacturingOrders, navigate } = useApp();
+function MarketingDashboard() {
+  const { orders, finishedGoods, manufacturingOrders, navigate } =
+    useSearchableApp()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -54,21 +64,37 @@ export default function MarketingDashboard() {
           <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Orders</h3>
           <button className="btn-secondary" onClick={() => navigate('mkt-orders')}>View All</button>
         </div>
-        <div className="app-card" style={{ overflow: 'hidden' }}>
+        <div className="app-card" style={{ overflow: "hidden" }}>
           <table className="app-table">
             <thead>
-              <tr><th>Order No.</th><th>Customer</th><th>Product</th><th>Size</th><th>Qty</th><th>Required Date</th><th>Status</th></tr>
+              <tr>
+                <th>Order No.</th>
+                <th>Customer</th>
+                <th>Product</th>
+                <th>Size</th>
+                <th>Qty</th>
+                <th>Required Date</th>
+                <th>Status</th>
+              </tr>
             </thead>
             <tbody>
-              {orders.slice(0, 5).map(o => (
+              {orders.slice(0, 5).map((o) => (
                 <tr key={o.id} className="table-row-hover" onClick={() => navigate('mkt-orders')}>
-                  <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>{o.orderNo}</td>
+                  <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
+                    {o.orderNo}
+                  </td>
                   <td style={{ fontSize: 12 }}>{o.customerName}</td>
                   <td style={{ fontSize: 12 }}>{o.product}</td>
-                  <td style={{ fontSize: 12 }}>{o.diameter} × {o.length}</td>
-                  <td className="font-mono" style={{ fontSize: 12, fontWeight: 600 }}>{o.quantity}</td>
+                  <td style={{ fontSize: 12 }}>
+                    {o.diameter} × {o.length}
+                  </td>
+                  <td className="font-mono" style={{ fontSize: 12, fontWeight: 600 }}>
+                    {o.quantity}
+                  </td>
                   <td style={{ fontSize: 12 }}>{o.requiredDate}</td>
-                  <td><StatusBadge status={o.status} size="sm" /></td>
+                  <td>
+                    <StatusBadge status={o.status} size="sm" />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -87,5 +113,12 @@ export default function MarketingDashboard() {
         </div>
       </section>
     </div>
-  );
+  )
 }
+
+export default withRecordSearch(MarketingDashboard, [
+  "orders",
+  "finishedGoods",
+  "manufacturingOrders",
+  "customers",
+])

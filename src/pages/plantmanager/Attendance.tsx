@@ -1,11 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
-import type { ShiftAttendance } from '../../types';
+import RecordRows from "../../components/RecordRows"
+
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import React, { useEffect, useState } from "react"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal from "../../components/Modal"
+
+import type { ShiftAttendance } from "../../types"
+
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
 // Compute duration string between two HH:MM strings (handles overnight)
+
 function computeDuration(clockIn: string, clockOut?: string): string {
   const parseMinutes = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -28,23 +39,30 @@ function computeDuration(clockIn: string, clockOut?: string): string {
   return `${h} hr ${m} min`;
 }
 
-const TABS = ['All', 'Day Shift', 'Night Shift'] as const;
-type Tab = typeof TABS[number];
+const TABS = ["All", "Day Shift", "Night Shift"] as const
 
-export default function PMAttendance() {
-  const { attendance, productionOrders } = useApp();
+type Tab = typeof TABS[number]
 
-  const [dateFilter, setDateFilter] = useState('');
-  const period = usePeriod('week');
-  const [activeTab, setActiveTab] = useState<Tab>('All');
+function PMAttendance() {
+  const { attendance, productionOrders } = useSearchableApp()
+
+  const [dateFilter, setDateFilter] = useState("")
+
+  const period = usePeriod("week")
+
+  const [activeTab, setActiveTab] = useState<Tab>("All")
+
   const [viewRec, setViewRec] = useState<ShiftAttendance | null>(null);
-  const [, setClockTick] = useState(0);
+
+  const [, setClockTick] = useState(0)
+
   useEffect(() => {
     const timer = window.setInterval(() => setClockTick(value => value + 1), 60000);
     return () => window.clearInterval(timer);
   }, []);
 
   // Filter by date then tab
+
   const filtered = attendance.filter(a => {
     if (!dateInPeriod(a.date, period.range)) return false;
     if (dateFilter && a.date !== dateFilter) return false;
@@ -54,11 +72,17 @@ export default function PMAttendance() {
   });
 
   // Summary counts (over ALL records for selected date, ignoring tab)
+
   const dateRecords = attendance.filter(a => dateInPeriod(a.date, period.range) && (!dateFilter || a.date === dateFilter));
+
   const activeCount = dateRecords.filter(a => a.status === 'Active').length;
+
   const clockedOutCount = dateRecords.filter(a => a.status === 'Completed').length;
+
   const dayCount = dateRecords.filter(a => a.shift === 'Day' && a.status === 'Active').length;
+
   const nightCount = dateRecords.filter(a => a.shift === 'Night' && a.status === 'Active').length;
+
   const activePOFor = (record: ShiftAttendance) => productionOrders.find(po =>
     po.status === 'In Production' && (!po.assignedShift || po.assignedShift === record.shift)
   )?.poNo || '—';
@@ -115,8 +139,12 @@ export default function PMAttendance() {
           { label: 'Night Shift Active', value: nightCount, color: '#7c3aed' },
         ].map(({ label, value, color }) => (
           <div key={label} className="app-card" style={{ padding: '12px 14px' }}>
-            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+              {label}
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace' }}>
+              {value}
+            </div>
           </div>
         ))}
       </div>
@@ -145,16 +173,22 @@ export default function PMAttendance() {
                 </td>
               </tr>
             ) : (
-              filtered.map(rec => (
-                <tr
+              <RecordRows
+                records={filtered}
+                render={(rec) => (
+                  <tr
                   key={rec.id}
                   className="table-row-hover"
                   style={{ cursor: 'pointer' }}
                   onClick={() => setViewRec(rec)}
                 >
-                  <td style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{rec.employeeName}</td>
-                  <td className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{rec.employeeId}</td>
-                  <td>
+                    <td style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                      {rec.employeeName}
+                    </td>
+                    <td className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {rec.employeeId}
+                    </td>
+                    <td>
                     <span
                       style={{
                         fontSize: 11,
@@ -165,19 +199,30 @@ export default function PMAttendance() {
                       {rec.shift}
                     </span>
                   </td>
-                  <td className="font-mono" style={{ fontSize: 12 }}>{rec.clockIn}</td>
-                  <td className="font-mono" style={{ fontSize: 12 }}>{rec.clockOut || '—'}</td>
-                  <td className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <td className="font-mono" style={{ fontSize: 12 }}>
+                      {rec.clockIn}
+                    </td>
+                    <td className="font-mono" style={{ fontSize: 12 }}>
+                      {rec.clockOut || "—"}
+                    </td>
+                    <td className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {computeDuration(rec.clockIn, rec.clockOut)}
                     {!rec.clockOut && (
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4 }}>(ongoing)</span>
                     )}
                   </td>
-                  <td><StatusBadge status={rec.status === 'Active' ? 'Clocked In' : 'Clocked Out'} size="sm" /></td>
-                  <td className="font-mono">{rec.status === 'Active' ? activePOFor(rec) : '—'}</td>
-                  <td onClick={event => event.stopPropagation()}><button className="btn-secondary btn-compact" onClick={() => setViewRec(rec)}>View</button></td>
-                </tr>
-              ))
+                    <td>
+                      <StatusBadge status={rec.status === 'Active' ? 'Clocked In' : 'Clocked Out'} size="sm" />
+                    </td>
+                    <td className="font-mono">
+                      {rec.status === "Active" ? activePOFor(rec) : "—"}
+                    </td>
+                    <td onClick={(event) => event.stopPropagation()}>
+                      <button className="btn-secondary btn-compact" onClick={() => setViewRec(rec)}>View</button>
+                    </td>
+                  </tr>
+                )}
+              />
             )}
           </tbody>
         </table>
@@ -198,7 +243,9 @@ export default function PMAttendance() {
                 ['Duration', computeDuration(viewRec.clockIn, viewRec.clockOut) + (!viewRec.clockOut ? ' (ongoing)' : '')],
               ].map(([label, val]) => (
                 <div key={label}>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>
+                    {label}
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', fontFamily: label === 'Employee ID' || label === 'Clock In' || label === 'Clock Out' || label === 'Duration' ? 'JetBrains Mono, monospace' : undefined }}>
                     {val}
                   </div>
@@ -219,5 +266,7 @@ export default function PMAttendance() {
         </Modal>
       )}
     </div>
-  );
+  )
 }
+
+export default withRecordSearch(PMAttendance, ["attendance"])

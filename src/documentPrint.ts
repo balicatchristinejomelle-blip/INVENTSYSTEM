@@ -26,7 +26,7 @@ export const customerOrderDocument = (order: CustomerOrder): PrintableDocument =
       ['Fulfillment Type', order.fulfillmentType], ['Notes', order.notes],
     ]) },
     { title: 'Product Specifications', fields: fields([
-      ['Product', order.product], ['Diameter / Size', order.diameter], ['SDR', order.sdr], ['Length / Coil Length', order.length],
+      ['Product', order.product], ['Diameter / Size', order.diameter], ['SDR / Thickness', order.sdr], ['Length / Coil Length', order.length],
       ['Material Grade', order.grade], ['Color', order.color], ['Stripe', order.stripe],
       ['Construction', order.construction], ['Product Form', order.productForm],
     ]) },
@@ -50,7 +50,7 @@ export const manufacturingOrderDocument = (mo: ManufacturingOrder, customer?: st
       ['Created By', mo.createdBy], ['Required Date', mo.requiredDate], ['Production Order Reference', mo.poRef],
     ]) },
     { title: 'Product Specifications', fields: fields([
-      ['Product Type', mo.product], ['Material Grade', mo.grade], ['Diameter / Size', mo.diameter], ['SDR', mo.sdr],
+      ['Product Type', mo.product], ['Material Grade', mo.grade], ['Diameter / Size', mo.diameter], ['SDR / Thickness', mo.sdr],
       ['Length / Coil Length', mo.length], ['Color', mo.color], ['Stripe', mo.stripe],
       ['Construction', mo.construction], ['Product Form', mo.productForm],
     ]) },
@@ -73,7 +73,7 @@ export const productionOrderDocument = (po: ProductionOrder): PrintableDocument 
     ]) },
     { title: 'Product Specifications', fields: fields([
       ['Product', po.product], ['Material Grade', po.grade], ['Pellet Type', po.pelletType],
-      ['Diameter / Size', po.diameter], ['SDR', po.sdr], ['Length', po.length], ['Color', po.color],
+      ['Diameter / Size', po.diameter], ['SDR / Thickness', po.sdr], ['Length', po.length], ['Color', po.color],
       ['Stripe', po.stripe], ['Construction', po.construction], ['Product Form', po.productForm],
     ]) },
     { title: 'Production Target', fields: fields([

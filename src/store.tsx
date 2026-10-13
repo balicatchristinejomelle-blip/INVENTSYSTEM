@@ -4,9 +4,9 @@ import type {
   Customer, CustomerOrder, ManufacturingOrder, ProductionOrder,
   PelletInventory, FinishedGood, RejectedMaterial, RecyclingBatch,
   ShiftAttendance, ShiftTurnover, AuditLog, Transaction, Employee, BarcodeRegistryRecord,
-  ColorantInventory, MaterialUsageTransaction
+  ColorantInventory, MaterialUsageTransaction, ProductSpecification
 } from './types';
-import { colorCodeFromProductColor, colorCodeFromStripe } from './productMaster';
+import { colorCodeFromProductColor, colorCodeFromStripe, specificationKey, specificationKeyFromRecord, specificationLength } from './productMaster';
 import { requestCategory, transferCategory } from './inventoryCategories';
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
@@ -28,10 +28,13 @@ export const normalizeMaterialGrade = (value: string) => {
   const compact = normalized.replace(/[\s-]+/g, '').toUpperCase();
   if (compact === 'PE80') return 'PE80';
   if (compact === 'PE100') return 'PE100';
+  if (compact === 'HDPESTANDARD') return 'HDPE Standard';
+  if (compact === 'COMMERCIALGRADE' || compact === 'COMMERCIALGRADE(CGPE)' || compact === 'CGPE') return 'Commercial Grade (CGPE)';
+  if (compact === 'CTSGRADE') return 'CTS Grade';
   return normalized;
 };
 export const isSupportedMaterialGrade = (value: string) =>
-  ['PE80', 'PE100'].includes(normalizeMaterialGrade(value));
+  ['PE80', 'HDPE Standard', 'PE100', 'Commercial Grade (CGPE)', 'CTS Grade'].includes(normalizeMaterialGrade(value));
 
 export const USERS: User[] = [
   { id: 'u0', username: 'owner', password: 'HPAI@2026!', role: 'OWNER_SUPER_ADMIN', name: 'Roberto Lim', plant: 'Company Wide', employeeId: 'HQ-OWN-001', status: 'active', lastLogin: '2026-09-30 08:30' },
@@ -240,7 +243,7 @@ const makePermanentPelletBags = (
   options: Parameters<typeof makePelletBags>[2] = {},
 ) => {
   if (!isSupportedMaterialGrade(data.grade)) {
-    throw new Error('INVALID PELLET GRADE — Only PE80 and PE100 are supported.');
+    throw new Error('INVALID PELLET GRADE — Select a supported material grade.');
   }
   const year = Number(data.receivedDate.slice(0, 4)) || new Date().getFullYear();
   const prefix = data.type === 'Virgin' ? 'PEL-V' : 'PEL-R';
@@ -562,6 +565,7 @@ interface AppContextValue extends AppState {
   clockIn: (employeeName: string) => { success: boolean; error?: string };
   clockOut: () => void;
   markNotificationsRead: () => void;
+  markNotificationRead: (id: string) => void;
   approveMaterialRequest: (id: string) => void;
   rejectMaterialRequest: (id: string) => void;
   acceptTurnover: () => void;
@@ -583,7 +587,7 @@ interface AppContextValue extends AppState {
   createTransfer: (requestId: string) => string | null;
   updatePO: (id: string, updates: Partial<ProductionOrder>) => void;
   recordOutput: (poId: string, qty: number, rejections: Array<{ weightKg: number; reason: string }>) => { success: boolean; error?: string };
-  addMaterialRequest: (req: Omit<MaterialRequest, 'id'>) => void;
+  addMaterialRequest: (req: Omit<MaterialRequest, 'id'>) => { success: boolean; requestRef?: string; error?: string };
   loadPellets: (pelletId: string, poId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
   recordColorantUsage: (colorantId: string, quantityKg: number, poId: string, usageType?: 'BASE_COLORANT' | 'STRIPE_COLORANT') => { success: boolean; error?: string };
   submitTurnover: (data: Pick<ShiftTurnover, 'machineCondition' | 'lineCondition' | 'lineConditionOther' | 'issueCategory' | 'issueDescription' | 'issuesEncountered' | 'nextRequiredAction' | 'nextRequiredActionOther' | 'notesForIncoming' | 'instructionType' | 'importantInstructions'>, poId: string) => { success: boolean; turnoverNo?: string; error?: string };
@@ -591,6 +595,14 @@ interface AppContextValue extends AppState {
   markPelletBarcodePrinted: (pelletId: string) => void;
   markFinishedGoodBarcodePrinted: (fgId: string) => void;
   createProductionOrder: (moId: string) => string | null;
+  createStockReplenishmentPO: (input: {
+    specification: ProductSpecification;
+    targetQty: number;
+    requiredDate: string;
+    productionLine: string;
+    priority: ProductionOrder['priority'];
+    reason: string;
+  }) => { success: boolean; poNo?: string; error?: string };
   receivePellet: (pelletId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
   confirmTransferReceipt: (transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string) => { success: boolean; error?: string };
   relocatePhysicalItem: (category: 'Pellet' | 'Finished Pipe', itemId: string, location: string, reason: string) => boolean;
@@ -1086,7 +1098,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const markNotificationsRead = useCallback(() => {
     setState(s => ({
       ...s,
-      notifications: s.notifications.map(n => ({ ...n, read: true }))
+      notifications: s.notifications.map(n =>
+        s.currentUser && (s.currentUser.role === 'OWNER_SUPER_ADMIN' || n.roles.includes(s.currentUser.role))
+          ? { ...n, read: true }
+          : n
+      )
+    }));
+  }, []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setState(s => ({
+      ...s,
+      notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n),
     }));
   }, []);
 
@@ -1246,7 +1269,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const grade = normalizeMaterialGrade(data.grade);
       if (!isSupportedMaterialGrade(grade)) {
-        result.error = 'INVALID PELLET GRADE — Only PE80 and PE100 are supported.';
+        result.error = 'INVALID PELLET GRADE — Select a supported material grade.';
         return s;
       }
       const eligible = s.finishedGoods.filter(item =>
@@ -1854,23 +1877,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addMaterialRequest = useCallback((req: Omit<MaterialRequest, 'id'>) => {
-    if (requestCategory(req as MaterialRequest) !== 'Colorant' && !isSupportedMaterialGrade(req.grade)) return;
-    const id = `mr${Date.now()}`;
-    const newReq: MaterialRequest = {
-      ...req,
-      grade: requestCategory(req as MaterialRequest) === 'Colorant' ? req.grade : normalizeMaterialGrade(req.grade),
-      id,
-    };
-    const notif: Notification = {
-      id: `n${Date.now()}`,
-      title: 'New Material Request',
-      description: `${req.refNo} · ${requestCategory(req as MaterialRequest)} · ${req.requestedKg} kg · ${req.destination || 'Branch Plant'} · Requested by ${req.requestedBy}`,
-      datetime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      priority: 'Action Required',
-      read: false,
-      roles: ['accounting'],
-    };
-    setState(s => ({ ...s, materialRequests: [newReq, ...s.materialRequests], notifications: [notif, ...s.notifications] }));
+    const category = requestCategory(req as MaterialRequest);
+    if (category !== 'Colorant' && !isSupportedMaterialGrade(req.grade)) return { success: false, error: 'Select a supported material grade.' };
+    let result: { success: boolean; requestRef?: string; error?: string } = { success: false, error: 'Unable to create Material Request.' };
+    setState(s => {
+      if (s.currentUser?.role !== 'plantmanager') {
+        result = { success: false, error: 'Plant Manager authorization is required.' };
+        return s;
+      }
+      const duplicate = s.materialRequests.find(item => {
+        const replenishmentReceived = s.transfers.some(transfer => transfer.requestRef === item.refNo && transfer.status === 'Received');
+        if (replenishmentReceived || !['New', 'Pending', 'Approved'].includes(item.status) || requestCategory(item) !== category || (item.destination || 'Branch Plant') !== (req.destination || 'Branch Plant')) return false;
+        if (category === 'Colorant') return item.color === req.color && item.colorantUsageType === req.colorantUsageType;
+        return normalizeMaterialGrade(item.grade) === normalizeMaterialGrade(req.grade);
+      });
+      if (duplicate) {
+        result = { success: false, requestRef: duplicate.refNo, error: `A request is already in progress under ${duplicate.refNo}.` };
+        return s;
+      }
+      const id = `mr${Date.now()}`;
+      const newReq: MaterialRequest = { ...req, grade: category === 'Colorant' ? req.grade : normalizeMaterialGrade(req.grade), id };
+      const notif: Notification = {
+        id: `n${Date.now()}`, title: 'New Material Request',
+        description: `${req.refNo} · ${category} · ${req.requestedKg} kg · ${req.destination || 'Branch Plant'} · Requested by ${req.requestedBy}`,
+        datetime: new Date().toISOString().slice(0, 16).replace('T', ' '), priority: 'Action Required', read: false, roles: ['accounting'],
+      };
+      result = { success: true, requestRef: req.refNo };
+      return { ...s, materialRequests: [newReq, ...s.materialRequests], notifications: [notif, ...s.notifications] };
+    });
+    return result;
   }, []);
 
   const loadPellets = useCallback((pelletId: string, poId: string, scannerMeta?: { shift: string; scannerMode: string }) => {
@@ -2384,6 +2419,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     });
     return poNumber;
+  }, []);
+
+  const createStockReplenishmentPO = useCallback((input: {
+    specification: ProductSpecification;
+    targetQty: number;
+    requiredDate: string;
+    productionLine: string;
+    priority: ProductionOrder['priority'];
+    reason: string;
+  }) => {
+    let result: { success: boolean; poNo?: string; error?: string } = { success: false, error: 'Unable to create Stock Replenishment PO.' };
+    setState(s => {
+      if (s.currentUser?.role !== 'plantmanager') {
+        result = { success: false, error: 'Plant Manager authorization is required.' };
+        return s;
+      }
+      if (!Number.isInteger(input.targetQty) || input.targetQty <= 0 || !input.requiredDate || !input.reason.trim()) {
+        result = { success: false, error: 'Target Quantity, Required Date, and Reason are required.' };
+        return s;
+      }
+      const duplicate = s.productionOrders.find(item =>
+        item.source === 'Stock Replenishment'
+        && !['Completed', 'Cancelled'].includes(item.status)
+        && specificationKeyFromRecord(item) === specificationKey(input.specification)
+      );
+      if (duplicate) {
+        result = { success: false, error: `Replenishment is already in progress under ${duplicate.poNo}.` };
+        return s;
+      }
+      const next = Math.max(0, ...s.productionOrders.map(item => Number(item.poNo.split('-').pop()) || 0)) + 1;
+      const now = new Date();
+      const poNo = `PO-${now.getFullYear()}-${String(next).padStart(4, '0')}`;
+      const spec = input.specification;
+      const po: ProductionOrder = {
+        id: `po${Date.now()}`,
+        poNo,
+        moRef: 'STOCK REPLENISHMENT',
+        source: 'Stock Replenishment',
+        replenishmentReason: input.reason.trim(),
+        product: spec.productType,
+        diameter: spec.size,
+        length: specificationLength(spec),
+        sdr: spec.sdr,
+        grade: spec.materialGrade,
+        color: spec.color,
+        stripe: spec.stripe,
+        construction: spec.pipeConstruction,
+        productForm: spec.productForm,
+        targetQty: Math.floor(input.targetQty),
+        completedQty: 0,
+        pelletType: 'Virgin',
+        requiredKg: 0,
+        loadedKg: 0,
+        productionLine: input.productionLine || 'To Be Assigned',
+        priority: input.priority,
+        requiredDate: input.requiredDate,
+        status: 'Scheduled',
+        unitWeightKg: spec.unitWeightKg,
+      };
+      result = { success: true, poNo };
+      return {
+        ...s,
+        productionOrders: [po, ...s.productionOrders],
+        auditLogs: [{
+          id: `al${Date.now()}`,
+          user: s.currentUser.name,
+          employeeId: s.currentUser.employeeId,
+          role: 'Plant Manager',
+          action: 'Stock Replenishment Production Order Created',
+          date: now.toISOString().slice(0, 10),
+          time: now.toTimeString().slice(0, 5),
+          reference: poNo,
+          newValue: `${spec.productType} ${spec.materialGrade} ${spec.size} ${spec.sdr} ${specificationLength(spec)} · ${po.targetQty} units · Reason: ${input.reason.trim()}`,
+        }, ...s.auditLogs],
+      };
+    });
+    return result;
   }, []);
 
   const receivePellet = useCallback((pelletId: string, scannerMeta?: { shift: string; scannerMode: string }) => {
@@ -3031,10 +3143,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     currentSessionTransactions,
     currentMaterialUsage,
     setTheme, login, logout, navigate, clockIn, clockOut,
-    markNotificationsRead, approveMaterialRequest, rejectMaterialRequest,
+    markNotificationsRead, markNotificationRead, approveMaterialRequest, rejectMaterialRequest,
     acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, recordOutput,
     addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
-    markPelletBarcodePrinted, markFinishedGoodBarcodePrinted, createProductionOrder,
+    markPelletBarcodePrinted, markFinishedGoodBarcodePrinted, createProductionOrder, createStockReplenishmentPO,
     receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, completeRecyclingBatch,
     updateRecyclingStage, confirmRecyclingForCrushing,
   };

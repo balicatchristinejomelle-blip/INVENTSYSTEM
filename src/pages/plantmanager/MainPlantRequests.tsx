@@ -1,8 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
-import CategoryTabs from '../../components/CategoryTabs';
+import { matchesRecord } from "../../components/RecordSearch"
+
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useEffect, useMemo, useState } from "react"
+
+import { useApp } from "../../store"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal from "../../components/Modal"
+
+import CategoryTabs from "../../components/CategoryTabs"
+
 import {
   BASE_COLORANTS,
   MATERIAL_GRADES,
@@ -11,10 +20,16 @@ import {
   requestCategory,
   type MaterialRequestCategory,
 } from '../../inventoryCategories';
-import DocumentViewer from '../../components/DocumentViewer';
+
+import DocumentViewer from "../../components/DocumentViewer"
+
 import { materialRequestDocument } from '../../documentPrint';
 
-type RequestTab = 'All' | MaterialRequestCategory;
+import Pagination, { pageRecords } from '../../components/Pagination';
+
+import SearchableSelect from '../../components/SearchableSelect';
+
+type RequestTab = "All" | MaterialRequestCategory
 
 const REQUEST_TABS: readonly RequestTab[] = ['All', ...MATERIAL_REQUEST_CATEGORIES];
 
@@ -25,27 +40,78 @@ function nextRefNo(existing: { refNo: string }[]): string {
 
 export default function MainPlantRequests() {
   const { materialRequests, productionOrders, addMaterialRequest, currentUser } = useApp();
-  const [tab, setTab] = useState<RequestTab>('All');
-  const [viewId, setViewId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
+
+  const [tab, setTab] = useState<RequestTab>("All")
+
+  const [search, setSearch] = useState("")
+
+  const [page, setPage] = useState(1)
+
+  const [viewId, setViewId] = useState<string | null>(null)
+
+  const [showNew, setShowNew] = useState(false)
+
   const [category, setCategory] = useState<MaterialRequestCategory>('Virgin Pellet');
-  const [poId, setPoId] = useState('');
-  const [grade, setGrade] = useState<string>('PE100');
-  const [bags, setBags] = useState('');
+
+  const [poId, setPoId] = useState("")
+
+  const [grade, setGrade] = useState<string>("PE100")
+
+  const [bags, setBags] = useState("")
+
   const [usageType, setUsageType] = useState<'BASE_COLORANT' | 'STRIPE_COLORANT'>('BASE_COLORANT');
-  const [color, setColor] = useState<string>('Black (BK)');
-  const [quantityKg, setQuantityKg] = useState('');
-  const [notes, setNotes] = useState('');
-  const [error, setError] = useState('');
+
+  const [color, setColor] = useState<string>("Black (BK)")
+
+  const [quantityKg, setQuantityKg] = useState("")
+
+  const [notes, setNotes] = useState("")
+
+  const [error, setError] = useState("")
+
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
+  const [replenishmentContext, setReplenishmentContext] = useState<{ current: number; minimum: number; target: number; suggestedKg: number; bags?: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const viewId = window.sessionStorage.getItem('hpai:material-request-view-v1');
+      if (viewId) { setViewId(viewId); window.sessionStorage.removeItem('hpai:material-request-view-v1'); }
+      const stored = window.sessionStorage.getItem('hpai:material-request-intent-v1');
+      if (!stored) return;
+      const intent = JSON.parse(stored) as { category: MaterialRequestCategory; grade?: string; color?: string; usageType?: 'BASE_COLORANT' | 'STRIPE_COLORANT'; current: number; minimum: number; target: number; suggestedKg: number; bags?: number };
+      setCategory(intent.category);
+      if (intent.grade) setGrade(intent.grade);
+      if (intent.color) setColor(intent.color);
+      if (intent.usageType) setUsageType(intent.usageType);
+      if (intent.category === 'Colorant') setQuantityKg(String(intent.suggestedKg));
+      else setBags(String(intent.bags || Math.ceil(intent.suggestedKg / 25)));
+      setNotes(`Stock replenishment: current ${intent.current} kg, minimum ${intent.minimum} kg, target ${intent.target} kg.`);
+      setReplenishmentContext(intent);
+      setShowNew(true);
+      window.sessionStorage.removeItem('hpai:material-request-intent-v1');
+    } catch { window.sessionStorage.removeItem('hpai:material-request-intent-v1'); }
+  }, []);
+
   const activePOs = productionOrders.filter(po => !['Completed', 'Cancelled'].includes(po.status));
+
   const selectedPO = productionOrders.find(po => po.id === poId);
-  const filtered = materialRequests.filter(request => tab === 'All' || requestCategory(request) === tab);
+
+  const filtered = materialRequests.filter(
+    (request) =>
+      (tab === "All" || requestCategory(request) === tab) &&
+      ([request.refNo, request.grade, request.color, request.poRef || '', request.destination || '', request.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
+        matchesRecord(request, search)),
+  )
+
   const detail = materialRequests.find(request => request.id === viewId);
+
   const documentRequest = materialRequests.find(request => request.id === documentAction?.id);
-  const requestedBags = Number(bags);
+
+  const requestedBags = Number(bags)
+
   const requestedKg = category === 'Colorant' ? Number(quantityKg) : requestedBags * 25;
+
   const colors = usageType === 'BASE_COLORANT' ? BASE_COLORANTS : STRIPE_COLORANTS;
 
   const counts = useMemo(() => Object.fromEntries(REQUEST_TABS.map(item => [
@@ -84,7 +150,7 @@ export default function MainPlantRequests() {
       setError('Requested colorant quantity must be greater than 0 kg.');
       return;
     }
-    addMaterialRequest({
+    const result = addMaterialRequest({
       refNo: nextRefNo(materialRequests),
       date: new Date().toISOString().slice(0, 10),
       requestedBy: currentUser?.name || 'Plant Manager',
@@ -101,11 +167,13 @@ export default function MainPlantRequests() {
       poRef: selectedPO?.poNo,
       moRef: selectedPO?.moRef,
     });
+    if (!result.success) { setError(result.error || 'Unable to submit Material Request.'); return; }
     setShowNew(false);
     setBags('');
     setQuantityKg('');
     setNotes('');
     setError('');
+    setReplenishmentContext(null);
   };
 
   return (
@@ -118,31 +186,67 @@ export default function MainPlantRequests() {
         <button className="btn-primary" onClick={() => setShowNew(true)}>New Material Request</button>
       </div>
 
-      <CategoryTabs items={REQUEST_TABS} value={tab} onChange={setTab} counts={counts} label="Material request category" />
+      <CategoryTabs items={REQUEST_TABS} value={tab} onChange={value => { setTab(value); setPage(1); }} counts={counts} label="Material request category" />
+      <div className="record-filter-bar">
+        <input className="app-input record-search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search request, grade, color, PO, destination, or status" />
+      </div>
 
       <div className="app-card table-scroll">
         <table className="app-table">
-          <thead><tr><th>Request</th><th>Category</th><th>Material</th><th>Requested Quantity</th><th>PO</th><th>Destination</th><th>Status</th><th data-actions>Action</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Request</th>
+              <th>Category</th>
+              <th>Material</th>
+              <th>Requested Quantity</th>
+              <th>PO</th>
+              <th>Destination</th>
+              <th>Status</th>
+              <th data-actions>Action</th>
+            </tr>
+          </thead>
           <tbody>
-            {filtered.map(request => {
-              const requestType = requestCategory(request);
-              return <tr key={request.id}>
-                <td><span className="font-mono">{request.refNo}</span><br/><small>{request.date}</small></td>
-                <td>{requestType}</td>
-                <td>{requestType === 'Colorant' ? `${request.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe' : 'Base'} · ${request.color}` : request.grade}</td>
-                <td className="font-mono">{requestType === 'Colorant' ? `${request.requestedKg} kg` : `${request.requestedBags ?? request.requestedKg / 25} bags · ${request.requestedKg} kg`}</td>
-                <td className="font-mono">{request.poRef || 'Not PO-based'}</td>
-                <td>{request.destination || 'Branch Plant'}</td>
-                <td><StatusBadge status={request.status} /></td>
-                <td><div className="button-group"><button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View Details</button><button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })}>Print</button></div></td>
-              </tr>;
+            {pageRecords(filtered, page).map((request) => {
+              const requestType = requestCategory(request)
+
+              return (
+                <tr key={request.id}>
+                  <td>
+                    <span className="font-mono">{request.refNo}</span>
+                    <br />
+                    <small>{request.date}</small>
+                  </td>
+                  <td>{requestType}</td>
+                  <td>
+                    {requestType === 'Colorant' ? `${request.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe' : 'Base'} · ${request.color}` : request.grade}
+                  </td>
+                  <td className="font-mono">
+                    {requestType === 'Colorant' ? `${request.requestedKg} kg` : `${request.requestedBags ?? request.requestedKg / 25} bags · ${request.requestedKg} kg`}
+                  </td>
+                  <td className="font-mono">
+                    {request.poRef || "Not PO-based"}
+                  </td>
+                  <td>{request.destination || "Branch Plant"}</td>
+                  <td>
+                    <StatusBadge status={request.status} />
+                  </td>
+                  <td>
+                    <div className="button-group">
+                      <button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View Details</button>
+                      <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })}>Print</button>
+                    </div>
+                  </td>
+                </tr>
+              )
             })}
           </tbody>
         </table>
       </div>
+      <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} noun="material requests" />
 
-      {detail && <Modal open title={`Material Request — ${detail.refNo}`} onClose={() => setViewId(null)} width="620px">
-        <div className="responsive-grid">
+      {detail && (
+        <Modal open title={`Material Request — ${detail.refNo}`} onClose={() => setViewId(null)} width="620px">
+          <div className="responsive-grid">
           <Info label="Category" value={requestCategory(detail)} />
           <Info label="Requested By" value={detail.requestedBy} />
           {requestCategory(detail) === 'Colorant' ? <>
@@ -157,25 +261,51 @@ export default function MainPlantRequests() {
           <Info label="PO Number" value={detail.poRef || 'Not PO-based'} />
           <Info label="Destination" value={detail.destination || 'Branch Plant'} />
         </div>
-        <div className="form-actions mt-4"><button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button><button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button></div>
-      </Modal>}
+          <div className="form-actions mt-4">
+            <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
+            <button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button>
+          </div>
+        </Modal>
+      )}
       <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
-      {showNew && <Modal open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
-        <div className="page-stack">
-          <label className="block-label">Material Category</label>
-          <CategoryTabs items={MATERIAL_REQUEST_CATEGORIES} value={category} onChange={chooseCategory} label="Requested material category" />
+      {showNew && (
+        <Modal open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
+          <div className="page-stack">
+            {replenishmentContext && (
+              <div className="alert-warning">
+                <strong>Low-stock replenishment</strong>
+                <div>
+                  Current {replenishmentContext.current.toFixed(3)} kg · minimum{" "}
+                  {replenishmentContext.minimum.toFixed(3)} kg · target{" "}
+                  {replenishmentContext.target.toFixed(3)} kg · suggested{" "}
+                  {replenishmentContext.suggestedKg.toFixed(3)} kg
+                  {category !== 'Colorant' ? ` (${replenishmentContext.bags} complete 25 kg bags)` : ''}
+                  . Creating this request does not change inventory.
+                </div>
+              </div>
+            )}
+            <label className="block-label">Material Category</label>
+            <CategoryTabs items={MATERIAL_REQUEST_CATEGORIES} value={category} onChange={chooseCategory} label="Requested material category" />
 
-          <label className="block-label">Active Production Order (optional)
-            <select className="app-select" value={poId} onChange={event => choosePO(event.target.value)}>
-              <option value="">Manual request — no PO selected</option>
-              {activePOs.map(po => <option key={po.id} value={po.id}>{po.poNo} · {po.product} · {po.grade}</option>)}
-            </select>
-          </label>
+            <label className="block-label">
+              Active Production Order (optional)
+              <SearchableDropdown
+                className="app-select" value={poId} onChange={event => choosePO(event.target.value)}
+              >
+                <option value="">Manual request — no PO selected</option>
+                {activePOs.map((po) => (
+                  <option key={po.id} value={po.id}>
+                    {po.poNo} · {po.product} · {po.grade}
+                  </option>
+                ))}
+              </SearchableDropdown>
+            </label>
 
-          {selectedPO && <div className="app-card detail-card">
-            <div className="section-title">Production Order Requirements</div>
-            <div className="responsive-grid">
+            {selectedPO && (
+              <div className="app-card detail-card">
+                <div className="section-title">Production Order Requirements</div>
+                <div className="responsive-grid">
               <Info label="PO Number" value={selectedPO.poNo} />
               <Info label="Product" value={selectedPO.product} />
               <Info label="Material Grade" value={selectedPO.grade} />
@@ -183,57 +313,81 @@ export default function MainPlantRequests() {
               <Info label="Stripe Color" value={selectedPO.stripe} />
               <Info label="Remaining Pellet Requirement" value={`${Math.max(0, selectedPO.requiredKg - selectedPO.loadedKg).toFixed(1)} kg`} />
             </div>
-            <div className="alert-info mt-3">
-              Identified materials: {selectedPO.grade} Virgin Pellet · {selectedPO.color} Base Colorant · {selectedPO.stripe === 'No Stripe' ? 'Stripe Colorant Not Required' : `${selectedPO.stripe.replace(' Stripe', '')} Stripe Colorant`}
-            </div>
-          </div>}
+                <div className="alert-info mt-3">
+                  Identified materials: {selectedPO.grade} Virgin Pellet ·{" "}
+                  {selectedPO.color} Base Colorant ·{" "}
+                  {selectedPO.stripe === 'No Stripe' ? 'Stripe Colorant Not Required' : `${selectedPO.stripe.replace(' Stripe', '')} Stripe Colorant`}
+                </div>
+              </div>
+            )}
 
-          {category !== 'Colorant' ? <div className="form-grid">
-            <label>Material Grade
-              <select className="app-select" value={grade} onChange={event => setGrade(event.target.value)}>
-                {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>Requested Complete Bags
+            {category !== "Colorant" ? (
+              <div className="form-grid">
+                <label>
+                  Material Grade
+                  <SearchableDropdown
+                    className="app-select" value={grade} onChange={event => setGrade(event.target.value)}
+                  >
+                    {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
+                  </SearchableDropdown>
+                </label>
+                <label>Requested Complete Bags
               <input className="app-input" type="number" min="1" step="1" value={bags} onChange={event => setBags(event.target.value)} />
             </label>
-            <Info label="Weight Per Bag" value="25 kg fixed" />
-            <Info label="Total Requested Weight" value={`${Number.isFinite(requestedKg) ? requestedKg : 0} kg (automatic)`} />
-          </div> : <div className="form-grid">
-            <label>Colorant Usage Type
-              <select className="app-select" value={usageType} onChange={event => {
+                <Info label="Weight Per Bag" value="25 kg fixed" />
+                <Info label="Total Requested Weight" value={`${Number.isFinite(requestedKg) ? requestedKg : 0} kg (automatic)`} />
+              </div>
+            ) : (
+              <div className="form-grid">
+                <label>
+                  Colorant Usage Type
+                  <SearchableDropdown
+                    className="app-select" value={usageType} onChange={event => {
                 const next = event.target.value as typeof usageType;
                 setUsageType(next);
                 setColor(next === 'BASE_COLORANT' ? BASE_COLORANTS[0] : STRIPE_COLORANTS[0]);
-              }}>
-                <option value="BASE_COLORANT">Base Colorant</option>
-                <option value="STRIPE_COLORANT" disabled={selectedPO?.stripe === 'No Stripe'}>Stripe Colorant</option>
-              </select>
-            </label>
-            <label>Color
-              <select className="app-select" value={color} onChange={event => setColor(event.target.value)}>
-                {colors.map(item => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>Requested Quantity (kg)
+              }}
+                  >
+                    <option value="BASE_COLORANT">Base Colorant</option>
+                    <option value="STRIPE_COLORANT" disabled={selectedPO?.stripe === 'No Stripe'}>Stripe Colorant</option>
+                  </SearchableDropdown>
+                </label>
+                <label>
+                  Color
+                  <SearchableDropdown
+                    className="app-select" value={color} onChange={event => setColor(event.target.value)}
+                  >
+                    {colors.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </SearchableDropdown>
+                </label>
+                <label>Requested Quantity (kg)
               <input className="app-input" type="number" min="0.001" step="0.001" value={quantityKg} onChange={event => setQuantityKg(event.target.value)} />
             </label>
-          </div>}
+              </div>
+            )}
 
-          <label className="block-label">Notes
+            <label className="block-label">Notes
             <textarea className="app-input" rows={2} value={notes} onChange={event => setNotes(event.target.value)} />
           </label>
-          {error && <div className="alert-error">{error}</div>}
-          <div className="form-actions">
+            {error && <div className="alert-error">{error}</div>}
+            <div className="form-actions">
             <button className="btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
             <button className="btn-primary" onClick={submit}>Submit Material Request</button>
           </div>
-        </div>
-      </Modal>}
+          </div>
+        </Modal>
+      )}
     </div>
-  );
+  )
 }
 
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return <div><div className="field-label">{label}</div><div className="field-value">{value}</div></div>;
+function Info({ label, value }: { label: string ; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="field-label">{label}</div>
+      <div className="field-value">{value}</div>
+    </div>
+  )
 }
