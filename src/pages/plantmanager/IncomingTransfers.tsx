@@ -1,24 +1,47 @@
-import React, { useState } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal, { ConfirmModal } from '../../components/Modal';
-import CategoryTabs from '../../components/CategoryTabs';
+import RecordRows from "../../components/RecordRows"
+
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useState } from "react"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal, { ConfirmModal } from "../../components/Modal"
+
+import CategoryTabs from "../../components/CategoryTabs"
+
 import { MATERIAL_REQUEST_CATEGORIES, transferCategory, type MaterialRequestCategory } from '../../inventoryCategories';
-import DocumentViewer from '../../components/DocumentViewer';
-import { transferDocument } from '../../documentPrint';
+
+import DocumentViewer from "../../components/DocumentViewer"
+
+import { transferDocument } from "../../documentPrint"
 
 type FilterTab = 'All' | 'Preparing' | 'In Transit' | 'Receiving Discrepancy' | 'Received';
 
-export default function IncomingTransfers() {
-  const { transfers, confirmTransferReceipt } = useApp();
-  const [tab, setTab] = useState<FilterTab>('All');
+function IncomingTransfers() {
+  const { transfers, confirmTransferReceipt } = useSearchableApp()
+
+  const [tab, setTab] = useState<FilterTab>("All")
+
   const [category, setCategory] = useState<'All' | MaterialRequestCategory>('All');
-  const [viewId, setViewId] = useState<string | null>(null);
+
+  const [viewId, setViewId] = useState<string | null>(null)
+
   const [confirmAcceptId, setConfirmAcceptId] = useState<string | null>(null);
-  const [receivedQuantity, setReceivedQuantity] = useState('');
+
+  const [receivedQuantity, setReceivedQuantity] = useState("")
+
   const [discrepancyReason, setDiscrepancyReason] = useState<'Missing' | 'Damaged' | 'Wrong Item' | 'Quantity Error' | 'Other' | ''>('');
-  const [discrepancyNotes, setDiscrepancyNotes] = useState('');
-  const [receiptError, setReceiptError] = useState('');
+
+  const [discrepancyNotes, setDiscrepancyNotes] = useState("")
+
+  const [receiptError, setReceiptError] = useState("")
+
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const tabs: FilterTab[] = ['All', 'Preparing', 'In Transit', 'Receiving Discrepancy', 'Received'];
@@ -26,8 +49,11 @@ export default function IncomingTransfers() {
   const inTransitCount = transfers.filter(t => t.status === 'In Transit').length;
 
   const categoryTabs: readonly ('All' | MaterialRequestCategory)[] = ['All', ...MATERIAL_REQUEST_CATEGORIES];
+
   const filtered = transfers.filter(t => (tab === 'All' || t.status === tab) && (category === 'All' || transferCategory(t) === category));
-  const detail = transfers.find(t => t.id === viewId);
+
+  const detail = transfers.find((t) => t.id === viewId)
+
   const documentTransfer = transfers.find(t => t.id === documentAction?.id);
 
   const handleAccept = () => {
@@ -53,15 +79,20 @@ export default function IncomingTransfers() {
 
   return (
     <div>
-      <div className="mb-4"><CategoryTabs items={categoryTabs} value={category} onChange={setCategory} label="Incoming transfer category" /></div>
+      <div className="mb-4">
+        <CategoryTabs items={categoryTabs} value={category} onChange={setCategory} label="Incoming transfer category" />
+      </div>
       {/* In Transit Alert */}
       {inTransitCount > 0 && (
         <div className="alert-warning" style={{ marginBottom: 16, fontSize: 12 }}>
-          <strong>{inTransitCount} transfer{inTransitCount > 1 ? 's' : ''} In Transit</strong> — expecting delivery at Branch Plant. Review and accept upon receipt.
+          <strong>
+            {inTransitCount} transfer{inTransitCount > 1 ? "s" : ""} In Transit
+          </strong>{" "}
+          — expecting delivery at Branch Plant. Review and accept upon receipt.
         </div>
       )}
 
-      <div className="app-card" style={{ overflow: 'hidden' }}>
+      <div className="app-card" style={{ overflow: "hidden" }}>
         {/* Filter Tabs */}
         <div className="report-tabs" style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--card-border)' }}>
           {tabs.map(t => {
@@ -111,28 +142,38 @@ export default function IncomingTransfers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(t => {
-                const effectiveStatus = getEffectiveStatus(t);
-                return (
-                  <tr key={t.id} className="table-row-hover" onClick={() => setViewId(t.id)}>
-                    <td>
-                      <span className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>{t.refNo}</span>
-                    </td>
-                    <td style={{ fontSize: 12 }}>{t.date}</td>
-                    <td style={{ fontSize: 12 }}>{transferCategory(t)}</td>
-                    <td style={{ fontSize: 12 }}>{t.grade}</td>
-                    <td style={{ fontSize: 12 }}>{t.color}</td>
-                    <td>
-                      <span className="font-mono" style={{ fontSize: 11 }}>{t.batchNo}</span>
-                    </td>
-                    <td>
-                      <span className="font-mono" style={{ fontSize: 13, fontWeight: 600 }}>{t.weightKg.toFixed(1)}</span>
-                    </td>
-                    <td style={{ fontSize: 12 }}>{t.source}</td>
-                    <td>
+              {
+                <RecordRows
+                  records={filtered}
+                  render={(t) => {
+                    const effectiveStatus = getEffectiveStatus(t)
+
+                    return (
+                      <tr key={t.id} className="table-row-hover" onClick={() => setViewId(t.id)}>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
+                            {t.refNo}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12 }}>{t.date}</td>
+                        <td style={{ fontSize: 12 }}>{transferCategory(t)}</td>
+                        <td style={{ fontSize: 12 }}>{t.grade}</td>
+                        <td style={{ fontSize: 12 }}>{t.color}</td>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: 11 }}>
+                            {t.batchNo}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: 13, fontWeight: 600 }}>
+                            {t.weightKg.toFixed(1)}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12 }}>{t.source}</td>
+                        <td>
                       <StatusBadge status={effectiveStatus} size="sm" />
                     </td>
-                    <td onClick={e => e.stopPropagation()}>
+                        <td onClick={e => e.stopPropagation()}>
                       <div className="button-group">
                         <button
                           className="btn-secondary btn-compact"
@@ -151,9 +192,11 @@ export default function IncomingTransfers() {
                         )}
                       </div>
                     </td>
-                  </tr>
-                );
-              })}
+                      </tr>
+                    )
+                  }}
+                />
+              }
             </tbody>
           </table>
         )}
@@ -175,22 +218,49 @@ export default function IncomingTransfers() {
               ['Request Ref', detail.requestRef || '—'],
             ] as [string, string][]).map(([label, value]) => (
               <div key={label}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>{label}</div>
-                <div className="font-mono" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{value}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
+                  {label}
+                </div>
+                <div className="font-mono" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                  {value}
+                </div>
               </div>
             ))}
             <div>
               <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Status</div>
               <StatusBadge status={getEffectiveStatus(detail)} />
             </div>
-            <div><div className="field-label">Sent {transferCategory(detail) === 'Colorant' ? 'kg' : 'Bags'}</div><div className="field-value">{detail.sentQuantity ?? (transferCategory(detail) === 'Colorant' ? detail.weightKg : detail.numberOfBags) ?? 0}</div></div>
-            <div><div className="field-label">Received {transferCategory(detail) === 'Colorant' ? 'kg' : 'Bags'}</div><div className="field-value">{detail.receivedQuantity ?? 0}</div></div>
-            <div><div className="field-label">Discrepancy {transferCategory(detail) === 'Colorant' ? 'kg' : 'Bags'}</div><div className="field-value">{detail.discrepancyQuantity ?? 0}</div></div>
+            <div>
+              <div className="field-label">
+                Sent {transferCategory(detail) === "Colorant" ? "kg" : "Bags"}
+              </div>
+              <div className="field-value">
+                {detail.sentQuantity ?? (transferCategory(detail) === 'Colorant' ? detail.weightKg : detail.numberOfBags) ?? 0}
+              </div>
+            </div>
+            <div>
+              <div className="field-label">
+                Received{" "}
+                {transferCategory(detail) === "Colorant" ? "kg" : "Bags"}
+              </div>
+              <div className="field-value">{detail.receivedQuantity ?? 0}</div>
+            </div>
+            <div>
+              <div className="field-label">
+                Discrepancy{" "}
+                {transferCategory(detail) === "Colorant" ? "kg" : "Bags"}
+              </div>
+              <div className="field-value">
+                {detail.discrepancyQuantity ?? 0}
+              </div>
+            </div>
           </div>
 
           <div style={{ marginBottom: 18, padding: '12px 14px', background: 'var(--app-bg)', borderRadius: 6, border: '1px solid var(--card-border)' }}>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Weight</div>
-            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)' }}>{detail.weightKg.toFixed(1)} kg</div>
+            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)' }}>
+              {detail.weightKg.toFixed(1)} kg
+            </div>
           </div>
 
           {(detail.receivedBy || detail.receivedDate) && (
@@ -198,32 +268,43 @@ export default function IncomingTransfers() {
               {detail.receivedBy && (
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Received By</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{detail.receivedBy}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                    {detail.receivedBy}
+                  </div>
                 </div>
               )}
               {detail.receivedDate && (
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Received Date</div>
-                  <div className="font-mono" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{detail.receivedDate}</div>
+                  <div className="font-mono" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                    {detail.receivedDate}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {getEffectiveStatus(detail) === 'In Transit' && (
+          {getEffectiveStatus(detail) === "In Transit" && (
             <>
               <div className="alert-warning" style={{ marginBottom: 16, fontSize: 12 }}>
-                Enter the {transferCategory(detail) === 'Colorant' ? 'colorant kg quantity' : 'physical bags'} received. A quantity below Sent creates a Receiving Discrepancy.
+                Enter the{" "}
+                {transferCategory(detail) === 'Colorant' ? 'colorant kg quantity' : 'physical bags'}{" "}
+                received. A quantity below Sent creates a Receiving Discrepancy.
               </div>
               <div className="form-grid mb-3">
-                <label>Received {transferCategory(detail) === 'Colorant' ? 'Quantity (kg)' : 'Bags'}
+                <label>
+                  Received{" "}
+                  {transferCategory(detail) === 'Colorant' ? 'Quantity (kg)' : 'Bags'}
                   <input className="app-input" type="number" min="0" step={transferCategory(detail) === 'Colorant' ? '0.001' : '1'} max={detail.sentQuantity ?? (transferCategory(detail) === 'Colorant' ? detail.weightKg : detail.numberOfBags) ?? 0} value={receivedQuantity} onChange={event => setReceivedQuantity(event.target.value)} placeholder={String(detail.sentQuantity ?? (transferCategory(detail) === 'Colorant' ? detail.weightKg : detail.numberOfBags) ?? 0)} />
                 </label>
-                <label>Discrepancy Reason
-                  <select className="app-select" value={discrepancyReason} onChange={event => setDiscrepancyReason(event.target.value as typeof discrepancyReason)}>
+                <label>
+                  Discrepancy Reason
+                  <SearchableDropdown
+                    className="app-select" value={discrepancyReason} onChange={event => setDiscrepancyReason(event.target.value as typeof discrepancyReason)}
+                  >
                     <option value="">Not required for full receipt</option>
                     {['Missing', 'Damaged', 'Wrong Item', 'Quantity Error', 'Other'].map(reason => <option key={reason}>{reason}</option>)}
-                  </select>
+                  </SearchableDropdown>
                 </label>
               </div>
               <label className="block-label mb-3">Notes
@@ -269,5 +350,7 @@ export default function IncomingTransfers() {
         onCancel={() => setConfirmAcceptId(null)}
       />
     </div>
-  );
+  )
 }
+
+export default withRecordSearch(IncomingTransfers, ["transfers"])

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
 import NotificationPanel, { NotifBellButton } from './NotificationPanel';
+import UniversalSearch from './UniversalSearch';
 
 const PAGE_TITLES: Record<string, string> = {
   'owner-dashboard': 'Company Dashboard',
@@ -120,9 +121,14 @@ export default function Header({ onMenu }: { onMenu: () => void }) {
 
       {/* Right */}
       <div className="flex items-center gap-3" style={{ position: 'relative' }}>
+        <UniversalSearch />
         <div style={{ position: 'relative' }}>
-          <NotifBellButton onClick={() => setNotifOpen(p => !p)} />
-          <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} onViewAll={() => setNotifOpen(false)} />
+          <NotifBellButton expanded={notifOpen} onClick={() => setNotifOpen(p => !p)} />
+          <NotificationPanel
+            open={notifOpen}
+            onClose={() => setNotifOpen(false)}
+            onViewAll={() => { setNotifOpen(false); navigate('notifications'); }}
+          />
         </div>
         <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
         <div className="header-user-copy" style={{ textAlign: 'right' }}>

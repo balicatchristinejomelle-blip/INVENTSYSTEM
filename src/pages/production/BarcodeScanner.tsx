@@ -1,12 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useEffect, useRef, useState } from "react"
+
 import { isSupportedMaterialGrade, normalizeBarcodeValue, normalizeMaterialGrade, useApp } from '../../store';
+
 import type { FinishedGood, PelletInventory } from '../../types';
 
-type Category = 'Pellet' | 'Finished Pipe';
+type Category = "Pellet" | "Finished Pipe"
+
 type ScannerMode = 'Receive Pellets' | 'Load Pellets' | 'Store Finished Pipes' | 'Release Finished Goods';
+
 type ScanResult =
   | { category: 'Pellet'; barcode: string; itemType: string; record: PelletInventory }
   | { category: 'Finished Pipe'; barcode: string; itemType: string; record: FinishedGood };
+
 type SessionScan = {
   barcode: string;
   category: Category;
@@ -27,6 +34,7 @@ type SessionScan = {
   location?: string;
   poTotal?: number;
 };
+
 type LastScan = {
   kind: 'success' | 'duplicate';
   barcode: string;
@@ -44,48 +52,84 @@ export default function BarcodeScanner() {
     loadPellets, updateFinishedGoodStorage, receivePellet, relocatePhysicalItem, releaseFinishedGood,
     currentUser, currentShift, barcodeResetVersion, barcodeRegistry, navigate,
   } = useApp();
+
   const [mode, setMode] = useState<ScannerMode>('Load Pellets');
+
   const expected: Category = mode === 'Receive Pellets' || mode === 'Load Pellets' ? 'Pellet' : 'Finished Pipe';
-  const [manualBarcode, setManualBarcode] = useState('');
-  const [manualOpen, setManualOpen] = useState(false);
+
+  const [manualBarcode, setManualBarcode] = useState("")
+
+  const [manualOpen, setManualOpen] = useState(false)
+
   const [scannerStatus, setScannerStatus] = useState('READY TO SCAN');
+
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState('');
-  const [section, setSection] = useState('');
-  const [rack, setRack] = useState('');
+
+  const [error, setError] = useState("")
+
+  const [section, setSection] = useState("")
+
+  const [rack, setRack] = useState("")
+
   const [storagePurpose, setStoragePurpose] = useState<'General Inventory' | 'Customer Order' | ''>('');
-  const [storageOrderId, setStorageOrderId] = useState('');
-  const [relocating, setRelocating] = useState(false);
-  const [relocationReason, setRelocationReason] = useState('');
+
+  const [storageOrderId, setStorageOrderId] = useState("")
+
+  const [relocating, setRelocating] = useState(false)
+
+  const [relocationReason, setRelocationReason] = useState("")
+
   const [sessionItems, setSessionItems] = useState<Record<string, SessionScan[]>>({});
+
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
-  const [completion, setCompletion] = useState('');
-  const manualInputRef = useRef<HTMLInputElement>(null);
-  const scannerBufferRef = useRef('');
-  const scannerLastKeyRef = useRef(0);
-  const scannerStartRef = useRef(0);
+
+  const [completion, setCompletion] = useState("")
+
+  const manualInputRef = useRef<HTMLInputElement>(null)
+
+  const scannerBufferRef = useRef("")
+
+  const scannerLastKeyRef = useRef(0)
+
+  const scannerStartRef = useRef(0)
+
   const submitHardwareRef = useRef<(value: string) => void>(() => undefined);
-  const lastSubmissionRef = useRef({ value: '', time: 0 });
-  const processedRef = useRef(new Map<string, SessionScan>());
-  const initialLoadedRef = useRef(new Map<string, number>());
-  const activePO = activeProductionOrder;
-  const scannerMode = mode;
+
+  const lastSubmissionRef = useRef({ value: "", time: 0 })
+
+  const processedRef = useRef(new Map<string, SessionScan>())
+
+  const initialLoadedRef = useRef(new Map<string, number>())
+
+  const activePO = activeProductionOrder
+
+  const scannerMode = mode
+
   const releaseOrder = orders.find(order => order.status === 'Ready for Release')
     || orders.find(order => order.status === 'Released');
+
   const reference = mode === 'Load Pellets'
     ? activePO?.poNo || 'no-active-po'
     : mode === 'Release Finished Goods'
       ? releaseOrder?.orderNo || 'no-release-order'
       : mode.toLowerCase().replace(/ /g, '-');
+
   const sessionKey = `${mode.toLowerCase().replace(/ /g, '-')}:${reference}`;
-  const scans = sessionItems[sessionKey] || [];
+
+  const scans = sessionItems[sessionKey] || []
+
   if (activePO && !initialLoadedRef.current.has(sessionKey)) initialLoadedRef.current.set(sessionKey, activePO.loadedKg);
+
   const previouslyLoaded = initialLoadedRef.current.get(sessionKey) || 0;
+
   const loadedThisSession = scans.reduce((sum, item) => sum + item.quantity, 0);
+
   const storedThisSession = scans.reduce((sum, item) => sum + item.quantity, 0);
+
   const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode;
 
-  const focusHardwareInput = () => undefined;
+  const focusHardwareInput = () => undefined
+
   useEffect(() => {
     processedRef.current.clear();
     initialLoadedRef.current.clear();
@@ -125,36 +169,52 @@ export default function BarcodeScanner() {
   };
 
   const processBarcode = (value: string) => {
-    const clean = normalizeBarcodeValue(value);
-    if (!clean) return;
-    setScannerStatus('PROCESSING');
-    setError(''); setCompletion(''); setLastScan(null);
+    const clean = normalizeBarcodeValue(value)
+
+    if (!clean) return
+
+    setScannerStatus("PROCESSING")
+
+    setError("")
+    setCompletion("")
+    setLastScan(null)
+
     const registryRecord = barcodeRegistry.find(item => normalizeBarcodeValue(item.barcode) === clean);
+
     if (!registryRecord) {
       setResult(null);
       setScannerStatus('BARCODE NOT FOUND');
       setError(`BARCODE NOT FOUND\nScanned Value: ${clean}\nThis barcode is not registered in HPAI inventory.`);
       return;
     }
+
     const pelletRecord = registryRecord.category === 'Pellet'
       ? pellets.find(item => item.id === registryRecord.itemId)
       : undefined;
+
     const finishedGoodRecord = registryRecord.category === 'Finished Pipe'
       ? finishedGoods.find(item => item.id === registryRecord.itemId)
       : undefined;
-    const physicalRecord = pelletRecord || finishedGoodRecord;
+
+    const physicalRecord = pelletRecord || finishedGoodRecord
+
     if (!physicalRecord) {
       setResult(null);
       setScannerStatus('BARCODE NOT FOUND');
       setError(`BARCODE NOT FOUND\nScanned Value: ${clean}\nThe registry entry does not have a matching physical inventory record.`);
       return;
     }
+
     if (pelletRecord && !isSupportedMaterialGrade(pelletRecord.grade)) {
-      setResult(null);
-      setScannerStatus('INVALID PELLET GRADE');
-      setError('INVALID PELLET GRADE\nOnly PE80 and PE100 are supported.');
-      return;
+      setResult(null)
+
+      setScannerStatus("INVALID PELLET GRADE")
+
+      setError("INVALID PELLET GRADE\nSelect a supported material grade.")
+
+      return
     }
+
     const found: ScanResult = registryRecord.category === 'Pellet'
       ? {
           category: 'Pellet',
@@ -168,34 +228,42 @@ export default function BarcodeScanner() {
           itemType: registryRecord.itemType,
           record: finishedGoodRecord!,
         };
+
     if (found.category !== expected) {
       setResult(null);
       setScannerStatus('WRONG ITEM TYPE');
       setError(`WRONG ITEM TYPE\nThis operation requires a ${expected} barcode.\nScanned barcode belongs to ${found.itemType}.`);
       return;
     }
+
     if (mode === 'Release Finished Goods' && 'releaseStatus' in found.record && found.record.releaseStatus === 'Released') {
       setResult(null);
       setScannerStatus('ALREADY RELEASED');
       setError(`ALREADY RELEASED\nBarcode: ${found.barcode}\nReleased: ${found.record.releasedAt ? new Date(found.record.releasedAt).toLocaleString('en-PH') : 'Recorded'}\nCustomer Order: ${found.record.releaseReference || 'Recorded'}\nNo inventory changes were made.`);
       return;
     }
+
     const previousScan = processedRef.current.get(duplicateKey(found.record.barcode));
+
     if (previousScan) {
       showDuplicate(previousScan);
       return;
     }
+
     const isStorageOperation = mode === 'Receive Pellets' || mode === 'Store Finished Pipes';
+
     if (isStorageOperation && found.record.locationStatus === 'Stored') {
       setScannerStatus('ITEM FOUND');
       setResult(found);
       setRelocating(false);
       return;
     }
+
     const previousTransaction = transactions.find(item =>
       item.barcode?.toLowerCase() === found.record.barcode.toLowerCase()
       && item.scannerMode === scannerMode
     );
+
     if (previousTransaction) {
       showDuplicate({
         barcode: found.record.barcode,
@@ -217,11 +285,13 @@ export default function BarcodeScanner() {
       });
       return;
     }
+
     if (mode === 'Receive Pellets' && found.category === 'Pellet') {
       setScannerStatus('ITEM FOUND');
       setResult(found);
       return;
     }
+
     if (mode === 'Load Pellets' && found.category === 'Pellet' && found.record.inventoryStatus === 'Fully Consumed') {
       setResult(null);
       setLastScan(null);
@@ -229,6 +299,7 @@ export default function BarcodeScanner() {
       setError(`BAG FULLY CONSUMED\n${found.barcode} has already been fully consumed.`);
       return;
     }
+
     if (mode === 'Load Pellets' && found.category === 'Pellet' && ['Loaded', 'Partially Consumed'].includes(found.record.inventoryStatus)) {
       setResult(null);
       setLastScan(null);
@@ -236,9 +307,11 @@ export default function BarcodeScanner() {
       setError(`ALREADY LOADED\n${found.barcode} is already in Production WIP.`);
       return;
     }
-    setScannerStatus('ITEM FOUND');
-    setResult(found);
-  };
+
+    setScannerStatus("ITEM FOUND")
+
+    setResult(found)
+  }
 
   const submitBarcode = (rawValue: string, source: 'hardware' | 'manual') => {
     const clean = normalizeBarcodeValue(rawValue);
@@ -261,6 +334,7 @@ export default function BarcodeScanner() {
   };
 
   submitHardwareRef.current = value => submitBarcode(value, 'hardware');
+
   useEffect(() => {
     const captureScannerInput = (event: KeyboardEvent) => {
       if (manualOpen || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -516,38 +590,56 @@ export default function BarcodeScanner() {
     || (result?.category === 'Finished Pipe' && mode === 'Store Finished Pipes' && (result.record.locationStatus !== 'Stored' || relocating))
     || scans.length > 0;
 
-  return <div className={`scanner-page page-stack${hasBottomAction ? ' has-bottom-action' : ''}`}>
-    <div>
+  return (
+    <div className={`scanner-page page-stack${hasBottomAction ? ' has-bottom-action' : ''}`}>
+      <div>
       <div className="section-title">Production Barcode Scanner</div>
       <div className="helper-text">Honeywell Voyager XP 1470g hardware scanning with manual entry fallback.</div>
     </div>
-    {sessionStorage.getItem('hpai:production-output-draft') && <div className="alert-info">
+      {sessionStorage.getItem('hpai:production-output-draft') && <div className="alert-info">
       Production output entry is paused while materials are loaded.
       <button className="btn-secondary btn-compact ml-2" onClick={() => navigate('prod-orders')}>Return to Production Output</button>
     </div>}
-    <div className="scanner-context">
-      <div><span className="field-label">Current Operation</span><strong>{modeLabel}</strong><div>{mode === 'Load Pellets' ? activePO?.poNo || 'No active Production Order' : mode === 'Release Finished Goods' ? releaseOrder?.orderNo || 'No order ready for release' : 'Authorized physical operation'}</div></div>
-      <select className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}>
-        <option>Receive Pellets</option><option>Load Pellets</option><option>Store Finished Pipes</option><option value="Release Finished Goods">Release Finished Pipes</option>
-      </select>
-    </div>
-    <section className="app-card detail-card hardware-scanner-card">
-      <div className="hardware-scanner-heading">
-        <div><div className="section-title">Hardware Scanner</div><strong>Honeywell Voyager XP 1470g</strong></div>
-        <div className="scanner-status" aria-live="polite"><span>Status</span><strong>{scannerStatus}</strong></div>
+      <div className="scanner-context">
+        <div>
+          <span className="field-label">Current Operation</span>
+          <strong>{modeLabel}</strong>
+          <div>
+            {mode === 'Load Pellets' ? activePO?.poNo || 'No active Production Order' : mode === 'Release Finished Goods' ? releaseOrder?.orderNo || 'No order ready for release' : 'Authorized physical operation'}
+          </div>
+        </div>
+        <SearchableDropdown
+          className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
+        >
+          <option>Receive Pellets</option>
+          <option>Load Pellets</option>
+          <option>Store Finished Pipes</option>
+          <option value="Release Finished Goods">Release Finished Pipes</option>
+        </SearchableDropdown>
       </div>
-      <div className="block-label">Scan the physical barcode using the Honeywell scanner.</div>
-      <div className="hardware-scanner-display font-mono" role="status" aria-live="polite">
+      <section className="app-card detail-card hardware-scanner-card">
+        <div className="hardware-scanner-heading">
+          <div>
+            <div className="section-title">Hardware Scanner</div>
+            <strong>Honeywell Voyager XP 1470g</strong>
+          </div>
+          <div className="scanner-status" aria-live="polite">
+            <span>Status</span>
+            <strong>{scannerStatus}</strong>
+          </div>
+        </div>
+        <div className="block-label">Scan the physical barcode using the Honeywell scanner.</div>
+        <div className="hardware-scanner-display font-mono" role="status" aria-live="polite">
         <span className="scanner-capture-indicator" aria-hidden="true" />
         <span>Ready for Honeywell scan</span>
       </div>
-      <div className="helper-text">Scanner capture is active. This panel is not editable; the Honeywell Enter suffix submits one scan.</div>
-      <div className="action-row">
+        <div className="helper-text">Scanner capture is active. This panel is not editable; the Honeywell Enter suffix submits one scan.</div>
+        <div className="action-row">
         <button className="btn-secondary" onClick={() => { setManualOpen(true); window.setTimeout(() => manualInputRef.current?.focus(), 0); }}>Enter Manually</button>
         <button className="btn-secondary" onClick={() => navigate('production-dashboard')}>Close</button>
       </div>
-    </section>
-    {manualOpen && <section className="app-card detail-card">
+      </section>
+      {manualOpen && <section className="app-card detail-card">
       <div className="section-title">Enter Barcode Manually</div>
       <label className="block-label" htmlFor="manual-barcode-input">Barcode</label>
       <div className="input-action">
@@ -570,53 +662,150 @@ export default function BarcodeScanner() {
       </div>
       <div className="helper-text">Use the complete value printed below the physical barcode label.</div>
     </section>}
-    {error && <div className="alert-error">{error}</div>}
-    {result?.category === 'Pellet' && <div className="app-card detail-card">
-      <div className="result-heading">Item Found <span className="badge-blue">{result.itemType}</span></div>
-      <div className="responsive-grid">
-        <Info label="Barcode" value={result.barcode} /><Info label="Pellet Type" value={result.record.type} /><Info label="Batch" value={result.record.batchNo} />
-        <Info label="Grade / Color" value={`${result.record.grade} · ${result.record.color}`} /><Info label="Weight" value="25 kg" /><Info label="Available" value={`${result.record.availableKg} kg`} />
-        <Info label="Source" value={result.record.transferRef || result.record.rrRef || result.record.recyclingBatchRef || 'Physical inventory'} /><Info label="Inventory Status" value={result.record.inventoryStatus} />
-        <Info label="Current Location" value={result.record.currentLocation || 'Not Yet Assigned'} /><Info label="Location Status" value={result.record.locationStatus || 'Not Yet Assigned'} />
-        {activePO && <><Info label="Production Order" value={activePO.poNo} /><Info label="Pellet Grade" value={activePO.grade} /><Info label="Actual Loaded" value={`${activePO.loadedKg} kg`} /></>}
-      </div>
-      {mode === 'Receive Pellets'
-        ? result.record.locationStatus === 'Stored'
-          ? <div className="alert-info mt-3">This bag is already stored at <strong>{result.record.currentLocation}</strong>. Its location was not overwritten.</div>
-          : <div className="confirm-panel"><div><span className="field-label">Destination Location</span><strong>{result.record.type === 'Virgin' ? 'Virgin Pellet Storage' : 'Recycled Pellet Storage'}</strong></div></div>
-        : activePO && result.record.inventoryStatus === 'Available'
-          ? <div className="confirm-panel"><div><span className="field-label">Physical Bag</span><strong>1 bag · 25 kg</strong></div><button className="btn-primary" onClick={confirmPellet}>Confirm Pellet Load</button></div>
-          : <div className="alert-info mt-3">{activePO
+      {error && <div className="alert-error">{error}</div>}
+      {result?.category === "Pellet" && (
+        <div className="app-card detail-card">
+          <div className="result-heading">
+            Item Found <span className="badge-blue">{result.itemType}</span>
+          </div>
+          <div className="responsive-grid">
+            <Info label="Barcode" value={result.barcode} />
+            <Info label="Pellet Type" value={result.record.type} />
+            <Info label="Batch" value={result.record.batchNo} />
+            <Info label="Grade / Color" value={`${result.record.grade} · ${result.record.color}`} />
+            <Info label="Weight" value="25 kg" />
+            <Info label="Available" value={`${result.record.availableKg} kg`} />
+            <Info label="Source" value={result.record.transferRef || result.record.rrRef || result.record.recyclingBatchRef || 'Physical inventory'} />
+            <Info label="Inventory Status" value={result.record.inventoryStatus} />
+            <Info label="Current Location" value={result.record.currentLocation || 'Not Yet Assigned'} />
+            <Info label="Location Status" value={result.record.locationStatus || 'Not Yet Assigned'} />
+            {activePO && (
+              <>
+                <Info label="Production Order" value={activePO.poNo} />
+                <Info label="Pellet Grade" value={activePO.grade} />
+                <Info label="Actual Loaded" value={`${activePO.loadedKg} kg`} />
+              </>
+            )}
+          </div>
+          {mode === "Receive Pellets" ? (
+            result.record.locationStatus === "Stored" ? (
+              <div className="alert-info mt-3">
+                This bag is already stored at{" "}
+                <strong>{result.record.currentLocation}</strong>. Its location
+                was not overwritten.
+              </div>
+            ) : (
+              <div className="confirm-panel">
+                <div>
+                  <span className="field-label">Destination Location</span>
+                  <strong>
+                    {result.record.type === 'Virgin' ? 'Virgin Pellet Storage' : 'Recycled Pellet Storage'}
+                  </strong>
+                </div>
+              </div>
+            )
+          ) : activePO && result.record.inventoryStatus === "Available" ? (
+            <div className="confirm-panel">
+              <div>
+                <span className="field-label">Physical Bag</span>
+                <strong>1 bag · 25 kg</strong>
+              </div>
+              <button className="btn-primary" onClick={confirmPellet}>Confirm Pellet Load</button>
+            </div>
+          ) : (
+            <div className="alert-info mt-3">
+              {activePO
             ? result.record.inventoryStatus === 'Fully Consumed' ? 'BAG FULLY CONSUMED'
               : ['Loaded', 'Partially Consumed'].includes(result.record.inventoryStatus) ? `ALREADY LOADED — ${result.record.availableKg} kg WIP remaining`
                 : `Item found. Location: ${result.record.locationStatus}. Complete receiving before pellet loading.`
-            : 'No active production order. The pellet was identified without changing inventory.'}</div>}
-    </div>}
-    {result?.category === 'Finished Pipe' && <div className="app-card detail-card">
-      <div className="result-heading">Item Found <span className="badge-blue">Finished Pipe</span></div>
-      <div className="responsive-grid">
-        <Info label="Barcode" value={result.barcode} /><Info label="Finished Goods ID" value={result.record.fgId} /><Info label="Product" value={`${result.record.product} ${result.record.diameter} ${result.record.length}`} />
-        <Info label="Specifications" value={`${result.record.sdr} · ${result.record.grade} · ${result.record.color} · ${result.record.stripe}`} /><Info label="Batch / PO" value={`${result.record.batch} · ${result.record.poRef}`} />
-        <Info label="Available / Reserved" value={`${result.record.availableQty} / ${result.record.reservedQty}`} /><Info label="Storage Status" value={result.record.storageStatus} /><Info label="Release Status" value={result.record.releaseStatus} /><Info label="Current Location" value={result.record.currentLocation || 'Not Yet Assigned'} /><Info label="Status" value={result.record.status} />
-      </div>
-      {mode === 'Store Finished Pipes' ? <>
-        {result.record.locationStatus === 'Stored' && !relocating
-          ? <div className="action-row mt-3"><button className="btn-secondary" onClick={() => setRelocating(true)}>Relocate Item</button></div>
-          : <>
-            {!relocating && <div className="mt-3">
+            : 'No active production order. The pellet was identified without changing inventory.'}
+            </div>
+          )}
+        </div>
+      )}
+      {result?.category === "Finished Pipe" && (
+        <div className="app-card detail-card">
+          <div className="result-heading">
+            Item Found <span className="badge-blue">Finished Pipe</span>
+          </div>
+          <div className="responsive-grid">
+            <Info label="Barcode" value={result.barcode} />
+            <Info label="Finished Goods ID" value={result.record.fgId} />
+            <Info label="Product" value={`${result.record.product} ${result.record.diameter} ${result.record.length}`} />
+            <Info label="Specifications" value={`${result.record.sdr} · ${result.record.grade} · ${result.record.color} · ${result.record.stripe}`} />
+            <Info label="Batch / PO" value={`${result.record.batch} · ${result.record.poRef}`} />
+            <Info label="Available / Reserved" value={`${result.record.availableQty} / ${result.record.reservedQty}`} />
+            <Info label="Storage Status" value={result.record.storageStatus} />
+            <Info label="Release Status" value={result.record.releaseStatus} />
+            <Info label="Current Location" value={result.record.currentLocation || 'Not Yet Assigned'} />
+            <Info label="Status" value={result.record.status} />
+          </div>
+          {mode === "Store Finished Pipes" ? (
+            <>
+              {result.record.locationStatus === "Stored" && !relocating ? (
+                <div className="action-row mt-3">
+                  <button className="btn-secondary" onClick={() => setRelocating(true)}>Relocate Item</button>
+                </div>
+              ) : (
+                <>
+                  {!relocating && <div className="mt-3">
               <div className="section-title">Where should this pipe go?</div>
               <div className="action-row">
                 <button className={storagePurpose === 'General Inventory' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('General Inventory'); setStorageOrderId(''); setSection(''); }}>General Inventory</button>
                 <button className={storagePurpose === 'Customer Order' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('Customer Order'); setSection(''); }}>Customer Order</button>
               </div>
             </div>}
-            {storagePurpose === 'Customer Order' && !relocating && <label className="block-label mt-3">Customer Order / Buyer<select className="app-select" value={storageOrderId} onChange={e => setStorageOrderId(e.target.value)}><option value="">Select Customer Order</option>{orders.filter(order => order.status !== 'Released' && order.status !== 'Completed').map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.customerName}</option>)}</select></label>}
-            {(relocating || storagePurpose) && <div className="form-grid mt-3"><label>{relocating ? 'New Location' : 'Storage Location'}<select className="app-select" value={section} onChange={e => setSection(e.target.value)}><option value="">Select location</option>{((relocating ? result.record.inventoryPurpose : storagePurpose) === 'Customer Order' ? ['Customer Order Staging', 'Reserved Order Area', 'Ready for Ship-Out Area'] : ['Section A', 'Section B', 'Section C', 'Section D']).map(location => <option key={location}>{location}</option>)}</select></label>{(relocating ? result.record.inventoryPurpose : storagePurpose) === 'General Inventory' && <label>Rack / Row / Bay / Area (Optional)<input className="app-input" value={rack} onChange={e => setRack(e.target.value)} /></label>}</div>}
-            {relocating && <label className="block-label mt-3">Reason for Relocation<input className="app-input" value={relocationReason} onChange={e => setRelocationReason(e.target.value)} placeholder="Enter required reason" /></label>}
-          </>}
-      </> : <div className="action-row mt-3"><button className="btn-primary" disabled={(result.record.availableQty <= 0 && result.record.reservedQty <= 0) || result.record.releaseStatus === 'Released' || result.record.qualityStatus !== 'Pass'} onClick={confirmRelease}>Confirm Release</button></div>}
-    </div>}
-    {hasBottomAction && <div className="scanner-bottom-action">
+                  {storagePurpose === "Customer Order" && !relocating && (
+                    <label className="block-label mt-3">
+                      Customer Order / Buyer
+                      <SearchableDropdown
+                        className="app-select" value={storageOrderId} onChange={e => setStorageOrderId(e.target.value)}
+                      >
+                        <option value="">Select Customer Order</option>
+                        {orders.filter(order => order.status !== 'Released' && order.status !== 'Completed').map((order) => (
+                            <option key={order.id} value={order.id}>
+                              {order.orderNo} · {order.customerName}
+                            </option>
+                          ))}
+                      </SearchableDropdown>
+                    </label>
+                  )}
+                  {(relocating || storagePurpose) && (
+                    <div className="form-grid mt-3">
+                      <label>
+                        {relocating ? "New Location" : "Storage Location"}
+                        <SearchableDropdown
+                          className="app-select" value={section} onChange={e => setSection(e.target.value)}
+                        >
+                          <option value="">Select location</option>
+                          {((relocating ? result.record.inventoryPurpose : storagePurpose) === 'Customer Order' ? ['Customer Order Staging', 'Reserved Order Area', 'Ready for Ship-Out Area'] : ['Section A', 'Section B', 'Section C', 'Section D']).map(location => <option key={location}>{location}</option>)}
+                        </SearchableDropdown>
+                      </label>
+                      {(relocating ? result.record.inventoryPurpose : storagePurpose) === 'General Inventory' && (
+                        <label>
+                          Rack / Row / Bay / Area (Optional)
+                          <input className="app-input" value={rack} onChange={e => setRack(e.target.value)} />
+                        </label>
+                      )}
+                    </div>
+                  )}
+                  {relocating && (
+                    <label className="block-label mt-3">
+                      Reason for Relocation
+                      <input className="app-input" value={relocationReason} onChange={e => setRelocationReason(e.target.value)} placeholder="Enter required reason" />
+                    </label>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <div className="action-row mt-3">
+              <button className="btn-primary" disabled={(result.record.availableQty <= 0 && result.record.reservedQty <= 0) || result.record.releaseStatus === 'Released' || result.record.qualityStatus !== 'Pass'} onClick={confirmRelease}>Confirm Release</button>
+            </div>
+          )}
+        </div>
+      )}
+      {hasBottomAction && <div className="scanner-bottom-action">
       {result?.category === 'Pellet' && mode === 'Receive Pellets' && result.record.locationStatus !== 'Stored'
         ? <button className="btn-success" onClick={confirmReceive}>
             {result.record.type === 'Virgin' ? 'Confirm Receipt' : 'Confirm Storage'}
@@ -632,54 +821,95 @@ export default function BarcodeScanner() {
                     : 'Complete Release'}
             </button>}
     </div>}
-    {!lastScan && <div className="app-card detail-card scan-feedback"><div className="section-title">Last Scan</div><div className="empty-state">No scan yet.</div></div>}
-    {lastScan && <div className={lastScan.kind === 'duplicate' ? 'alert-error scan-feedback' : 'alert-success scan-feedback'}>
-      <div className="section-title">{lastScan.kind === 'duplicate' ? 'Already Processed' : 'Last Scan'}</div>
-      <Info label="Detected Item" value={lastScan.itemType} />
-      <Info label="Barcode" value={<strong className="font-mono">{lastScan.barcode}</strong>} />
-      {lastScan.weight && <Info label="Weight" value={`${lastScan.weight} kg`} />}
-      <Info label="Time" value={lastScan.time} />
-      <Info label="Status" value={lastScan.status} />
-      <div>{lastScan.message}</div>
-      <small>{lastScan.detail}</small>
-      {lastScan.kind === 'duplicate' && <button className="btn-secondary" onClick={() => setLastScan(null)}>OK</button>}
-    </div>}
-    {completion && <div className="alert-success scan-feedback"><strong>{completion}</strong><div>Scanned by {currentUser?.name} · {currentUser?.employeeId} · {currentShift} Shift</div></div>}
-    <section className="app-card detail-card scan-session">
-      <div className="section-title">Scanned This Session</div>
-      {mode === 'Load Pellets' && activePO && <div className="scan-session-context">
+      {!lastScan && (
+        <div className="app-card detail-card scan-feedback">
+          <div className="section-title">Last Scan</div>
+          <div className="empty-state">No scan yet.</div>
+        </div>
+      )}
+      {lastScan && (
+        <div className={lastScan.kind === 'duplicate' ? 'alert-error scan-feedback' : 'alert-success scan-feedback'}>
+          <div className="section-title">
+            {lastScan.kind === 'duplicate' ? 'Already Processed' : 'Last Scan'}
+          </div>
+          <Info label="Detected Item" value={lastScan.itemType} />
+          <Info label="Barcode" value={<strong className="font-mono">{lastScan.barcode}</strong>} />
+          {lastScan.weight && <Info label="Weight" value={`${lastScan.weight} kg`} />}
+          <Info label="Time" value={lastScan.time} />
+          <Info label="Status" value={lastScan.status} />
+          <div>{lastScan.message}</div>
+          <small>{lastScan.detail}</small>
+          {lastScan.kind === 'duplicate' && <button className="btn-secondary" onClick={() => setLastScan(null)}>OK</button>}
+        </div>
+      )}
+      {completion && (
+        <div className="alert-success scan-feedback">
+          <strong>{completion}</strong>
+          <div>
+            Scanned by {currentUser?.name} · {currentUser?.employeeId} ·{" "}
+            {currentShift} Shift
+          </div>
+        </div>
+      )}
+      <section className="app-card detail-card scan-session">
+        <div className="section-title">Scanned This Session</div>
+        {mode === 'Load Pellets' && activePO && <div className="scan-session-context">
         <Info label="PO" value={activePO.poNo} />
         <Info label="Expected Usage" value="No BOM defined — actual usage only" />
         <Info label="Previously Loaded" value={`${previouslyLoaded} kg`} />
       </div>}
-      {mode === 'Release Finished Goods' && releaseOrder && <div className="scan-session-context">
+        {mode === 'Release Finished Goods' && releaseOrder && <div className="scan-session-context">
         <Info label="Customer Order" value={releaseOrder.orderNo} />
         <Info label="Customer" value={releaseOrder.customerName} />
         <Info label="Required" value={releaseOrder.quantity} />
       </div>}
-      {scans.length === 0 ? <div className="empty-state">No successfully processed barcodes in this session.</div> : <div className="scan-item-list">
-        {scans.map((item, index) => <article className="scan-item" key={`${item.barcode}-${item.time}`}>
-          <div className="scan-item-number">{index + 1}</div>
-          <div className="scan-item-body">
-            <strong className="font-mono">{item.barcode}</strong>
-            <span>{item.title} · {item.subtitle}</span>
-            {item.location && <span>{item.location}</span>}
+        {scans.length === 0 ? <div className="empty-state">No successfully processed barcodes in this session.</div> : (
+          <div className="scan-item-list">
+            {scans.map((item, index) => (
+              <article className="scan-item" key={`${item.barcode}-${item.time}`}>
+                <div className="scan-item-number">{index + 1}</div>
+                <div className="scan-item-body">
+                  <strong className="font-mono">{item.barcode}</strong>
+                  <span>
+                    {item.title} · {item.subtitle}
+                  </span>
+                  {item.location && <span>{item.location}</span>}
+                </div>
+                <div className="scan-item-result">
+                  <strong>
+                    {item.quantity}
+                    {item.category === "Pellet" ? " kg" : ""}
+                  </strong>
+                  <span>{item.status}</span>
+                  <time>{item.time}</time>
+                </div>
+              </article>
+            ))}
           </div>
-          <div className="scan-item-result"><strong>{item.quantity}{item.category === 'Pellet' ? ' kg' : ''}</strong><span>{item.status}</span><time>{item.time}</time></div>
-        </article>)}
-      </div>}
-    </section>
-    <section className="app-card detail-card session-summary">
-      <div className="section-title">Session Summary</div>
-      {mode === 'Load Pellets' ? <>
-        <div className="responsive-grid">
+        )}
+      </section>
+      <section className="app-card detail-card session-summary">
+        <div className="section-title">Session Summary</div>
+        {mode === "Load Pellets" ? (
+          <>
+            <div className="responsive-grid">
           <Info label="Bags Scanned" value={scans.length} />
           <Info label="Loaded This Session" value={`${loadedThisSession} kg`} />
           <Info label="Total PO Loaded" value={`${activePO?.loadedKg || 0} kg`} />
           <Info label="Usage Basis" value="Successful bag scans" />
         </div>
-        {activePO && <div className="scan-progress"><div><strong>{activePO.loadedKg} kg loaded to Production WIP</strong><span>{Math.round(activePO.loadedKg / 25)} bags</span></div></div>}
-      </> : mode === 'Release Finished Goods' ? <div className="responsive-grid">
+            {activePO && (
+              <div className="scan-progress">
+                <div>
+                  <strong>
+                    {activePO.loadedKg} kg loaded to Production WIP
+                  </strong>
+                  <span>{Math.round(activePO.loadedKg / 25)} bags</span>
+                </div>
+              </div>
+            )}
+          </>
+        ) : mode === 'Release Finished Goods' ? <div className="responsive-grid">
         <Info label="Pipes Scanned" value={scans.length} />
         <Info label="Pipes Released" value={storedThisSession} />
         <Info label="Required" value={releaseOrder?.quantity || 0} />
@@ -695,10 +925,16 @@ export default function BarcodeScanner() {
         <Info label="Reference" value={reference} />
         <Info label="Scanned By" value={currentUser?.name || '—'} />
       </div>}
-    </section>
-  </div>;
+      </section>
+    </div>
+  )
 }
 
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return <div><div className="field-label">{label}</div><div className="field-value">{value}</div></div>;
+function Info({ label, value }: { label: string ; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="field-label">{label}</div>
+      <div className="field-value">{value}</div>
+    </div>
+  )
 }

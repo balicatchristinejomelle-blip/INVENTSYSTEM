@@ -1,6 +1,9 @@
 export type Role = 'OWNER_SUPER_ADMIN' | 'accounting' | 'marketing' | 'management' | 'plantmanager' | 'production';
 export type Plant = 'Main Plant' | 'Branch Plant' | 'Company Wide';
 export type Theme = 'light' | 'dark';
+export type ProductType = 'HDPE Pipe' | 'CTS HDPE Pipe' | 'Commercial HDPE Pipe (CGPE)' | 'Spiral Pipe' | 'Polytube';
+export type MaterialGrade = 'HDPE Standard' | 'PE100' | 'Commercial Grade (CGPE)' | 'CTS Grade';
+export type ProductMaterialGrade = MaterialGrade | 'PE80';
 
 export interface User {
   id: string;
@@ -23,7 +26,68 @@ export interface Notification {
   priority: 'Information' | 'Action Required' | 'Urgent';
   read: boolean;
   link?: string;
+  reference?: string;
   roles: Role[];
+}
+
+export interface ProductSpecification {
+  id: string;
+  productType: ProductType;
+  materialGrade: ProductMaterialGrade;
+  size: string;
+  sizeUnit: 'mm' | 'in' | 'configured';
+  sdr: string;
+  productForm: 'Straight Length' | 'Coil';
+  straightLength?: string;
+  coilLength?: string;
+  color: string;
+  stripe: string;
+  pipeConstruction: 'Solid Wall Pipe' | 'CTS Pipe' | 'Commercial Pipe' | 'Spiral Tube' | 'Polytube';
+  unitWeightKg?: number;
+  active: boolean;
+}
+
+export interface StockTarget {
+  id: string;
+  plant: Exclude<Plant, 'Company Wide'>;
+  inventoryType: 'Finished Pipe' | 'Virgin Pellet' | 'Recycled Pellet' | 'Colorant';
+  productSpecificationId?: string;
+  materialGrade?: MaterialGrade;
+  color?: string;
+  colorantUsageType?: 'BASE_COLORANT' | 'STRIPE_COLORANT';
+  minimumStock: number;
+  targetStock: number;
+  status: 'Active' | 'Inactive';
+}
+
+export interface StorageLocation {
+  id: string;
+  name: string;
+  plant: Exclude<Plant, 'Company Wide'>;
+  locationType: 'Production Area' | 'Finished Goods Area' | 'Raw Material Area' | 'Staging Area';
+  description?: string;
+  status: 'Active' | 'Inactive';
+}
+
+export interface RecordHistoryEvent {
+  id: string;
+  datetime: string;
+  title: string;
+  description?: string;
+  actor?: string;
+}
+
+export interface LinkedRecord {
+  id: string;
+  label: string;
+  reference: string;
+  page: string;
+  status?: string;
+}
+
+export interface LifecycleStep {
+  label: string;
+  state: 'complete' | 'current' | 'upcoming';
 }
 
 export interface MaterialRequest {
@@ -179,6 +243,8 @@ export interface ProductionOrder {
   priority: 'Normal' | 'High' | 'Urgent';
   requiredDate: string;
   status: 'Scheduled' | 'Ready' | 'In Production' | 'Partially Completed' | 'Awaiting Shift Turnover' | 'Completed' | 'Cancelled';
+  source?: 'Manufacturing Order' | 'Stock Replenishment';
+  replenishmentReason?: string;
   assignedShift?: string;
   unitWeightKg?: number;
   materialDensityKgM3?: number;

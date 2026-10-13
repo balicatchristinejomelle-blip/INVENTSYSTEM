@@ -1,11 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
-import type { FinishedGood } from '../../types';
-import CategoryTabs from '../../components/CategoryTabs';
+import { matchesRecord } from "../../components/RecordSearch"
+
+import React, { useState, useMemo } from "react"
+
+import { useApp } from "../../store"
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal from "../../components/Modal"
+
+import type { FinishedGood } from "../../types"
+
+import CategoryTabs from "../../components/CategoryTabs"
+
 import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipeProductType } from '../../inventoryCategories';
+
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
+
 import Pagination, { pageRecords } from '../../components/Pagination';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -13,6 +23,7 @@ import Pagination, { pageRecords } from '../../components/Pagination';
 type FilterTab = 'Awaiting Label / Storage' | 'Available' | 'Reserved' | 'Ready for Ship Out' | 'Shipped Out / Released';
 
 const FILTER_TABS: FilterTab[] = ['Awaiting Label / Storage', 'Available', 'Reserved', 'Ready for Ship Out', 'Shipped Out / Released'];
+
 const matchesDestination = (item: FinishedGood, destination: FilterTab) => {
   if (destination === 'Shipped Out / Released') return item.releaseStatus === 'Released';
   if (item.releaseStatus === 'Released') return false;
@@ -25,16 +36,21 @@ const matchesDestination = (item: FinishedGood, destination: FilterTab) => {
 function LabelValue({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>
+        {value}
+      </div>
     </div>
-  );
+  )
 }
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
 
 function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => void }) {
-  if (!fg) return null;
+  if (!fg) return null
+
   return (
     <Modal open onClose={onClose} title="Finished Good Detail" width="560px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -61,7 +77,7 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
             <LabelValue label="Product" value={fg.product} />
             <LabelValue label="Diameter" value={fg.diameter} />
             <LabelValue label="Length" value={fg.length} />
-            <LabelValue label="SDR" value={fg.sdr} />
+            <LabelValue label="SDR / Thickness" value={fg.sdr} />
             <LabelValue label="Grade" value={fg.grade} />
             <LabelValue label="Color" value={fg.color} />
             <LabelValue label="Stripe" value={fg.stripe} />
@@ -78,8 +94,12 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
             ['Reserved', fg.reservedQty, '#2563eb'],
           ].map(([label, val, color]) => (
             <div key={label as string} className="app-card" style={{ background: 'var(--app-bg)', padding: '10px 12px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label as string}</div>
-              <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: color as string }}>{val as number}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                {label as string}
+              </div>
+              <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: color as string }}>
+                {val as number}
+              </div>
             </div>
           ))}
         </div>
@@ -103,7 +123,7 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
         </div>
       </div>
     </Modal>
-  );
+  )
 }
 
 // ─── RECORD STORAGE MODAL ─────────────────────────────────────────────────────
@@ -114,16 +134,21 @@ function RecordStorageModal({ open, onClose, currentShift, activePOProduct }: {
   currentShift: string;
   activePOProduct: string;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10)
 
   // Generate a mock batch number
-  const batchCounter = useMemo(() => String(Math.floor(Math.random() * 900) + 100), [open]);
-  const autoBatch = `BATCH-2026-0${batchCounter}`;
 
-  const [location, setLocation] = useState('');
-  const [qty, setQty] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const batchCounter = useMemo(() => String(Math.floor(Math.random() * 900) + 100), [open]);
+
+  const autoBatch = `BATCH-2026-0${batchCounter}`
+
+  const [location, setLocation] = useState("")
+
+  const [qty, setQty] = useState("")
+
+  const [error, setError] = useState("")
+
+  const [success, setSuccess] = useState(false)
 
   function handleSubmit() {
     setError('');
@@ -140,25 +165,25 @@ function RecordStorageModal({ open, onClose, currentShift, activePOProduct }: {
     onClose();
   }
 
-  if (!open) return null;
+  if (!open) return null
 
   if (success) {
     return (
       <Modal open onClose={handleClose} title="Record Storage" width="480px">
         <div className="alert-success" style={{ padding: '14px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-          Storage recorded — {qty} units of {activePOProduct} logged to {location} (Batch {autoBatch}).
+          Storage recorded — {qty} units of {activePOProduct} logged to{" "}
+          {location} (Batch {autoBatch}).
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={handleClose}>Done</button>
         </div>
       </Modal>
-    );
+    )
   }
 
   return (
     <Modal open onClose={handleClose} title="Record Finished Pipe Storage" width="500px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Product Description</label>
           <div
@@ -254,7 +279,9 @@ function RecordStorageModal({ open, onClose, currentShift, activePOProduct }: {
         </div>
 
         {error && (
-          <div className="alert-error" style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6 }}>{error}</div>
+          <div className="alert-error" style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6 }}>
+            {error}
+          </div>
         )}
 
         <div className="form-actions">
@@ -263,47 +290,60 @@ function RecordStorageModal({ open, onClose, currentShift, activePOProduct }: {
         </div>
       </div>
     </Modal>
-  );
+  )
 }
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function FinishedPipes() {
   const { finishedGoods, activeProductionOrder: activePO, currentShift, navigate } = useApp();
+
   const activePOProduct = activePO
     ? `${activePO.product} ${activePO.diameter} ${activePO.length} ${activePO.sdr} ${activePO.grade} ${activePO.color}`
     : '';
 
   const totalUnits = finishedGoods.filter(fg => fg.releaseStatus !== 'Released' && fg.qualityStatus === 'Pass').reduce((s, fg) => s + fg.quantity, 0);
+
   const totalAvailable = finishedGoods.reduce((s, fg) => s + fg.availableQty, 0);
+
   const totalReserved = finishedGoods.reduce((s, fg) => s + fg.reservedQty, 0);
+
   const totalReleased = finishedGoods
     .filter(fg => fg.status === 'Released')
     .reduce((s, fg) => s + fg.quantity, 0);
 
   const [activeTab, setActiveTab] = useState<FilterTab>('Awaiting Label / Storage');
+
   const [productType, setProductType] = useState<'All' | PipeProductType>('All');
-  const [grade, setGrade] = useState('All');
-  const [search, setSearch] = useState('');
+
+  const [grade, setGrade] = useState("All")
+
+  const [search, setSearch] = useState("")
+
   const [detailFG, setDetailFG] = useState<FinishedGood | null>(null);
+
   const [showRecordStorage, setShowRecordStorage] = useState(false);
-  const [page, setPage] = useState(1);
-  const period = usePeriod();
+
+  const [page, setPage] = useState(1)
+
+  const period = usePeriod()
 
   const filtered = useMemo(() => {
-    return finishedGoods.filter(fg =>
-      (productType === 'All' || normalizedProductType(fg.product) === productType)
+    return finishedGoods.filter(
+      (fg) =>
+        (productType === 'All' || normalizedProductType(fg.product) === productType)
       && (grade === 'All' || fg.grade === grade)
       && matchesDestination(fg, activeTab)
-      && dateInPeriod(fg.productionDate, period.range)
-      && [fg.barcode, fg.fgId, fg.poRef, fg.currentLocation, fg.product].some(value => value.toLowerCase().includes(search.toLowerCase()))
-    );
-  }, [finishedGoods, activeTab, grade, productType, search, period.range]);
+      && dateInPeriod(fg.productionDate, period.range) &&
+        ([fg.barcode, fg.fgId, fg.poRef, fg.currentLocation, fg.product].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
+          matchesRecord(fg, search)),
+    )
+  }, [finishedGoods, activeTab, grade, productType, search, period.range])
+
   const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
       {/* Page header */}
       <div className="flex items-center justify-between page-toolbar">
         <div>
@@ -321,10 +361,14 @@ export default function FinishedPipes() {
           { label: 'Total Available', value: totalAvailable, color: '#16a34a' },
           { label: 'Total Reserved', value: totalReserved, color: '#2563eb' },
           { label: 'Total Released', value: totalReleased, color: 'var(--text-muted)' },
-        ].map(card => (
+        ].map((card) => (
           <div key={card.label} className="app-card" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{card.label}</div>
-            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+              {card.label}
+            </div>
+            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: card.color, lineHeight: 1 }}>
+              {card.value}
+            </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>units</div>
           </div>
         ))}
@@ -339,9 +383,11 @@ export default function FinishedPipes() {
       {/* Filter tabs */}
       <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="report-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', padding: '0 16px' }}>
-          {FILTER_TABS.map(tab => {
+          {FILTER_TABS.map((tab) => {
             const count = finishedGoods.filter(fg => matchesDestination(fg, tab)).length;
-            const active = activeTab === tab;
+
+            const active = activeTab === tab
+
             return (
               <button
                 key={tab}
@@ -360,35 +406,40 @@ export default function FinishedPipes() {
                   transition: 'color 0.15s',
                 }}
               >
-                {tab} <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 2 }}>({count})</span>
+                {tab}{" "}
+                <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 2 }}>({count})</span>
               </button>
-            );
+            )
           })}
         </div>
 
         {/* Table */}
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: "auto" }}>
           {filtered.length === 0 ? (
-            <div className="empty-state empty-state-action"><strong>NO RECORDS FOUND</strong><span>No records match the selected search, date, or filters.</span><button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setPage(1); }}>Clear Filters</button></div>
+            <div className="empty-state empty-state-action">
+              <strong>NO RECORDS FOUND</strong>
+              <span>No records match the selected search, date, or filters.</span>
+              <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setPage(1); }}>Clear Filters</button>
+            </div>
           ) : (
-            <table className="app-table" style={{ width: '100%' }}>
+            <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>FG ID</th>
                   <th>Barcode</th>
                   <th>Product</th>
                   <th>Size</th>
-                  <th>SDR</th>
+                  <th>SDR / Thickness</th>
                   <th>Grade</th>
                   <th>Storage Location</th>
-                  <th style={{ textAlign: 'right' }}>Qty</th>
-                  <th style={{ textAlign: 'right' }}>Available</th>
-                  <th style={{ textAlign: 'right' }}>Reserved</th>
+                  <th style={{ textAlign: "right" }}>Qty</th>
+                  <th style={{ textAlign: "right" }}>Available</th>
+                  <th style={{ textAlign: "right" }}>Reserved</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {pageRecords(filtered, page).map(fg => (
+                {pageRecords(filtered, page).map((fg) => (
                   <tr
                     key={fg.id}
                     className="table-row-hover"
@@ -401,23 +452,35 @@ export default function FinishedPipes() {
                       </span>
                     </td>
                     <td>
-                      <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fg.barcode}</span>
+                      <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {fg.barcode}
+                      </span>
                     </td>
                     <td style={{ fontSize: 13 }}>{fg.product}</td>
                     <td>
-                      <span className="font-mono" style={{ fontSize: 12 }}>{fg.diameter} x {fg.length}</span>
+                      <span className="font-mono" style={{ fontSize: 12 }}>
+                        {fg.diameter} x {fg.length}
+                      </span>
                     </td>
                     <td style={{ fontSize: 12 }}>{fg.sdr}</td>
                     <td style={{ fontSize: 12 }}>{fg.grade}</td>
-                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{fg.currentLocation || 'Not Yet Assigned'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{fg.quantity}</span>
+                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {fg.currentLocation || "Not Yet Assigned"}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span className="font-mono" style={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>{fg.availableQty}</span>
+                    <td style={{ textAlign: "right" }}>
+                      <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {fg.quantity}
+                      </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span className="font-mono" style={{ fontSize: 13, fontWeight: 600, color: '#2563eb' }}>{fg.reservedQty}</span>
+                    <td style={{ textAlign: "right" }}>
+                      <span className="font-mono" style={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>
+                        {fg.availableQty}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <span className="font-mono" style={{ fontSize: 13, fontWeight: 600, color: '#2563eb' }}>
+                        {fg.reservedQty}
+                      </span>
                     </td>
                     <td>
                       <StatusBadge status={fg.status} size="sm" />
@@ -440,5 +503,5 @@ export default function FinishedPipes() {
         activePOProduct={activePOProduct}
       />
     </div>
-  );
+  )
 }

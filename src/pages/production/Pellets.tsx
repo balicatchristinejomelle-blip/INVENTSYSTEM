@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import { matchesRecord } from "../../components/RecordSearch"
+
+import SearchableDropdown from "../../components/SearchableDropdown"
+
+import React, { useState } from "react"
+
 import { isSupportedMaterialGrade, normalizeMaterialGrade, useApp } from '../../store';
-import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
+
+import StatusBadge from "../../components/StatusBadge"
+
+import Modal from "../../components/Modal"
+
 import type { PelletInventory, ProductionOrder } from '../../types';
-import CategoryTabs from '../../components/CategoryTabs';
+
+import CategoryTabs from "../../components/CategoryTabs"
+
 import { MATERIAL_CATEGORIES, MATERIAL_GRADES, type MaterialCategoryTab } from '../../inventoryCategories';
+
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
+
 import Pagination, { pageRecords } from '../../components/Pagination';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -17,10 +29,14 @@ function fmt(n: number) {
 function LabelValue({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: mono ? 'JetBrains Mono, monospace' : undefined }}>
+        {value}
+      </div>
     </div>
-  );
+  )
 }
 
 // ─── VIEW DETAIL MODAL ────────────────────────────────────────────────────────
@@ -85,13 +101,15 @@ interface LoadModalProps {
 }
 
 function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
-  const [kgInput, setKgInput] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [kgInput, setKgInput] = useState("")
 
-  if (!pellet || !activePO) return null;
+  const [error, setError] = useState("")
 
-  const parsedKg = parseFloat(kgInput);
+  const [success, setSuccess] = useState(false)
+
+  if (!pellet || !activePO) return null
+
+  const parsedKg = parseFloat(kgInput)
 
   function handleConfirm() {
     setError('');
@@ -118,19 +136,19 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
     return (
       <Modal open onClose={handleClose} title="Load to Production" width="480px">
         <div className="alert-success" style={{ padding: '14px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-          Successfully loaded {fmt(parsedKg)} kg from batch {pellet.batchNo} to {activePO.poNo}.
+          Successfully loaded {fmt(parsedKg)} kg from batch {pellet.batchNo} to{" "}
+          {activePO.poNo}.
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={handleClose}>Done</button>
         </div>
       </Modal>
-    );
+    )
   }
 
   return (
     <Modal open onClose={handleClose} title="Load Pellets to Production" width="520px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
         {/* Pellet info */}
         <div className="app-card" style={{ background: 'var(--app-bg)', padding: '12px 14px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Selected Batch</div>
@@ -138,9 +156,14 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
             <LabelValue label="Batch No." value={pellet.batchNo} mono />
             <LabelValue label="Grade" value={pellet.grade} />
             <LabelValue label="Color" value={pellet.color} />
-            <LabelValue label="Available" value={
-              <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-blue)' }}>{fmt(pellet.availableKg)} kg</span>
-            } />
+            <LabelValue
+              label="Available"
+              value={
+                <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-blue)' }}>
+                  {fmt(pellet.availableKg)} kg
+                </span>
+              }
+            />
           </div>
         </div>
 
@@ -166,7 +189,8 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
         {/* kg input */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
-            kg to Load <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(max {fmt(pellet.availableKg)} kg)</span>
+            kg to Load{" "}
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(max {fmt(pellet.availableKg)} kg)</span>
           </label>
           <input
             type="number"
@@ -181,7 +205,9 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
             autoFocus
           />
           {error && (
-            <div className="alert-error" style={{ marginTop: 6, padding: '6px 10px', fontSize: 12, borderRadius: 6 }}>{error}</div>
+            <div className="alert-error" style={{ marginTop: 6, padding: '6px 10px', fontSize: 12, borderRadius: 6 }}>
+              {error}
+            </div>
           )}
         </div>
 
@@ -191,7 +217,7 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
         </div>
       </div>
     </Modal>
-  );
+  )
 }
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
@@ -200,42 +226,57 @@ export default function Pellets() {
   const { pellets, colorants, materialUsageTransactions, activeProductionOrder: activePO, navigate } = useApp();
 
   const totalVirgin = pellets.filter(p => p.type === 'Virgin' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const totalRecycled = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
+
   const loaded = activePO ? pellets.filter(p => p.loadedForPOId === activePO.id && ['Loaded', 'Partially Consumed'].includes(p.inventoryStatus)).reduce((sum, p) => sum + p.availableKg, 0) : 0;
 
   const [detailPellet, setDetailPellet] = useState<PelletInventory | null>(null);
+
   const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
-  const [grade, setGrade] = useState('All');
+
+  const [grade, setGrade] = useState("All")
+
   const [lifecycle, setLifecycle] = useState<'Available' | 'Open / WIP' | 'Fully Consumed'>('Available');
+
   const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const period = usePeriod();
+
+  const [search, setSearch] = useState("")
+
+  const [page, setPage] = useState(1)
+
+  const period = usePeriod()
+
   const selectedType = category === 'Virgin Pellets' ? 'Virgin' : 'Recycled';
-  const filteredPellets = pellets.filter(pellet =>
-    pellet.type === selectedType
+
+  const filteredPellets = pellets.filter(
+    (pellet) =>
+      pellet.type === selectedType
     && (lifecycle === 'Available'
       ? pellet.inventoryStatus === 'Available'
       : lifecycle === 'Open / WIP'
         ? ['Loaded', 'Partially Consumed'].includes(pellet.inventoryStatus)
         : pellet.inventoryStatus === 'Fully Consumed')
     && (grade === 'All' || pellet.grade === grade)
-    && dateInPeriod(pellet.receivedDate, period.range)
-    && [pellet.barcode, pellet.batchNo, pellet.grade].some(value => value.toLowerCase().includes(search.toLowerCase()))
-  );
-  const filteredColorants = colorants.filter(colorant =>
-    (colorantType === 'All' || colorant.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT'))
-    && dateInPeriod(colorant.lastUpdated, period.range)
-    &&
-    [colorant.colorantId, colorant.name, colorant.color].some(value => value.toLowerCase().includes(search.toLowerCase()))
-  );
+    && dateInPeriod(pellet.receivedDate, period.range) &&
+      ([pellet.barcode, pellet.batchNo, pellet.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
+        matchesRecord(pellet, search)),
+  )
+
+  const filteredColorants = colorants.filter(
+    (colorant) =>
+      (colorantType === 'All' || colorant.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT'))
+    && dateInPeriod(colorant.lastUpdated, period.range) &&
+      ([colorant.colorantId, colorant.name, colorant.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
+        matchesRecord(colorant, search)),
+  )
+
   const colorantUsed = (id: string) => materialUsageTransactions
     .filter(item => item.materialId === id && item.productionOrderId === activePO?.id)
     .reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -251,20 +292,34 @@ export default function Pellets() {
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        <div className="app-card" style={{ padding: '14px 16px' }}>
+        <div className="app-card" style={{ padding: "14px 16px" }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Total Virgin Available</div>
-          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)', lineHeight: 1 }}>{fmt(totalVirgin)}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>kg across {pellets.filter(p => p.type === 'Virgin').length} batches</div>
+          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)', lineHeight: 1 }}>
+            {fmt(totalVirgin)}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            kg across {pellets.filter((p) => p.type === "Virgin").length}{" "}
+            batches
+          </div>
         </div>
-        <div className="app-card" style={{ padding: '14px 16px' }}>
+        <div className="app-card" style={{ padding: "14px 16px" }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Total Recycled Available</div>
-          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: '#16a34a', lineHeight: 1 }}>{fmt(totalRecycled)}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>kg across {pellets.filter(p => p.type === 'Recycled').length} batches</div>
+          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: '#16a34a', lineHeight: 1 }}>
+            {fmt(totalRecycled)}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            kg across {pellets.filter((p) => p.type === "Recycled").length}{" "}
+            batches
+          </div>
         </div>
-        <div className="app-card" style={{ padding: '14px 16px' }}>
+        <div className="app-card" style={{ padding: "14px 16px" }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Active PO Pellet Gap</div>
-          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)', lineHeight: 1 }}>{fmt(loaded)}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>kg actually loaded for {activePO?.poNo ?? 'No active PO'}</div>
+          <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)', lineHeight: 1 }}>
+            {fmt(loaded)}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            kg actually loaded for {activePO?.poNo ?? "No active PO"}
+          </div>
         </div>
       </div>
 
@@ -303,10 +358,14 @@ export default function Pellets() {
         {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); setPage(1); }} label="Pellet lifecycle destination" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); setPage(1); }} label="Colorant usage type" />}
         <div className="toolbar">
-          {category !== 'Colorants' && <select className="app-select" value={grade} onChange={event => setGrade(event.target.value)}>
-            <option>All</option>
-            {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
-          </select>}
+          {category !== "Colorants" && (
+            <SearchableDropdown
+              className="app-select" value={grade} onChange={event => setGrade(event.target.value)}
+            >
+              <option>All</option>
+              {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
+            </SearchableDropdown>
+          )}
         </div>
       </div>
 
@@ -319,23 +378,52 @@ export default function Pellets() {
       {/* Category-specific inventory table */}
       <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--card-border)' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{category}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{category === 'Colorants' ? `${filteredColorants.length} kg-balance records` : `${filteredPellets.length} physical bag records`}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {category}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            {category === 'Colorants' ? `${filteredColorants.length} kg-balance records` : `${filteredPellets.length} physical bag records`}
+          </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          {category === 'Colorants' ? <table className="app-table" style={{ width: '100%' }}>
-            <thead><tr><th>Colorant ID</th><th>Color</th><th>Usage Type</th><th>Available kg</th><th>Current PO Usage</th><th>Status</th></tr></thead>
-            <tbody>{pageRecords(filteredColorants, page).map(colorant => <tr key={colorant.id}>
-              <td className="font-mono">{colorant.colorantId}</td>
-              <td>{colorant.color} ({colorant.colorCode})</td>
-              <td>{colorant.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}</td>
-              <td className="font-mono">{colorant.availableKg.toFixed(3)}</td>
-              <td className="font-mono">{colorantUsed(colorant.id).toFixed(3)} kg</td>
-              <td><StatusBadge status={colorant.status} /></td>
-            </tr>)}</tbody>
-          </table> :
-          <table className="app-table" style={{ width: '100%' }}>
-            <thead>
+        <div style={{ overflowX: "auto" }}>
+          {category === "Colorants" ? (
+            <table className="app-table" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Colorant ID</th>
+                  <th>Color</th>
+                  <th>Usage Type</th>
+                  <th>Available kg</th>
+                  <th>Current PO Usage</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRecords(filteredColorants, page).map((colorant) => (
+                  <tr key={colorant.id}>
+                    <td className="font-mono">{colorant.colorantId}</td>
+                    <td>
+                      {colorant.color} ({colorant.colorCode})
+                    </td>
+                    <td>
+                      {colorant.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}
+                    </td>
+                    <td className="font-mono">
+                      {colorant.availableKg.toFixed(3)}
+                    </td>
+                    <td className="font-mono">
+                      {colorantUsed(colorant.id).toFixed(3)} kg
+                    </td>
+                    <td>
+                      <StatusBadge status={colorant.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="app-table" style={{ width: "100%" }}>
+              <thead>
               <tr>
                 <th>Batch No.</th>
                 <th>Type</th>
@@ -348,26 +436,30 @@ export default function Pellets() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {pageRecords(filteredPellets, page).map(pellet => {
-                const lowStock = pellet.availableKg < 100;
-                const validGrade = isSupportedMaterialGrade(pellet.grade);
-                const compatibleGrade = !!activePO && validGrade && isSupportedMaterialGrade(activePO.grade)
+              <tbody>
+                {pageRecords(filteredPellets, page).map((pellet) => {
+                  const lowStock = pellet.availableKg < 100
+
+                  const validGrade = isSupportedMaterialGrade(pellet.grade)
+
+                  const compatibleGrade = !!activePO && validGrade && isSupportedMaterialGrade(activePO.grade)
                   && normalizeMaterialGrade(pellet.grade) === normalizeMaterialGrade(activePO.grade);
-                const canLoad = pellet.availableKg === 25 && pellet.inventoryStatus === 'Available' && compatibleGrade && !!pellet.barcode;
-                return (
-                  <tr
+
+                  const canLoad = pellet.availableKg === 25 && pellet.inventoryStatus === 'Available' && compatibleGrade && !!pellet.barcode;
+
+                  return (
+                    <tr
                     key={pellet.id}
                     className="table-row-hover"
                     style={{ cursor: 'pointer' }}
                     onClick={() => setDetailPellet(pellet)}
                   >
-                    <td>
+                      <td>
                       <span className="font-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-blue)' }}>
                         {pellet.batchNo}
                       </span>
                     </td>
-                    <td>
+                      <td>
                       <span
                         className={pellet.type === 'Virgin' ? 'badge-blue' : 'badge-green'}
                         style={{ padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 600, display: 'inline-block' }}
@@ -375,9 +467,9 @@ export default function Pellets() {
                         {pellet.type}
                       </span>
                     </td>
-                    <td style={{ fontSize: 13 }}>{pellet.grade}</td>
-                    <td style={{ fontSize: 13 }}>{pellet.color}</td>
-                    <td style={{ textAlign: 'right' }}>
+                      <td style={{ fontSize: 13 }}>{pellet.grade}</td>
+                      <td style={{ fontSize: 13 }}>{pellet.color}</td>
+                      <td style={{ textAlign: 'right' }}>
                       <span
                         className="font-mono"
                         style={{
@@ -392,17 +484,21 @@ export default function Pellets() {
                         <span className="badge-amber" style={{ marginLeft: 6, padding: '1px 5px', fontSize: 10, borderRadius: 4 }}>Low</span>
                       )}
                     </td>
-                    <td>
-                      <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{pellet.barcode}</span>
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{pellet.receivedDate}</td>
-                    <td>
+                      <td>
+                        <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {pellet.barcode}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {pellet.receivedDate}
+                      </td>
+                      <td>
                       <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {pellet.transferRef ?? '—'}
                       </span>
                     </td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <button
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button
                         className="btn-primary btn-compact"
                         disabled={!canLoad}
                         aria-describedby={!canLoad ? `load-reason-${pellet.id}` : undefined}
@@ -410,22 +506,33 @@ export default function Pellets() {
                       >
                         Scan with Honeywell
                       </button>
-                      {!canLoad && <div className="button-reason" id={`load-reason-${pellet.id}`}>
-                        {!validGrade ? 'INVALID PELLET GRADE — Only PE80 and PE100 are supported.' : !activePO ? 'An active production order is required.' : !compatibleGrade ? `${pellet.grade} cannot be substituted for ${activePO.grade}.` : !pellet.barcode ? 'Physical barcode registration is incomplete.' : 'No available pellets in this batch.'}
-                      </div>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>}
+                        {!canLoad && (
+                          <div className="button-reason" id={`load-reason-${pellet.id}`}>
+                            {!validGrade
+                              ? "INVALID PELLET GRADE — Select a supported material grade."
+                              : !activePO ? 'An active production order is required.' : !compatibleGrade ? `${pellet.grade} cannot be substituted for ${activePO.grade}.` : !pellet.barcode ? 'Physical barcode registration is incomplete.' : 'No available pellets in this batch.'}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
-        {!(category === 'Colorants' ? filteredColorants.length : filteredPellets.length) && <div className="empty-state empty-state-action"><strong>NO RECORDS FOUND</strong><span>No records match the selected search, date, or filters.</span><button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setPage(1); }}>Clear Filters</button></div>}
+        {!(category === 'Colorants' ? filteredColorants.length : filteredPellets.length) && (
+          <div className="empty-state empty-state-action">
+            <strong>NO RECORDS FOUND</strong>
+            <span>No records match the selected search, date, or filters.</span>
+            <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setPage(1); }}>Clear Filters</button>
+          </div>
+        )}
         <Pagination page={page} totalRecords={category === 'Colorants' ? filteredColorants.length : filteredPellets.length} onPageChange={setPage} />
       </div>
 
       {/* Modals */}
       <PelletDetailModal pellet={detailPellet} onClose={() => setDetailPellet(null)} />
     </div>
-  );
+  )
 }

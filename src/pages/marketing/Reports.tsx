@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { useApp } from '../../store';
+import RecordRows from "../../components/RecordRows"
+
+import {
+  withRecordSearch,
+  useSearchableApp,
+} from "../../components/RecordSearch"
+
+import React, { useState } from "react"
+
 import { DonutChart, LineChart, HorizontalBar, ReportCard } from '../../components/MiniChart';
-import StatusBadge from '../../components/StatusBadge';
+
+import StatusBadge from "../../components/StatusBadge"
+
 import PeriodSelector, { dateInPeriod, usePeriod, type PeriodRange } from '../../components/PeriodSelector';
 
-type Tab = 'sales' | 'orders' | 'production' | 'finished';
+type Tab = "sales" | "orders" | "production" | "finished"
+
 type OrderFilter = 'All' | 'Active' | 'In Production' | 'Ready for Release' | 'Completed';
 
 const TABS: { id: Tab; label: string }[] = [
@@ -30,13 +40,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function SalesOverviewTab({ period }: { period: PeriodRange }) {
-  const { orders } = useApp();
+  const { orders } = useSearchableApp()
+
   const periodOrders = orders.filter(item => dateInPeriod(item.orderDate, period));
 
-  const totalOrders = periodOrders.length;
+  const totalOrders = periodOrders.length
+
   const activeOrders = periodOrders.filter(o => o.status !== 'Completed').length;
+
   const unitsOrdered = periodOrders.reduce((s, o) => s + o.quantity, 0);
+
   // Completed + Ready for Release = fulfilled
+
   const unitsCompleted = periodOrders.filter(o => o.status === 'Completed').reduce((s, o) => s + o.quantity, 0);
 
   const statusSegments = [
@@ -45,6 +60,7 @@ function SalesOverviewTab({ period }: { period: PeriodRange }) {
     { label: 'Ready for Release', value: periodOrders.filter(o => o.status === 'Ready for Release').length, color: '#16a34a' },
     { label: 'Completed', value: periodOrders.filter(o => o.status === 'Completed').length, color: 'var(--text-muted)' },
   ];
+
   const orderTrend = Array.from(new Map(periodOrders.map(item => [item.orderDate, periodOrders.filter(order => order.orderDate === item.orderDate).length])).entries())
     .map(([date, value]) => ({ label: date.slice(5), value }));
 
@@ -77,10 +93,12 @@ function SalesOverviewTab({ period }: { period: PeriodRange }) {
 }
 
 function OrdersTab({ period }: { period: PeriodRange }) {
-  const { orders } = useApp();
-  const [filter, setFilter] = useState<OrderFilter>('All');
+  const { orders } = useSearchableApp()
+
+  const [filter, setFilter] = useState<OrderFilter>("All")
 
   const periodOrders = orders.filter(item => dateInPeriod(item.orderDate, period));
+
   const filtered = filter === 'All' ? periodOrders : periodOrders.filter(o => o.status === filter);
 
   return (
@@ -110,7 +128,7 @@ function OrdersTab({ period }: { period: PeriodRange }) {
       </div>
 
       <div className="app-card" style={{ padding: 16 }}>
-        <table className="app-table" style={{ width: '100%' }}>
+        <table className="app-table" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th>Order No.</th>
@@ -124,18 +142,29 @@ function OrdersTab({ period }: { period: PeriodRange }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(o => (
-              <tr key={o.id} className="table-row-hover">
-                <td className="font-mono">{o.orderNo}</td>
-                <td>{o.orderDate}</td>
-                <td>{o.customerName}</td>
-                <td>{o.product}</td>
-                <td>{o.diameter} / {o.sdr}</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>{o.quantity}</td>
-                <td>{o.requiredDate}</td>
-                <td><StatusBadge status={o.status} /></td>
-              </tr>
-            ))}
+            {
+              <RecordRows
+                records={filtered}
+                render={(o) => (
+                  <tr key={o.id} className="table-row-hover">
+                    <td className="font-mono">{o.orderNo}</td>
+                    <td>{o.orderDate}</td>
+                    <td>{o.customerName}</td>
+                    <td>{o.product}</td>
+                    <td>
+                      {o.diameter} / {o.sdr}
+                    </td>
+                    <td className="font-mono" style={{ textAlign: "right" }}>
+                      {o.quantity}
+                    </td>
+                    <td>{o.requiredDate}</td>
+                    <td>
+                      <StatusBadge status={o.status} />
+                    </td>
+                  </tr>
+                )}
+              />
+            }
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>
@@ -147,13 +176,14 @@ function OrdersTab({ period }: { period: PeriodRange }) {
         </table>
       </div>
     </div>
-  );
+  )
 }
 
 function ProductionStatusTab() {
-  const { productionOrders } = useApp();
+  const { productionOrders } = useSearchableApp()
 
   // Use exact seed values
+
   const poData = [
     { poNo: 'PO-2026-0012', target: 500, completed: 325, remaining: 175, status: 'In Production' },
     { poNo: 'PO-2026-0011', target: 400, completed: 400, remaining: 0, status: 'Completed' },
@@ -161,7 +191,9 @@ function ProductionStatusTab() {
   ];
 
   const onTrack = productionOrders.filter(p => p.status === 'In Production').length;
+
   const behind = productionOrders.filter(p => p.status === 'Scheduled').length;
+
   const completedThisMonth = productionOrders.filter(p => p.status === 'Completed').length;
 
   const completionPct = poData.map(p => ({
@@ -181,32 +213,44 @@ function ProductionStatusTab() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {poData.map(p => {
+        {poData.map((p) => {
           const pct = p.target > 0 ? Math.round((p.completed / p.target) * 100) : 0;
+
           const barColor = p.status === 'Completed' ? '#16a34a' : p.status === 'In Production' ? 'var(--accent-blue)' : 'var(--text-muted)';
+
           return (
             <div key={p.poNo} className="app-card" style={{ padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div>
-                  <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{p.poNo}</span>
-                  <span style={{ marginLeft: 10, display: 'inline-block' }}><StatusBadge status={p.status} /></span>
+                  <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {p.poNo}
+                  </span>
+                  <span style={{ marginLeft: 10, display: "inline-block" }}>
+                    <StatusBadge status={p.status} />
+                  </span>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 700, color: barColor, fontFamily: 'JetBrains Mono, monospace' }}>
                   {pct}%
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 20, marginBottom: 10 }}>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>TARGET</div>
-                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{p.target}</div>
+                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {p.target}
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>COMPLETED</div>
-                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: '#16a34a' }}>{p.completed}</div>
+                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: '#16a34a' }}>
+                    {p.completed}
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>REMAINING</div>
-                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: p.remaining > 0 ? '#ef4444' : 'var(--text-muted)' }}>{p.remaining}</div>
+                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: p.remaining > 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                    {p.remaining}
+                  </div>
                 </div>
               </div>
               <div className="progress-bar">
@@ -216,7 +260,7 @@ function ProductionStatusTab() {
                 />
               </div>
             </div>
-          );
+          )
         })}
       </div>
 
@@ -225,13 +269,14 @@ function ProductionStatusTab() {
         <HorizontalBar data={completionPct} />
       </div>
     </div>
-  );
+  )
 }
 
 function FinishedGoodsTab() {
-  const { finishedGoods } = useApp();
+  const { finishedGoods } = useSearchableApp()
 
   const totalAvailable = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+
   const totalReserved = finishedGoods.reduce((s, f) => s + f.reservedQty, 0);
 
   return (
@@ -255,7 +300,7 @@ function FinishedGoodsTab() {
 
       <div className="app-card" style={{ padding: 16 }}>
         <SectionLabel>Finished Goods Inventory</SectionLabel>
-        <table className="app-table" style={{ width: '100%' }}>
+        <table className="app-table" style={{ width: "100%" }}>
           <thead>
             <tr>
               <th>FG ID</th>
@@ -269,26 +314,43 @@ function FinishedGoodsTab() {
             </tr>
           </thead>
           <tbody>
-            {finishedGoods.map(fg => (
-              <tr key={fg.id} className="table-row-hover">
-                <td className="font-mono">{fg.fgId}</td>
-                <td>{fg.product}</td>
-                <td>{fg.diameter} / {fg.sdr}</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>{fg.quantity}</td>
-                <td className="font-mono" style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>{fg.availableQty}</td>
-                <td className="font-mono" style={{ textAlign: 'right', color: '#d97706', fontWeight: 600 }}>{fg.reservedQty}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{fg.currentLocation || 'Not Yet Assigned'}</td>
-                <td><StatusBadge status={fg.status} /></td>
-              </tr>
-            ))}
+            {
+              <RecordRows
+                records={finishedGoods}
+                render={(fg) => (
+                  <tr key={fg.id} className="table-row-hover">
+                    <td className="font-mono">{fg.fgId}</td>
+                    <td>{fg.product}</td>
+                    <td>
+                      {fg.diameter} / {fg.sdr}
+                    </td>
+                    <td className="font-mono" style={{ textAlign: "right" }}>
+                      {fg.quantity}
+                    </td>
+                    <td className="font-mono" style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
+                      {fg.availableQty}
+                    </td>
+                    <td className="font-mono" style={{ textAlign: 'right', color: '#d97706', fontWeight: 600 }}>
+                      {fg.reservedQty}
+                    </td>
+                    <td style={{ color: "var(--text-secondary)" }}>
+                      {fg.currentLocation || "Not Yet Assigned"}
+                    </td>
+                    <td>
+                      <StatusBadge status={fg.status} />
+                    </td>
+                  </tr>
+                )}
+              />
+            }
           </tbody>
         </table>
       </div>
     </div>
-  );
+  )
 }
 
-export default function MarketingReports() {
+function MarketingReports() {
   const [activeTab, setActiveTab] = useState<Tab>('sales');
   const period = usePeriod('month');
 
@@ -336,3 +398,10 @@ export default function MarketingReports() {
     </div>
   );
 }
+
+export default withRecordSearch(MarketingReports, [
+  "orders",
+  "manufacturingOrders",
+  "productionOrders",
+  "finishedGoods",
+])
