@@ -25,6 +25,10 @@ export default function ShiftAttendance() {
   const employeeMatchesAccount = !!matchedEmployee
     && matchedEmployee.employeeId === currentUser?.employeeId
     && matchedEmployee.username === currentUser?.username;
+  const assignedShift = employeeMatchesAccount ? matchedEmployee.defaultShift : null;
+  const shiftMismatch = assignedShift === 'Day' || assignedShift === 'Night'
+    ? assignedShift !== shift
+    : false;
 
   return (
     <div className="auth-screen" style={{
@@ -69,6 +73,10 @@ export default function ShiftAttendance() {
               <div className="clockin-value font-mono">{employeeMatchesAccount ? matchedEmployee.employeeId : '—'}</div>
             </div>
             <div>
+              <div className="clockin-label">Assigned Shift <span>READ ONLY</span></div>
+              <div className="clockin-value">{assignedShift ? `${assignedShift} Shift` : '—'}</div>
+            </div>
+            <div>
               <div className="clockin-label">Date <span>AUTO</span></div>
               <div className="clockin-value">{dateStr}</div>
             </div>
@@ -77,13 +85,14 @@ export default function ShiftAttendance() {
               <div className="clockin-value font-mono">{timeStr}</div>
             </div>
             <div className="clockin-shift">
-              <div className="clockin-label">Shift <span>AUTO</span></div>
+              <div className="clockin-label">Current Operational Shift <span>AUTO</span></div>
               <div className="clockin-value">{shift} Shift ({shift === 'Day' ? '6AM–6PM' : '6PM–6AM'})</div>
             </div>
           </div>
         </div>
 
-        {error && <div className="alert-error mb-4">{error}</div>}
+        {shiftMismatch && !error && <div className="alert-warning mb-4"><strong>SHIFT NOT YET ACTIVE</strong><div>Your assigned {assignedShift} Shift begins at {assignedShift === 'Day' ? '6:00 AM' : '6:00 PM'}. The current active shift is {shift} Shift.</div></div>}
+        {error && <div className="alert-error mb-4" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
 
         <button
           className="btn-primary"
@@ -93,7 +102,7 @@ export default function ShiftAttendance() {
             const result = clockIn(employeeName);
             if (!result.success) setError(result.error || 'Clock In could not be saved.');
           }}
-          disabled={!employeeName.trim()}
+          disabled={!employeeName.trim() || shiftMismatch}
         >
           CLOCK IN
         </button>

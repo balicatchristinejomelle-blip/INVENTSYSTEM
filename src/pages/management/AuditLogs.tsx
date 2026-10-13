@@ -25,7 +25,7 @@ function processType(action: string, reference = '') {
 }
 
 export default function AuditLogs() {
-  const { auditLogs } = useApp();
+  const { auditLogs, currentUser } = useApp();
   const [type, setType] = useState('All');
   const [employeeRole, setEmployeeRole] = useState('All');
   const [action, setAction] = useState('All');
@@ -33,10 +33,13 @@ export default function AuditLogs() {
   const [page, setPage] = useState(1);
   const period = usePeriod('month');
 
-  const rows = useMemo(() => auditLogs.map(log => ({
+  const authorizedLogs = currentUser?.role === 'management'
+    ? auditLogs.filter(log => log.role !== 'Owner / Super Admin' && !/access change|account created/i.test(log.action))
+    : auditLogs;
+  const rows = useMemo(() => authorizedLogs.map(log => ({
     ...log,
     processType: processType(log.action, log.reference),
-  })), [auditLogs]);
+  })), [authorizedLogs]);
   const types = useMemo(() => Array.from(new Set(rows.map(row => row.processType))).sort(), [rows]);
 
   // Build combined Employee / Role options: individual employees + role groups

@@ -1,193 +1,144 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
 import { ConfirmModal } from '../../components/Modal';
 import Pagination, { pageRecords } from '../../components/Pagination';
 
+type Shift = 'Day' | 'Night';
+
 export default function Employees() {
-  const { employees, addEmployee, updateEmployee } = useApp();
-  const [showAdd, setShowAdd] = useState(false);
-  const [viewId, setViewId] = useState<string | null>(null);
-  const [deactivateId, setDeactivateId] = useState<string | null>(null);
-  const [resetId, setResetId] = useState<string | null>(null);
-  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const { employees, attendance, assignEmployeeShift } = useApp();
+  const [search, setSearch] = useState('');
+  const [shiftFilter, setShiftFilter] = useState<'All' | Shift>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('Active');
   const [page, setPage] = useState(1);
-  const [form, setForm] = useState({
-    firstName: '', lastName: '', username: '', role: 'production' as 'production' | 'plantmanager',
-    defaultShift: 'Day' as 'Day' | 'Night' | 'Rotating' | 'Assign Later', status: 'Active' as 'Active' | 'Inactive',
-  });
+  const [pending, setPending] = useState<{ id: string; shift: Shift } | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
-  const viewEmp = employees.find(e => e.id === viewId);
-  const deactivateEmp = employees.find(e => e.id === deactivateId);
+  const productionEmployees = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return employees
+      .filter(employee => employee.role === 'production')
+      .filter(employee => statusFilter === 'All' || employee.status === statusFilter)
+      .filter(employee => shiftFilter === 'All' || employee.defaultShift === shiftFilter)
+      .filter(employee => !query || [
+        employee.employeeId,
+        employee.firstName,
+        employee.lastName,
+        employee.username,
+        employee.defaultShift,
+      ].some(value => value.toLowerCase().includes(query)))
+      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
+  }, [employees, search, shiftFilter, statusFilter]);
 
-  const genPassword = () => `HPAI@${Math.random().toString(36).slice(2,8).toUpperCase()}`;
-  const openReset = (id: string) => {
-    setResetId(id);
-    setTemporaryPassword(genPassword());
-  };
+  const pendingEmployee = employees.find(employee => employee.id === pending?.id);
+  const activeAttendanceFor = (employeeId: string) =>
+    attendance.find(record => record.employeeId === employeeId && record.status === 'Active');
 
-  const handleAdd = () => {
-    if (!form.firstName || !form.lastName || !form.username) return;
-    const idPrefix = form.role === 'production' ? 'BP-PRD' : 'BP-PM';
-    const next = employees.filter(e => e.role === form.role).length + 1;
-    addEmployee({
-      employeeId: `${idPrefix}-${String(next + 4).padStart(3, '0')}`,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      username: form.username,
-      role: form.role,
-      plant: 'Branch Plant',
-      defaultShift: form.defaultShift,
-      status: form.status,
-    });
-    setShowAdd(false);
-    setForm({ firstName: '', lastName: '', username: '', role: 'production', defaultShift: 'Day', status: 'Active' });
-  };
-
-  const F = (l: string, v: string) => (
-    <div key={l}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{l}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{v}</div>
-    </div>
-  );
+  const resetPage = () => setPage(1);
 
   return (
-    <div>
-      <div className="mb-4 page-actions">
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>Add Employee</button>
+    <div className="page-stack">
+      <div className="page-intro">
+        <div>
+          <span className="eyebrow">Management oversight</span>
+          <h2>Attendance &amp; Shift Assignment</h2>
+          <p>Assign active Production employees to Day or Night Shift. Production employees cannot change their own assignment.</p>
+        </div>
+        <span className="badge-blue">Management controlled</span>
       </div>
 
-      <div className="app-card" style={{ overflow: 'hidden' }}>
+      {feedback && <div className={feedback.kind === 'success' ? 'alert-success' : 'alert-error'}>{feedback.message}</div>}
+
+      <div className="filter-panel">
+        <div className="filter-row">
+          <input
+            className="app-input"
+            value={search}
+            onChange={event => { setSearch(event.target.value); resetPage(); }}
+            placeholder="Search employee name, ID, username, or shift..."
+          />
+          <select className="app-select" value={shiftFilter} onChange={event => { setShiftFilter(event.target.value as typeof shiftFilter); resetPage(); }}>
+            <option value="All">All Shifts</option>
+            <option value="Day">Day Shift</option>
+            <option value="Night">Night Shift</option>
+          </select>
+          <select className="app-select" value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); resetPage(); }}>
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="app-card table-scroll">
         <table className="app-table">
           <thead>
-            <tr><th>Employee ID</th><th>Name</th><th>Role</th><th>Shift</th><th>Status</th><th>Last Login</th><th data-actions>Actions</th></tr>
+            <tr>
+              <th>Employee</th>
+              <th>Employee ID</th>
+              <th>Current Shift</th>
+              <th>Attendance</th>
+              <th>Status</th>
+              <th data-actions>New Shift</th>
+            </tr>
           </thead>
           <tbody>
-            {pageRecords(employees, page).map(emp => (
-              <tr key={emp.id} className="table-row-hover" onClick={() => setViewId(emp.id)}>
-                <td className="font-mono" style={{ fontSize: 11 }}>{emp.employeeId}</td>
-                <td style={{ fontSize: 13, fontWeight: 500 }}>{emp.firstName} {emp.lastName}</td>
-                <td><span className={`badge-${emp.role === 'plantmanager' ? 'blue' : 'gray'} px-2 py-0.5 text-[11px] rounded font-medium`}>{emp.role === 'plantmanager' ? 'Plant Manager' : 'Production'}</span></td>
-                <td style={{ fontSize: 12 }}>{emp.defaultShift}</td>
-                <td><StatusBadge status={emp.status === 'Active' ? 'Active' : 'Inactive'} size="sm" /></td>
-                <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{emp.lastLogin || 'Never'}</td>
-                <td onClick={e => e.stopPropagation()}>
-                  <div className="button-group">
-                    <button className="btn-secondary btn-compact" onClick={() => setViewId(emp.id)}>View</button>
-                    <button className="btn-secondary btn-compact" onClick={() => setViewId(emp.id)}>Edit</button>
-                    <button className="btn-warning btn-compact" onClick={() => openReset(emp.id)}>Reset Password</button>
-                    {emp.status === 'Active' && <button className="btn-danger btn-compact" onClick={() => setDeactivateId(emp.id)}>Deactivate</button>}
-                    {emp.status === 'Inactive' && <button className="btn-success btn-compact" onClick={() => updateEmployee(emp.id, { status: 'Active' })}>Activate</button>}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {pageRecords(productionEmployees, page).map(employee => {
+              const activeAttendance = activeAttendanceFor(employee.employeeId);
+              const currentShift = employee.defaultShift === 'Day' || employee.defaultShift === 'Night' ? employee.defaultShift : null;
+              const newShift: Shift = currentShift === 'Day' ? 'Night' : 'Day';
+              return (
+                <tr key={employee.id}>
+                  <td><strong>{employee.firstName} {employee.lastName}</strong><div className="helper-text font-mono">{employee.username}</div></td>
+                  <td className="font-mono">{employee.employeeId}</td>
+                  <td>{currentShift ? <StatusBadge status={`${currentShift} Shift`} /> : <StatusBadge status="Not Assigned" />}</td>
+                  <td>{activeAttendance ? <><StatusBadge status="Clocked In" /><div className="helper-text">{activeAttendance.shift} Shift · {activeAttendance.clockIn}</div></> : <StatusBadge status="Clocked Out" />}</td>
+                  <td><StatusBadge status={employee.status} /></td>
+                  <td>
+                    <button
+                      className="btn-secondary btn-compact"
+                      disabled={employee.status !== 'Active'}
+                      title={employee.status !== 'Active' ? 'Only active Production employees may receive a shift assignment.' : `Assign ${newShift} Shift`}
+                      onClick={() => { setPending({ id: employee.id, shift: newShift }); setFeedback(null); }}
+                    >
+                      Assign {newShift} Shift
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        <Pagination page={page} totalRecords={employees.length} onPageChange={setPage} />
+        {!productionEmployees.length && (
+          <div className="empty-state empty-state-action">
+            <strong>NO RECORDS FOUND</strong>
+            <span>No Production employees match the selected search or filters.</span>
+            <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); setShiftFilter('All'); setStatusFilter('Active'); setPage(1); }}>Clear Filters</button>
+          </div>
+        )}
+        <Pagination page={page} totalRecords={productionEmployees.length} onPageChange={setPage} noun="employees" />
       </div>
 
-      {/* View modal */}
-      {viewId && viewEmp && (
-        <Modal open title={`Employee — ${viewEmp.employeeId}`} onClose={() => setViewId(null)}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {F('Employee ID', viewEmp.employeeId)}
-            {F('Full Name', `${viewEmp.firstName} ${viewEmp.lastName}`)}
-            {F('Username', viewEmp.username)}
-            {F('Role', viewEmp.role === 'plantmanager' ? 'Plant Manager' : 'Production')}
-            {F('Plant', viewEmp.plant)}
-            {F('Default Shift', viewEmp.defaultShift)}
-            {F('Status', viewEmp.status)}
-            {F('Last Login', viewEmp.lastLogin || 'Never')}
-          </div>
-          <div className="mt-4 form-actions">
-            <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
-            <button className="btn-secondary">Edit</button>
-            <button className="btn-warning">Reset Password</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Add Employee modal */}
-      <Modal open={showAdd} title="Add Employee" onClose={() => setShowAdd(false)}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-          <div style={{ gridColumn: '1/-1' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Employee ID</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>Auto-generated upon creation</div>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>First Name <span style={{ color: '#dc2626' }}>*</span></label>
-            <input className="app-input" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Last Name <span style={{ color: '#dc2626' }}>*</span></label>
-            <input className="app-input" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Username <span style={{ color: '#dc2626' }}>*</span></label>
-            <input className="app-input" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Temporary Password</label>
-            <div className="flex gap-1">
-              <input className="app-input" value={genPassword()} readOnly style={{ flex: 1, fontSize: 11 }} />
-              <button className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>Generate Password</button>
-            </div>
-          </div>
-          <div style={{ gridColumn: '1/-1', fontSize: 11, color: 'var(--text-muted)', background: 'rgba(37,99,235,0.05)', padding: '6px 10px', borderRadius: 5 }}>Plant: <strong>Branch Plant</strong></div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Role</label>
-            <select className="app-select" style={{ width: '100%' }} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))}>
-              <option value="production">Production</option>
-              <option value="plantmanager">Plant Manager</option>
-            </select>
-          </div>
-          {form.role === 'production' && (
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Default Shift</label>
-              <select className="app-select" style={{ width: '100%' }} value={form.defaultShift} onChange={e => setForm(f => ({ ...f, defaultShift: e.target.value as any }))}>
-                <option value="Day">Day</option>
-                <option value="Night">Night</option>
-                <option value="Rotating">Rotating</option>
-                <option value="Assign Later">Assign Later</option>
-              </select>
-            </div>
-          )}
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Status</label>
-            <select className="app-select" style={{ width: '100%' }} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-actions">
-          <button className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-          <button className="btn-primary" onClick={handleAdd}>Add Employee</button>
-        </div>
-      </Modal>
-
       <ConfirmModal
-        open={deactivateId !== null}
-        title="Deactivate Employee"
-        message={`Are you sure you want to deactivate ${deactivateEmp?.firstName} ${deactivateEmp?.lastName}? Their attendance, production records, and audit logs will be preserved.`}
-        confirmLabel="Deactivate"
-        confirmClass="btn-danger"
+        open={!!pending && !!pendingEmployee}
+        title="Confirm Employee Shift Change"
+        message={pendingEmployee && pending
+          ? `${pendingEmployee.firstName} ${pendingEmployee.lastName} (${pendingEmployee.employeeId}) will change from ${pendingEmployee.defaultShift} Shift to ${pending.shift} Shift. This action will be written to the Audit Log.`
+          : 'Confirm this shift assignment?'}
+        confirmLabel="Confirm Shift Change"
+        confirmClass="btn-primary"
         onConfirm={() => {
-          if (deactivateId) updateEmployee(deactivateId, { status: 'Inactive' });
-          setDeactivateId(null);
+          if (!pending) return;
+          const result = assignEmployeeShift(pending.id, pending.shift);
+          setFeedback({
+            kind: result.success ? 'success' : 'error',
+            message: result.success ? 'Employee shift changed successfully.' : (result.error || 'Shift assignment could not be saved.'),
+          });
+          setPending(null);
         }}
-        onCancel={() => setDeactivateId(null)}
+        onCancel={() => setPending(null)}
       />
-      {resetId && <Modal open title="Reset Password" onClose={() => setResetId(null)}>
-        <div className="page-stack">
-          <div className="alert-warning">A temporary password has been generated. The employee's existing password is never displayed.</div>
-          <label>Temporary Password<div className="input-action"><input className="app-input font-mono" readOnly value={temporaryPassword} /><button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(temporaryPassword)}>Copy Password</button></div></label>
-          <div className="responsive-grid"><div><div className="field-label">Password Status</div><div className="field-value">Temporary · Change required at next sign-in</div></div></div>
-          <div className="form-actions"><button className="btn-secondary" onClick={() => setResetId(null)}>Cancel</button><button className="btn-warning" onClick={() => setResetId(null)}>Confirm Reset</button></div>
-        </div>
-      </Modal>}
     </div>
   );
 }

@@ -567,6 +567,7 @@ interface AppContextValue extends AppState {
   acceptTurnover: () => void;
   addEmployee: (emp: Omit<Employee, 'id'>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  assignEmployeeShift: (id: string, shift: 'Day' | 'Night') => { success: boolean; error?: string };
   addCustomer: (customer: Omit<Customer, 'id'>) => void;
   createCustomerOrder: (order: Omit<CustomerOrder, 'id' | 'orderNo' | 'orderDate' | 'status' | 'moRef' | 'availableStock' | 'reservedQuantity' | 'releasedQuantity'>) => { success: boolean; orderNo?: string; moNo?: string; reserved: number; shortage: number; error?: string };
   createReceivingReport: (data: {
@@ -978,6 +979,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         result = { success: false, error: 'EMPLOYEE MISMATCH' };
         return s;
       }
+      if (employee.defaultShift !== 'Day' && employee.defaultShift !== 'Night') {
+        result = { success: false, error: 'SHIFT NOT ASSIGNED\nManagement must assign a Day Shift or Night Shift before Clock In.' };
+        return s;
+      }
+      if (employee.defaultShift !== shift) {
+        result = {
+          success: false,
+          error: `SHIFT NOT YET ACTIVE\nYour assigned ${employee.defaultShift} Shift begins at ${employee.defaultShift === 'Day' ? '6:00 AM' : '6:00 PM'}.\nThe current active shift is ${shift} Shift.`,
+        };
+        return s;
+      }
       if (s.clockedIn) {
         result = { success: false, error: 'This employee is already clocked in.' };
         return s;
@@ -1174,6 +1186,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }, ...s.auditLogs],
       };
     });
+  }, []);
+
+  const assignEmployeeShift = useCallback((id: string, shift: 'Day' | 'Night') => {
+    let result: { success: boolean; error?: string } = { success: false, error: 'Shift assignment could not be saved.' };
+    setState(s => {
+      if (s.currentUser?.role !== 'management') {
+        result = { success: false, error: 'Only Management may change Production shift assignments.' };
+        return s;
+      }
+      const employee = s.employees.find(item => item.id === id);
+      if (!employee || employee.role !== 'production' || employee.status !== 'Active') {
+        result = { success: false, error: 'Select an active Production employee.' };
+        return s;
+      }
+      if (employee.defaultShift === shift) {
+        result = { success: false, error: `${employee.firstName} ${employee.lastName} is already assigned to ${shift} Shift.` };
+        return s;
+      }
+      const now = new Date();
+      result = { success: true };
+      return {
+        ...s,
+        employees: s.employees.map(item => item.id === id ? { ...item, defaultShift: shift } : item),
+        auditLogs: [{
+          id: `al-shift-${now.getTime()}`,
+          user: s.currentUser.name,
+          employeeId: s.currentUser.employeeId,
+          role: 'Management',
+          action: 'Employee Shift Changed',
+          date: now.toISOString().slice(0, 10),
+          time: now.toTimeString().slice(0, 5),
+          reference: employee.employeeId,
+          previousValue: `${employee.firstName} ${employee.lastName} · ${employee.defaultShift} Shift`,
+          newValue: `${employee.firstName} ${employee.lastName} · ${shift} Shift`,
+        }, ...s.auditLogs],
+      };
+    });
+    return result;
   }, []);
 
   const addCustomer = useCallback((customer: Omit<Customer, 'id'>) => {
@@ -2982,7 +3032,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     currentMaterialUsage,
     setTheme, login, logout, navigate, clockIn, clockOut,
     markNotificationsRead, approveMaterialRequest, rejectMaterialRequest,
-    acceptTurnover, addEmployee, updateEmployee, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, recordOutput,
+    acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, recordOutput,
     addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
     markPelletBarcodePrinted, markFinishedGoodBarcodePrinted, createProductionOrder,
     receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, completeRecyclingBatch,

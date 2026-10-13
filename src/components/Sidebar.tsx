@@ -68,13 +68,13 @@ function getNavItems(role: Role, clockedIn: boolean): NavItem[] {
     ];
     case 'accounting': return [
       { id: 'dash', label: 'Dashboard', icon: icons.dashboard, page: 'accounting-dashboard' },
-      { id: 'materials', label: 'Materials', icon: icons.materials, children: [
-        { id: 'raw', label: 'Raw Materials', page: 'acc-raw-materials' },
-        { id: 'rr', label: 'RR Records', page: 'acc-rr-records' },
+      { id: 'materials', label: 'Receiving & Material Inventory', icon: icons.materials, children: [
+        { id: 'rr', label: 'Receiving / RR', page: 'acc-rr-records' },
+        { id: 'raw', label: 'Material Inventory', page: 'acc-raw-materials' },
       ]},
-      { id: 'brequests', label: 'Branch Requests', icon: icons.requests, page: 'acc-branch-requests' },
+      { id: 'brequests', label: 'Material Requests', icon: icons.requests, page: 'acc-branch-requests' },
       { id: 'transfers', label: 'Transfers', icon: icons.transfers, page: 'acc-transfers' },
-      { id: 'transactions', label: 'Transactions', icon: icons.transactions, page: 'acc-transactions' },
+      { id: 'transactions', label: 'Inventory Transactions', icon: icons.transactions, page: 'acc-transactions' },
       { id: 'reports', label: 'Reports', icon: icons.reports, page: 'acc-reports' },
       { id: 'div1', label: '', icon: null, isDivider: true },
       { id: 'notifs', label: 'Notifications', icon: icons.notifications, page: 'notifications' },
@@ -85,9 +85,9 @@ function getNavItems(role: Role, clockedIn: boolean): NavItem[] {
     case 'marketing': return [
       { id: 'dash', label: 'Dashboard', icon: icons.dashboard, page: 'marketing-dashboard' },
       { id: 'customers', label: 'Customers', icon: icons.customers, page: 'mkt-customers' },
-      { id: 'orders', label: 'Orders', icon: icons.orders, page: 'mkt-orders' },
-      { id: 'fg', label: 'Finished Goods', icon: icons.fg, page: 'mkt-finished-goods' },
-      { id: 'mo', label: 'MO & Tracking', icon: icons.mo, page: 'mkt-mo-tracking' },
+      { id: 'orders', label: 'Customer Orders', icon: icons.orders, page: 'mkt-orders' },
+      { id: 'fg', label: 'Finished Goods & Fulfillment', icon: icons.fg, page: 'mkt-finished-goods' },
+      { id: 'mo', label: 'Manufacturing Tracking', icon: icons.mo, page: 'mkt-mo-tracking' },
       { id: 'reports', label: 'Reports', icon: icons.reports, page: 'mkt-reports' },
       { id: 'div1', label: '', icon: null, isDivider: true },
       { id: 'notifs', label: 'Notifications', icon: icons.notifications, page: 'notifications' },
@@ -98,14 +98,13 @@ function getNavItems(role: Role, clockedIn: boolean): NavItem[] {
     case 'management': return [
       { id: 'dash', label: 'Dashboard', icon: icons.dashboard, page: 'management-dashboard' },
       { id: 'ops', label: 'Operations', icon: icons.operations, page: 'mgmt-operations' },
-      { id: 'employees', label: 'Employees & Access', icon: icons.employees, page: 'mgmt-employees' },
-      { id: 'reports', label: 'Reports', icon: icons.reports, page: 'mgmt-reports' },
+      { id: 'employees', label: 'Attendance & Shift Assignment', icon: icons.employees, page: 'mgmt-employees' },
+      { id: 'reports', label: 'Reports & Analytics', icon: icons.reports, page: 'mgmt-reports' },
       { id: 'audit', label: 'Audit Logs', icon: icons.audit, page: 'mgmt-audit' },
       { id: 'div1', label: '', icon: null, isDivider: true },
       { id: 'notifs', label: 'Notifications', icon: icons.notifications, page: 'notifications' },
       { id: 'profile', label: 'Profile', icon: icons.profile, page: 'profile' },
       { id: 'theme', label: 'Theme', icon: icons.theme, action: 'theme' },
-      { id: 'settings', label: 'Settings', icon: icons.settings, page: 'mgmt-settings' },
       { id: 'logout', label: 'Logout', icon: icons.logout, action: 'logout' },
     ];
     case 'plantmanager': return [

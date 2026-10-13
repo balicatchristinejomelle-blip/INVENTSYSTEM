@@ -13,6 +13,7 @@ interface PaginationProps {
 }
 
 export default function Pagination({ page, totalRecords, onPageChange, noun = 'records' }: PaginationProps) {
+  if (totalRecords <= PAGE_SIZE) return null;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const firstRecord = totalRecords ? (safePage - 1) * PAGE_SIZE + 1 : 0;

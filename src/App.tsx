@@ -100,7 +100,6 @@ function PageRenderer() {
     'mgmt-employees': <Employees />,
     'mgmt-reports': <ManagementReports />,
     'mgmt-audit': <AuditLogs />,
-    'mgmt-settings': <ManagementSettings />,
 
     // Plant Manager
     'pm-dashboard': <PMDashboard />,

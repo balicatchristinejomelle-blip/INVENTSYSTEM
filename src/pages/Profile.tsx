@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../store';
 
 export default function Profile() {
-  const { currentUser, currentPage, navigate, clockedIn, currentShift, clockInTime } = useApp();
+  const { currentUser, employees, navigate, clockedIn, currentShift, clockInTime } = useApp();
   const [mode, setMode] = useState<'view' | 'edit' | 'password'>('view');
   const [firstName, setFirstName] = useState(currentUser?.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(currentUser?.name.split(' ').slice(1).join(' ') || '');
@@ -39,6 +39,7 @@ export default function Profile() {
   };
 
   if (!currentUser) return null;
+  const employeeRecord = employees.find(employee => employee.employeeId === currentUser.employeeId);
 
   if (mode === 'edit') return (
     <div style={{ maxWidth: 520, margin: '0 auto' }}>
@@ -118,7 +119,7 @@ export default function Profile() {
             ['Account Status', 'Active'],
             ['Last Login', currentUser.lastLogin || 'N/A'],
             ...(currentUser.role === 'production' ? [
-              ['Default Shift', currentUser.defaultShift || 'Day'],
+              ['Assigned Shift', employeeRecord?.defaultShift || currentUser.defaultShift || 'Not assigned'],
               ...(clockedIn ? [['Current Status', 'Clocked In — ' + currentShift + ' Shift (' + clockInTime + ')']] : []),
             ] : []),
           ].map(([label, value]) => (

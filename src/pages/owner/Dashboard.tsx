@@ -19,7 +19,8 @@ export default function OwnerDashboard() {
   const [alertTab, setAlertTab] = useState<AlertTab>('All');
   const [alertPage, setAlertPage] = useState(1);
   const availablePellets = app.pellets.filter(item => item.inventoryStatus === 'Available');
-  const virginKg = availablePellets.filter(item => item.type === 'Virgin').reduce((sum, item) => sum + item.availableKg, 0);
+  const pe80Kg = availablePellets.filter(item => item.grade === 'PE80').reduce((sum, item) => sum + item.availableKg, 0);
+  const pe100Kg = availablePellets.filter(item => item.grade === 'PE100').reduce((sum, item) => sum + item.availableKg, 0);
   const recycledKg = availablePellets.filter(item => item.type === 'Recycled').reduce((sum, item) => sum + item.availableKg, 0);
   const colorantKg = app.colorants.reduce((sum, item) => sum + item.availableKg, 0);
   const availablePipes = app.finishedGoods.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length;
@@ -48,22 +49,23 @@ export default function OwnerDashboard() {
     <section>
       <div className="section-heading"><div><span>Current operating position</span><strong>Live shared records</strong></div><p>Current balances and open work only. Historical trends are kept in Reports &amp; Analytics.</p></div>
       <div className="owner-metric-grid">
-        <Metric label="Virgin Pellet Stock" value={`${virginKg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
-        <Metric label="Recycled Pellet Stock" value={`${recycledKg.toFixed(1)} kg`} tone="green" onClick={goRecords} />
-        <Metric label="Colorant Stock" value={`${colorantKg.toFixed(2)} kg`} onClick={goRecords} />
-        <Metric label="Production WIP" value={`${app.productionOrders.filter(item => item.status === 'In Production').length} orders`} tone="blue" />
+        <Metric label="PE80 Stock" value={`${pe80Kg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
+        <Metric label="PE100 Stock" value={`${pe100Kg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
         <Metric label="Available Finished Pipes" value={availablePipes} tone="green" onClick={goRecords} />
         <Metric label="Reserved Finished Pipes" value={reserved} tone="amber" onClick={goRecords} />
-        <Metric label="Ready for Ship Out" value={ready} tone="amber" onClick={goRecords} />
         <Metric label="Active Production Orders" value={app.productionOrders.filter(item => !['Completed', 'Cancelled'].includes(item.status)).length} tone="blue" />
-        <Metric label="Production In Progress" value={app.productionOrders.filter(item => item.status === 'In Production').length} tone="blue" />
-        <Metric label="Pending Shift Turnovers" value={app.turnovers.filter(item => item.status === 'Pending').length} tone="amber" />
-        <Metric label="Active Recycling Batches" value={app.recyclingBatches.filter(item => item.status !== 'Completed').length} tone="green" />
-        <Metric label="Today's Attendance" value={app.attendance.filter(item => item.date === today).length} />
-        <Metric label="Open Material Requests" value={app.materialRequests.filter(item => !['Approved', 'Rejected'].includes(item.status)).length} tone="amber" />
-        <Metric label="Open Transfers" value={app.transfers.filter(item => item.status !== 'Received').length} tone="blue" />
-        <Metric label="Important Alerts" value={activeAlerts.length} tone={activeAlerts.length ? 'red' : 'green'} />
-        <Metric label="Urgent Issues" value={alertCounts.Urgent} tone={alertCounts.Urgent ? 'red' : 'green'} />
+        <Metric label="Rejected Today" value={`${app.rejectedMaterials.filter(item => item.date === today).reduce((sum, item) => sum + item.quantity, 0)} pipes`} tone={app.rejectedMaterials.some(item => item.date === today) ? 'red' : 'green'} />
+      </div>
+    </section>
+    <section className="app-card detail-card">
+      <div className="section-heading"><div><span>Current operations</span><strong>Live supporting status</strong></div><button className="btn-secondary btn-compact" onClick={goRecords}>View All Records</button></div>
+      <div className="responsive-grid">
+        <div><div className="field-label">Recycled Pellet Stock</div><div className="field-value">{recycledKg.toFixed(1)} kg</div></div>
+        <div><div className="field-label">Colorant Stock</div><div className="field-value">{colorantKg.toFixed(2)} kg</div></div>
+        <div><div className="field-label">Ready for Ship Out</div><div className="field-value">{ready}</div></div>
+        <div><div className="field-label">Pending Turnovers</div><div className="field-value">{app.turnovers.filter(item => item.status === 'Pending').length}</div></div>
+        <div><div className="field-label">Today's Attendance</div><div className="field-value">{app.attendance.filter(item => item.date === today).length}</div></div>
+        <div><div className="field-label">Open Requests / Transfers</div><div className="field-value">{app.materialRequests.filter(item => !['Approved', 'Rejected'].includes(item.status)).length} / {app.transfers.filter(item => item.status !== 'Received').length}</div></div>
       </div>
     </section>
     <section className="app-card detail-card">
