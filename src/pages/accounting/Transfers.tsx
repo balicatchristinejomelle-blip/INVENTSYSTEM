@@ -65,7 +65,7 @@ export default function Transfers() {
     <div>
       <div className="mb-4"><CategoryTabs items={categoryTabs} value={category} onChange={v => { setCategory(v); setPage(1); }} label="Transfer material category" /></div>
       <div className="flex items-center justify-between mb-4 page-toolbar">
-        <div className="flex gap-1">
+        <div className="report-tabs flex gap-1">
           {statuses.map(s => (
             <button key={s} onClick={() => { setFilter(s); setPage(1); }} style={{
               padding: '5px 12px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: filter === s ? 600 : 400,

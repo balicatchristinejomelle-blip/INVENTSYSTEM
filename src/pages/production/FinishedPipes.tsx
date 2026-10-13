@@ -338,7 +338,7 @@ export default function FinishedPipes() {
 
       {/* Filter tabs */}
       <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', padding: '0 16px' }}>
+        <div className="report-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', padding: '0 16px' }}>
           {FILTER_TABS.map(tab => {
             const count = finishedGoods.filter(fg => matchesDestination(fg, tab)).length;
             const active = activeTab === tab;

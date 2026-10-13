@@ -86,7 +86,7 @@ export default function BranchRequests() {
         <CategoryTabs items={categoryTabs} value={category} onChange={v => { setCategory(v); setPage(1); }} label="Material request category" />
       </div>
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4">
+      <div className="report-tabs flex gap-1 mb-4">
         {statuses.map(s => (
           <button key={s} onClick={() => { setFilter(s); setPage(1); }} style={{
             padding: '5px 12px', borderRadius: 5, cursor: 'pointer',

@@ -138,9 +138,11 @@ export default function PMProductionOrders() {
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{viewPO.completedQty} / {viewPO.targetQty} units ({viewPO.targetQty > 0 ? Math.round(viewPO.completedQty/viewPO.targetQty*100) : 0}%)</div>
           </div>
-          <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
-          <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
-          <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
+          <div className="form-actions">
+            <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
+            <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
+            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
+          </div>
         </Modal>
       )}
       <DocumentViewer open={!!documentAction} document={documentPO ? productionOrderDocument(documentPO) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />

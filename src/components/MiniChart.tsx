@@ -13,16 +13,16 @@ interface BarChartProps {
 export function BarChart({ data, height = 120, showValues = true, unit = '', maxVal }: BarChartProps) {
   const max = maxVal ?? Math.max(...data.map(d => d.value), 1);
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 30, paddingTop: 20, position: 'relative' }}>
+    <div className="mini-bar-chart" style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 30, paddingTop: 20, position: 'relative' }}>
       {data.map((d, i) => {
         const pct = max > 0 ? (d.value / max) * 100 : 0;
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             {showValues && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{d.value}{unit}</span>}
             <div style={{ width: '100%', height: height, display: 'flex', alignItems: 'flex-end' }}>
               <div style={{ width: '100%', height: `${Math.max(2, pct)}%`, background: d.color || '#2563eb', borderRadius: '3px 3px 0 0', transition: 'height 0.3s', opacity: 0.9 }} />
             </div>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{d.label}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2, overflowWrap: 'anywhere' }}>{d.label}</span>
           </div>
         );
       })}
@@ -119,7 +119,7 @@ export function HorizontalBar({ data }: { data: HBarData[] }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {data.map((d, i) => (
         <div key={i}>
-          <div className="flex justify-between" style={{ marginBottom: 4 }}>
+          <div className="chart-label-row flex justify-between" style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{d.label}</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{d.value}{d.unit || ''}</span>
           </div>

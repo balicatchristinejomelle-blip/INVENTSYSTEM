@@ -63,7 +63,7 @@ export default function IncomingTransfers() {
 
       <div className="app-card" style={{ overflow: 'hidden' }}>
         {/* Filter Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--card-border)' }}>
+        <div className="report-tabs" style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--card-border)' }}>
           {tabs.map(t => {
             const count = t === 'All' ? transfers.length : transfers.filter(x => x.status === t).length;
             return (

@@ -83,7 +83,7 @@ export default function PMShiftTurnover() {
       )}
 
       {/* Tab filters */}
-      <div className="flex gap-1 mb-4">
+      <div className="report-tabs flex gap-1 mb-4">
         {TABS.map(tab => (
           <button
             key={tab}
