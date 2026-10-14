@@ -355,9 +355,8 @@ export default function OwnerRecords() {
       <div className="button-group"><button className="btn-secondary" onClick={() => setMonitorReprints(value => !value)}>{monitorReprints ? 'Hide Reprint History' : 'Reprint Requests & History'}</button></div>
       {monitorReprints && <ReprintApprovals monitor search={search} />}
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
-      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." />
+      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade /> : undefined} />
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
-      {productArea && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
       <div className="filter-panel">
         <div className="filter-row">
           <SearchableDropdown
@@ -368,7 +367,7 @@ export default function OwnerRecords() {
               <option key={item}>{item}</option>
             ))}
           </SearchableDropdown>
-          {inventoryArea && (
+          {inventoryArea && !productArea && (
             <SearchableDropdown
               className="app-select" value={grade} onChange={event => { setGrade(event.target.value); setPage(1); }}
             >

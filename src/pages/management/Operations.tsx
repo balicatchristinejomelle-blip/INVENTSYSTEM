@@ -9,7 +9,7 @@ import StatusBadge from "../../components/StatusBadge"
 
 import CategoryTabs from "../../components/CategoryTabs"
 
-import { MATERIAL_CATEGORIES, MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type MaterialCategoryTab, type PipeProductType } from '../../inventoryCategories';
+import { MATERIAL_CATEGORIES, MATERIAL_GRADES, normalizedProductType, type MaterialCategoryTab, type PipeProductType } from '../../inventoryCategories';
 
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
@@ -81,12 +81,11 @@ export default function Operations() {
 
   const documentPO = productionOrders.find(po => po.id === documentAction?.id);
 
-  const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
   const selectedFinishedGoods = finishedGoods.filter(
     (item) =>
       dateInPeriod(item.productionDate, period.range) &&
-      productFilters.matches(item) &&
+      productFilters.matches(item, { product: '' }) &&
       matchesRecord(withPrintSearch(app, item), query) &&
       (productType === 'All' || normalizedProductType(item.product) === productType),
   )
@@ -109,7 +108,7 @@ export default function Operations() {
   return (
     <div>
       <div className="page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." />
+        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade /> : undefined} />
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
@@ -124,7 +123,6 @@ export default function Operations() {
       </div>
 
       {tab === 'reprints' && <ReprintApprovals search={search} />}
-      {(tab === 'production' || tab === 'orders') && <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} includeProduct={tab === 'production'} includeGrade />}
 
       {tab === "inventory" && (
         <div className="page-stack">
@@ -311,7 +309,6 @@ export default function Operations() {
 
       {tab === "orders" && (
         <div className="page-stack">
-          <CategoryTabs items={productTabs} value={productType} onChange={setProductType} label="Finished goods product type" />
           <div className="app-card" style={{ overflow: "hidden" }}>
             <table className="app-table">
               <thead>

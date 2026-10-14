@@ -209,7 +209,7 @@ export default function Settings() {
   const lengthOptions = lengthsForForm(specForm.productForm)
 
   return (
-    <div className="page-stack settings-page">
+    <div className={`page-stack settings-page${activeTab === 'Product Specifications' || activeTab === 'Stock Targets / Reorder Levels' ? ' product-filter-page' : ''}`}>
       <div className="section-heading">
         <div>
           <h2>Settings</h2>
@@ -228,7 +228,6 @@ export default function Settings() {
           </button>
         ))}
       </div>
-      {(activeTab === 'Product Specifications' || activeTab === 'Stock Targets / Reorder Levels') && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
       {activeTab === "General" && (
         <div className="app-card settings-card">
           <SectionHeader title="Frontend configuration" description="These settings are local prototype values until the backend is connected." />
@@ -263,6 +262,7 @@ export default function Settings() {
           <div className="record-filter-bar">
             <input className="app-input record-search" aria-label="Search Product Specifications" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search type, grade, size, SDR / Thickness, form, length, color, stripe, or construction" />
           </div>
+          <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />
           <div className="table-scroll">
             <table className="app-table">
               <thead>
@@ -328,6 +328,7 @@ export default function Settings() {
           <div className="record-filter-bar">
             <input className="app-input record-search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Plant, inventory type, exact item, or status" />
           </div>
+          <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />
           <div className="table-scroll">
             <table className="app-table">
               <thead>

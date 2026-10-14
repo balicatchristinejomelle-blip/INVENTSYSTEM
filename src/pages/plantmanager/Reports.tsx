@@ -22,7 +22,6 @@ import PeriodSelector, {
 import {
   MATERIAL_CATEGORIES,
   MATERIAL_GRADES,
-  PIPE_PRODUCT_TYPES,
   normalizedProductType,
   type MaterialCategoryTab,
   type PipeProductType,
@@ -276,7 +275,6 @@ export default function PlantManagerReports() {
     [finishedGoods, productType],
   )
 
-  const finishedGradeOptions = MATERIAL_GRADES
 
   const finishedLocationOptions = Array.from(
     new Set(finishedProductEligible.map((item) => item.currentLocation)),
@@ -301,7 +299,7 @@ export default function PlantManagerReports() {
     return (
       statusMatches &&
       (finishedGrade === "All" || item.grade === finishedGrade) &&
-      productFilters.matches(item) &&
+      productFilters.matches(item, { product: '', grade: '' }) &&
       (finishedLocation === "All" ||
         item.currentLocation === finishedLocation) &&
       ([
@@ -322,7 +320,7 @@ export default function PlantManagerReports() {
 
   const filteredProduction = periodProductionOrders.filter(
     (item) =>
-      productFilters.matches(item) &&
+      productFilters.matches(item, { product: '' }) &&
       (productType === "All" ||
         normalizedProductType(item.product) === productType) &&
       ([
@@ -395,7 +393,7 @@ export default function PlantManagerReports() {
         onChange={changeReport}
         label="Report type"
       />
-      {['Finished Goods', 'Production', 'Recycling'].includes(report) && <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} includeProduct={report === 'Recycling'} includeGrade={report !== 'Finished Goods'} includeLength />}
+      {report === 'Recycling' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
 
       {report === "Material Inventory" && (
         <>
@@ -556,37 +554,10 @@ export default function PlantManagerReports() {
               </div>
             ))}
           </div>
-          <div className="filter-panel">
-            <div className="filter-row">
-              <SearchableDropdown
-                className="app-select"
-                value={productType}
-                onChange={(event) => {
-                  setProductType(event.target.value as "All" | PipeProductType)
-                  setFinishedGrade("All")
-                  resetPage()
-                }}
-              >
-                <option value="All">All Product Types</option>
-                {PIPE_PRODUCT_TYPES.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </SearchableDropdown>
-              <SearchableDropdown
-                className="app-select"
-                value={finishedGrade}
-                onChange={(event) => {
-                  setFinishedGrade(event.target.value)
-                  resetPage()
-                }}
-              >
-                <option value="All">All Material Grades</option>
-                {finishedGradeOptions.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </SearchableDropdown>
-            </div>
-            <div className="filter-row">
+          <div className="filter-panel product-filter-panel">
+            <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, product, grade, size, origin group, PO, or customer order" />
+            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeLength />
+            <div className="product-operational-filters">
               <SearchableDropdown
                 className="app-select"
                 value={finishedStatus}
@@ -620,15 +591,6 @@ export default function PlantManagerReports() {
                 ))}
               </SearchableDropdown>
             </div>
-            <input
-              className="app-input"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                resetPage()
-              }}
-              placeholder="Search barcode, product, grade, size, PO, or customer order"
-            />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">Finished Goods / Pipe Inventory</div>
@@ -706,7 +668,8 @@ export default function PlantManagerReports() {
           </div>
           <div className="toolbar">
             <input
-              className="app-input"
+              className="app-input record-search"
+              type="search"
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value)
@@ -714,19 +677,7 @@ export default function PlantManagerReports() {
               }}
               placeholder="Search production order, product, grade, line, or status"
             />
-            <SearchableDropdown
-              className="app-select"
-              value={productType}
-              onChange={(event) => {
-                setProductType(event.target.value as "All" | PipeProductType)
-                resetPage()
-              }}
-            >
-              <option value="All">All Product Types</option>
-              {PIPE_PRODUCT_TYPES.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </SearchableDropdown>
+            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeLength />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">Production Order Detail</div>

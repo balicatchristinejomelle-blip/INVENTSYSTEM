@@ -31,6 +31,7 @@ export default function PeriodSelector({
   onDateChange,
   placeholder = 'Search authorized records...',
   compact = false,
+  filters,
 }: {
   period: DateController;
   search?: string;
@@ -38,6 +39,7 @@ export default function PeriodSelector({
   onDateChange?: (value: string) => void;
   placeholder?: string;
   compact?: boolean;
+  filters?: React.ReactNode;
 }) {
   return (
     <div className={`record-filter-bar${compact ? ' record-filter-bar-compact' : ''}`}>
@@ -51,6 +53,7 @@ export default function PeriodSelector({
           aria-label="Search authorized records"
         />
       )}
+      {filters}
       <div className="date-filter">
         <input
           className="app-input"

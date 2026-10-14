@@ -13,9 +13,8 @@ import Modal from "../../components/Modal"
 
 import type { FinishedGood } from "../../types"
 
-import CategoryTabs from "../../components/CategoryTabs"
 
-import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipeProductType } from '../../inventoryCategories';
+import { normalizedProductType, type PipeProductType } from '../../inventoryCategories';
 
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
@@ -289,7 +288,6 @@ export default function FinishedPipes() {
     )
   }, [finishedGoods, activeTab, grade, productType, search, productFilters.value, period.range, app.productionOrders, app.manufacturingOrders, app.orders])
 
-  const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -324,10 +322,7 @@ export default function FinishedPipes() {
       </div>
 
       <div className="app-card detail-card page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." />
-        <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); setPage(1); }} label="Finished pipe product type" />
-        <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); setPage(1); }} label="Finished pipe material grade" />
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} />} />
       </div>
 
       {/* Filter tabs */}

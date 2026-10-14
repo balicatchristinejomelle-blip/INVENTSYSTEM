@@ -8,6 +8,26 @@ export interface ProductionGroup {
   pipes: FinishedGood[];
   rejects: RejectedMaterial[];
 }
+/** Batch trace keeps production origin separate from later customer allocation. */
+export function batchOriginTrace(pipes: readonly FinishedGood[], data: PipeRelationships) {
+  const resolved = pipes.map(pipe => resolveFinishedPipe(pipe, data));
+  const values = (items: Array<string | undefined>, fallback = 'N/A') => [...new Set(items.filter((item): item is string => !!item))].join(', ') || fallback;
+  const types = resolved.map(result => (result.pipe.source || result.source) === 'Manufacturing Order' ? 'MO' : (result.pipe.source || result.source) === 'Stock Replenishment' ? 'Replenishment' : 'Not Resolved');
+  return {
+    originGroup: values(resolved.map(result => result.originGroup), 'Not Resolved'),
+    groupType: values(types),
+    po: values(resolved.map(result => result.po?.poNo || result.pipe.poRef), 'Not Resolved'),
+    mo: values(resolved.filter((_, index) => types[index] === 'MO').map(result => result.mo?.moNo)),
+    order: values(resolved.filter((_, index) => types[index] === 'MO').map(result => result.order?.orderNo)),
+    buyer: values(resolved.filter((_, index) => types[index] === 'MO').map(result => result.buyer)),
+    purpose: values(types.map(type => type === 'MO' ? 'Temporary Storage' : type === 'Replenishment' ? 'Inventory Storage' : 'Not Resolved')),
+    itemCode: values(resolved.map(result => result.itemCode), 'Not Configured'),
+    productBarcode: values(resolved.map(result => result.productBarcode), 'Not Configured'),
+    seasonal: resolved.some(result => result.seasonal),
+    shift: values(pipes.map(pipe => pipe.shift)),
+    temporary: resolved.filter(result => result.pipe.qualityStatus !== 'Reject' && result.pipe.releaseStatus !== 'Released' && result.pipe.storageStatus === 'Stored' && result.purpose === 'Temporary Storage').reduce((sum, result) => sum + result.pipe.quantity, 0),
+  };
+}
 /** Read-only aggregation. No generated entities, references, or dataset writes. */
 export function buildProductionGroups(data: PipeRelationships & { finishedGoods: FinishedGood[]; rejectedMaterials: RejectedMaterial[] }) {
   const groups = new Map<string, ProductionGroup>();
