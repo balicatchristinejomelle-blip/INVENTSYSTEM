@@ -1,4 +1,6 @@
 import { withPrintSearch } from '../../printableRecords';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
+import { productionOriginGroup } from '../../finishedPipeRelations';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
@@ -46,6 +48,7 @@ export default function PMProductionOrders() {
   const [moPage, setMoPage] = useState(1)
 
   const [poPage, setPoPage] = useState(1)
+  const productFilters = useProductFilters(() => { setMoPage(1); setPoPage(1); });
 
   const [showReplenishment, setShowReplenishment] = useState(false);
 
@@ -82,14 +85,14 @@ export default function PMProductionOrders() {
 
   const filteredMOs = manufacturingOrders.filter(
     (item) =>
-      !query || [item.moNo, item.orderRef, item.poRef || '', item.product, item.grade, item.diameter, item.sdr, item.length, item.color, item.stripe, item.status, item.requiredDate].some(value => String(value).toLowerCase().includes(query)) ||
-        matchesRecord(withPrintSearch(app, item), query),
+      productFilters.matches(item) && (!query || [item.moNo, item.orderRef, item.poRef || '', item.product, item.grade, item.diameter, item.sdr, item.length, item.color, item.stripe, item.status, item.requiredDate].some(value => String(value).toLowerCase().includes(query)) ||
+        matchesRecord(withPrintSearch(app, item), query)),
   )
 
   const filteredPOs = productionOrders.filter(
     (item) =>
-      !query || [item.poNo, item.source || 'Manufacturing Order', item.moRef, item.product, item.grade, item.diameter, item.sdr, item.length, item.priority, item.requiredDate, item.status, item.replenishmentReason || ''].some(value => String(value).toLowerCase().includes(query)) ||
-        matchesRecord(withPrintSearch(app, item), query),
+      productFilters.matches(item) && (!query || [item.poNo, item.source || 'Manufacturing Order', item.moRef, item.product, item.grade, item.diameter, item.sdr, item.length, item.priority, item.requiredDate, item.status, item.replenishmentReason || ''].some(value => String(value).toLowerCase().includes(query)) ||
+        matchesRecord(withPrintSearch(app, item), query)),
   )
 
   const submitReplenishment = () => {
@@ -109,6 +112,7 @@ export default function PMProductionOrders() {
     <div>
       <div className="record-filter-bar">
         <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); setMoPage(1); setPoPage(1); }} placeholder="Search PO, source, MO, product, grade, size, SDR / Thickness, priority, date, or status" />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
         <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>
       </div>
       {/* MO Review */}
@@ -297,6 +301,7 @@ export default function PMProductionOrders() {
           </div>
           <div className="form-actions">
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
+            <div className="field-label">Origin Group (read-only)</div><div className="field-value">{productionOriginGroup(viewPO, app) || 'Not Resolved'}</div>
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={viewPO.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })} />
           </div>
@@ -311,11 +316,11 @@ export default function PMProductionOrders() {
           <div className="form-grid">
             <label>
               Product Type *
-              <SearchableSelect value={replenishment.productType} options={HPAI_PRODUCT_MASTER.products} ariaLabel="Replenishment Product Type" placeholder="Search product type..." onChange={productType => setReplenishment(value => ({ ...value, productType: productType as ProductType, materialGrade: '', size: '', sdr: '', productForm: '', length: '', color: '', stripe: '', pipeConstruction: productType ? constructionForProduct(productType) : '' }))} />
+              <SearchableSelect value={replenishment.productType} options={HPAI_PRODUCT_MASTER.products} ariaLabel="Replenishment Product Type" placeholder="Search product type..." onChange={productType => setReplenishment(value => ({ ...value, productType: productType as ProductType, size: productType && sizesForProduct(productType, configuredPolytubeSizes).includes(value.size) ? value.size : '', pipeConstruction: productType ? constructionForProduct(productType) : '' }))} />
             </label>
             <label>
               Material Grade *
-              <SearchableSelect value={replenishment.materialGrade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!replenishment.productType} ariaLabel="Replenishment Material Grade" placeholder="Search material grade..." onChange={materialGrade => setReplenishment(value => ({ ...value, materialGrade: materialGrade as MaterialGrade, size: '', sdr: '', productForm: '', length: '' }))} />
+              <SearchableSelect value={replenishment.materialGrade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!replenishment.productType} ariaLabel="Replenishment Material Grade" placeholder="Search material grade..." onChange={materialGrade => setReplenishment(value => ({ ...value, materialGrade: materialGrade as MaterialGrade }))} />
             </label>
             <label>
               {sizeLabelForProduct(replenishment.productType)} *
@@ -325,16 +330,16 @@ export default function PMProductionOrders() {
                 disabled={!replenishment.productType || !sizeOptions.length}
                 ariaLabel={`Replenishment ${sizeLabelForProduct(replenishment.productType)}`}
                 placeholder="Search size..."
-                onChange={size => setReplenishment(value => ({ ...value, size, sdr: '', productForm: '', length: '' }))}
+                onChange={size => setReplenishment(value => ({ ...value, size }))}
               />
             </label>
             <label>
               SDR / Thickness *
-              <SearchableSelect value={replenishment.sdr} options={HPAI_PRODUCT_MASTER.sdrRatings} disabled={!replenishment.size} ariaLabel="Replenishment SDR / Thickness" placeholder="Search SDR / Thickness..." onChange={sdr => setReplenishment(value => ({ ...value, sdr, productForm: '', length: '' }))} />
+              <SearchableSelect value={replenishment.sdr} options={HPAI_PRODUCT_MASTER.sdrRatings} disabled={!replenishment.size} ariaLabel="Replenishment SDR / Thickness" placeholder="Select SDR / Thickness" searchPlaceholder="Search SDR / Thickness..." onChange={sdr => setReplenishment(value => ({ ...value, sdr }))} />
             </label>
             <label>
               Product Form *
-              <SearchableSelect value={replenishment.productForm} options={HPAI_PRODUCT_MASTER.productForms} disabled={!replenishment.sdr} ariaLabel="Replenishment Product Form" placeholder="Search product form..." onChange={productForm => setReplenishment(value => ({ ...value, productForm: productForm as ProductSpecification['productForm'], length: '' }))} />
+              <SearchableSelect value={replenishment.productForm} options={HPAI_PRODUCT_MASTER.productForms} disabled={!replenishment.sdr} ariaLabel="Replenishment Product Form" placeholder="Search product form..." onChange={productForm => setReplenishment(value => ({ ...value, productForm: productForm as ProductSpecification['productForm'], length: lengthsForForm(productForm).includes(value.length) ? value.length : '' }))} />
             </label>
             <label>
               {replenishment.productForm === 'Coil' ? 'Coil Length' : 'Straight Pipe Length'}{" "}
@@ -343,7 +348,7 @@ export default function PMProductionOrders() {
             </label>
             <label>
               Product Color *
-              <SearchableSelect value={replenishment.color} options={HPAI_PRODUCT_MASTER.pipeColors} disabled={!replenishment.length} ariaLabel="Replenishment Product Color" placeholder="Search product color..." onChange={color => setReplenishment(value => ({ ...value, color, stripe: '' }))} />
+              <SearchableSelect value={replenishment.color} options={HPAI_PRODUCT_MASTER.pipeColors} disabled={!replenishment.length} ariaLabel="Replenishment Product Color" placeholder="Search product color..." onChange={color => setReplenishment(value => ({ ...value, color }))} />
             </label>
             <label>
               Stripe Color *

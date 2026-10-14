@@ -101,4 +101,4 @@ function MOTracking() {
   )
 }
 
-export default withRecordSearch(MOTracking, ["manufacturingOrders"])
+export default withRecordSearch(MOTracking, ["manufacturingOrders"], true)

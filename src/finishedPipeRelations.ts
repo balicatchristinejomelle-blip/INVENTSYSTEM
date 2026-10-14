@@ -17,7 +17,12 @@ export function resolveProductionSource(po: ProductionOrder | undefined, data: P
   if (po.source) return po.source;
   return data.manufacturingOrders.some(mo => mo.moNo === po.moRef) ? 'Manufacturing Order' : undefined;
 }
-export const replenishmentGroup = (po: ProductionOrder) => po.originGroup || `REPLENISH-${po.poNo.replace(/^PO-/, '')}`;
+export const replenishmentGroup = (po: ProductionOrder) => po.originGroup && /^REPLENISH-\d{4}-\d+$/.test(po.originGroup) ? po.originGroup : `REPLENISH-${po.poNo.replace(/^PO-/, '')}`;
+export const validOriginGroup = (value: string | undefined, source: ProductionOrder['source']) => !!value && (source === 'Manufacturing Order' ? /^MO-\d{4}-\d+$/.test(value) : source === 'Stock Replenishment' ? /^REPLENISH-\d{4}-\d+$/.test(value) : /^(?:MO|REPLENISH)-\d{4}-\d+$/.test(value));
+export function productionOriginGroup(po: ProductionOrder, data: Pick<PipeRelationships, 'manufacturingOrders'>) {
+  const source = resolveProductionSource(po, data);
+  return validOriginGroup(po.originGroup, source) ? po.originGroup : source === 'Manufacturing Order' ? data.manufacturingOrders.find(mo => mo.moNo === po.moRef)?.moNo : source === 'Stock Replenishment' ? replenishmentGroup(po) : undefined;
+}
 export function resolveFinishedPipe(pipe: FinishedGood, data: PipeRelationships) {
   const po = pipe.productionOrderId ? data.productionOrders.find(item => item.id === pipe.productionOrderId && (!pipe.poRef || item.poNo === pipe.poRef)) : data.productionOrders.find(item => item.poNo === pipe.poRef);
   const source = resolveProductionSource(po, data);
@@ -43,7 +48,7 @@ export function resolveFinishedPipe(pipe: FinishedGood, data: PipeRelationships)
   const stored = pipe.storageStatus === 'Stored' && (pipe.locationStatus === 'Stored' || (pipe.locationStatus === 'Quality Pending' && !!pipe.storedAt));
   const inventoryStatus = rejected ? 'Rejected Material' : released ? 'Released' : pipe.qualityStatus !== 'Pass' ? 'Quality Pending' : stored ? 'Stored' : 'Awaiting Storage';
   const issues = [!po && 'Production Order Not Found', source === 'Manufacturing Order' && !mo && 'Manufacturing Order Not Found', mo && !originOrder && 'Customer Order Not Found', !source && 'Production Source Not Resolved', mo && pipe.moRef && pipe.moRef !== mo.moNo && 'Stored MO reference differs from source PO', originOrder && allocatedOrder && originOrder.id !== allocatedOrder.id && 'Allocation differs from originating Customer Order'].filter(Boolean) as string[];
-  return { pipe, product, po, mo, order, customer, source, specification, itemCode, productBarcode, seasonal: (pipe.seasonal ?? specification?.seasonal) === true, unitWeightKg, unitWeightSource, buyer: order?.customerName || customer?.name, originGroup: source === 'Manufacturing Order' ? mo?.moNo : source === 'Stock Replenishment' && po ? replenishmentGroup(po) : undefined, purpose, inventoryStatus, issues, availableQty: buyerSpecific || rejected || released || !stored ? 0 : pipe.availableQty };
+  return { pipe, product, po, mo, order, customer, source, specification, itemCode, productBarcode, seasonal: (pipe.seasonal ?? specification?.seasonal) === true, unitWeightKg, unitWeightSource, buyer: order?.customerName || customer?.name, originGroup: validOriginGroup(pipe.originGroup, pipe.source || source) ? pipe.originGroup : po ? productionOriginGroup(po, data) : undefined, purpose, inventoryStatus, issues, availableQty: buyerSpecific || rejected || released || !stored ? 0 : pipe.availableQty };
 }
 /** Idempotent hydration: no identity/quantity/print metadata or physical movement changes. */
 export function hydrateFinishedPipe(pipe: FinishedGood, data: PipeRelationships): FinishedGood {
@@ -64,7 +69,7 @@ export function hydrateFinishedPipe(pipe: FinishedGood, data: PipeRelationships)
 export function hydratePipeRelationships<T extends PipeRelationships & { finishedGoods: FinishedGood[] }>(state: T): T {
   const productionOrders = state.productionOrders.map(po => {
     const source = resolveProductionSource(po, state);
-    const originGroup = source === 'Manufacturing Order' ? state.manufacturingOrders.find(mo => mo.moNo === po.moRef)?.moNo : source === 'Stock Replenishment' ? replenishmentGroup(po) : po.originGroup;
+    const originGroup = productionOriginGroup(po, state) ?? po.originGroup;
     return po.source === source && po.originGroup === originGroup ? po : { ...po, source, originGroup };
   });
   const context = { ...state, productionOrders };

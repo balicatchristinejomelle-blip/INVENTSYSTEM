@@ -27,6 +27,7 @@ interface SearchableSelectProps {
   onChange: (value: string) => void
 
   placeholder: string
+  searchPlaceholder?: string
 
   ariaLabel: string
 
@@ -69,6 +70,7 @@ export default function SearchableSelect({
   options,
   onChange,
   placeholder,
+  searchPlaceholder = placeholder,
   ariaLabel,
   disabled,
   required,
@@ -237,7 +239,7 @@ export default function SearchableSelect({
           aria-autocomplete="list"
           aria-activedescendant={open && filtered[activeIndex] ? `${listId}-${activeIndex}` : undefined}
           value={open ? query : selected?.label || value}
-          placeholder={placeholder}
+          placeholder={open ? searchPlaceholder : placeholder}
           autoComplete="off"
           disabled={disabled}
           required={required && !value}

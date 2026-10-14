@@ -3,6 +3,7 @@ import { printableKey, printState, metadataFor, type PrintableRecord, type Print
 import { customerOrderDocument, manufacturingOrderDocument, productionOrderDocument, receivingReportDocument, materialRequestDocument, transferDocument, recyclingDocument } from './documentPrint';
 import { pipeSearchRecord, readPipeSpecifications } from './finishedPipeRelations';
 import type { Customer } from './types';
+import { productFilterRecord } from './productFilters';
 
 export interface PrintableSource {
   customers?: Customer[];
@@ -51,6 +52,6 @@ export function withPrintSearch<T extends { id: string }>(source: PrintableSourc
   if (!record) return businessRecord;
   const latestRequest = source.reprintRequests?.find(request => request.printable.key === record.key);
   const pipe = source.finishedGoods.find(item => item.id === businessRecord.id);
-  const enriched = pipe ? pipeSearchRecord(pipe, { ...source, customers: source.customers || [], specifications: readPipeSpecifications() }) : businessRecord;
+  const enriched = pipe ? pipeSearchRecord(pipe, { ...source, customers: source.customers || [], specifications: readPipeSpecifications() }) : productFilterRecord(businessRecord, { ...source, customers: source.customers || [], specifications: readPipeSpecifications() });
   return { ...businessRecord, ...enriched, ...metadataFor(source, record), printStatus: printState(source, record), reprintStatus: latestRequest?.status };
 }

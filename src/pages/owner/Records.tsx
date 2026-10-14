@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -52,6 +53,7 @@ type RecordRow = {
   grade?: string
   location?: string
   searchText?: string
+  specification?: unknown
 }
 
 export default function OwnerRecords() {
@@ -65,6 +67,8 @@ export default function OwnerRecords() {
   const [section, setSection] = useState<string>('All Documents');
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
+  const productArea = !['RR / Requests / Transfers', 'Pellet Inventory', 'Colorants', 'Inventory Transactions'].includes(section);
 
   const [status, setStatus] = useState("All Statuses")
 
@@ -117,6 +121,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.orders.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.orderDate,
@@ -129,6 +134,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.manufacturingOrders.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.createdDate,
@@ -180,6 +186,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.finishedGoods.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.productionDate,
@@ -197,6 +204,7 @@ export default function OwnerRecords() {
 
     const production: RecordRow[] = [
       ...app.productionOrders.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.requiredDate,
@@ -209,6 +217,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.rejectedMaterials.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.date,
@@ -220,6 +229,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.recyclingBatches.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.date,
@@ -231,6 +241,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.turnovers.map((item) => ({
+        specification: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.date,
@@ -271,6 +282,7 @@ export default function OwnerRecords() {
     .filter(
       (item) =>
         dateInPeriod(item.date, period.range)
+    && (!productArea || !Object.values(productFilters.value).some(Boolean) || (!!item.specification && productFilters.matches(item.specification)))
     && (status === 'All Statuses' || item.status === status)
     && (grade === 'All Grades' || item.grade === grade)
     && (location === 'All Locations' || item.location === location) &&
@@ -345,6 +357,7 @@ export default function OwnerRecords() {
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
       <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." />
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
+      {productArea && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
       <div className="filter-panel">
         <div className="filter-row">
           <SearchableDropdown

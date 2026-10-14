@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useApp } from "../store"
 import { withPrintSearch } from '../printableRecords';
+import ProductFilters, { useProductFilters } from './ProductFilters';
+import { emptyProductFilter, matchesProductFilter, type ProductFilter } from '../productFilters';
 
 export const normalizeQuery = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim()
@@ -37,19 +39,21 @@ export type RecordCollection = {
 const SearchContext = createContext<{
   query: string
   collections: readonly RecordCollection[]
+  productFilter?: ProductFilter
 }>({ query: "", collections: [] })
 export const useRecordQuery = () => useContext(SearchContext).query
 
 /** A read-only view of this page's authorized collections; store actions keep their original state. */
 export function useSearchableApp(): App {
   const app = useApp()
-  const { query, collections } = useContext(SearchContext)
-  if (!query.trim()) return app
+  const { query, collections, productFilter } = useContext(SearchContext)
+  if (!query.trim() && !productFilter) return app
   const filtered = Object.fromEntries(
     collections.map((key) => [
       key,
       (app[key] as readonly unknown[]).filter((record) =>
-        matchesRecord(record && typeof record === 'object' && 'id' in record ? withPrintSearch(app, record as { id: string }) : record, query),
+        matchesRecord(record && typeof record === 'object' && 'id' in record ? withPrintSearch(app, record as { id: string }) : record, query)
+          && (!productFilter || !['orders', 'manufacturingOrders', 'productionOrders', 'finishedGoods', 'rejectedMaterials', 'transactions', 'turnovers'].includes(key) || matchesProductFilter(record, productFilter, app)),
       ),
     ]),
   )
@@ -59,20 +63,22 @@ export function useSearchableApp(): App {
 export function useSearchPaginationReset(
   ...resetters: Array<(page: number) => void>
 ) {
-  const query = useRecordQuery()
+  const { query, productFilter } = useContext(SearchContext)
   useEffect(() => {
     resetters.forEach((reset) => reset(1))
-  }, [query])
+  }, [query, productFilter])
 }
 
 export function withRecordSearch(
   Page: React.ComponentType,
   collections: readonly RecordCollection[],
+  productControls = false,
 ) {
   return function SearchableRecordPage() {
     const [query, setQuery] = useState("")
+    const productFilters = useProductFilters();
     return (
-      <SearchContext.Provider value={{ query, collections }}>
+      <SearchContext.Provider value={{ query, collections, productFilter: productControls && Object.keys(emptyProductFilter).some(key => productFilters.value[key as keyof ProductFilter]) ? productFilters.value : undefined }}>
         <div className="page-stack">
           <div className="record-filter-bar">
             <input
@@ -84,6 +90,7 @@ export function withRecordSearch(
               placeholder="Search reference, name, specification, barcode, location, date, or status..."
             />
           </div>
+          {productControls && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
           <Page />
         </div>
       </SearchContext.Provider>

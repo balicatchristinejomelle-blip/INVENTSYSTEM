@@ -404,4 +404,4 @@ export default withRecordSearch(MarketingReports, [
   "manufacturingOrders",
   "productionOrders",
   "finishedGoods",
-])
+], true)

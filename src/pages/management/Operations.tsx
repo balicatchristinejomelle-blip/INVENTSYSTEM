@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import React, { useEffect, useState } from "react"
 
@@ -44,6 +45,7 @@ export default function Operations() {
   const [search, setSearch] = useState("")
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
@@ -66,6 +68,7 @@ export default function Operations() {
   const selectedProductionOrders = productionOrders.filter(
     (po) =>
       dateInPeriod(po.requiredDate, period.range) &&
+      productFilters.matches(po) &&
       matchesRecord(withPrintSearch(app, po), query) &&
       (productionView === 'Active / Ready'
       ? ['Scheduled', 'Ready'].includes(po.status)
@@ -83,7 +86,8 @@ export default function Operations() {
   const selectedFinishedGoods = finishedGoods.filter(
     (item) =>
       dateInPeriod(item.productionDate, period.range) &&
-      matchesRecord(item, query) &&
+      productFilters.matches(item) &&
+      matchesRecord(withPrintSearch(app, item), query) &&
       (productType === 'All' || normalizedProductType(item.product) === productType),
   )
 
@@ -120,6 +124,7 @@ export default function Operations() {
       </div>
 
       {tab === 'reprints' && <ReprintApprovals search={search} />}
+      {(tab === 'production' || tab === 'orders') && <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} includeProduct={tab === 'production'} includeGrade />}
 
       {tab === "inventory" && (
         <div className="page-stack">

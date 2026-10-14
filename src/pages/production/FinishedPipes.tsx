@@ -1,4 +1,5 @@
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import { matchesRecord } from "../../components/RecordSearch"
 
@@ -271,6 +272,7 @@ export default function FinishedPipes() {
   const [showRecordStorage, setShowRecordStorage] = useState(false);
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const period = usePeriod()
 
@@ -278,13 +280,14 @@ export default function FinishedPipes() {
     return finishedGoods.filter(
       (fg) =>
         (productType === 'All' || normalizedProductType(fg.product) === productType)
+      && productFilters.matches(fg)
       && (grade === 'All' || fg.grade === grade)
       && matchesDestination(fg, activeTab)
       && dateInPeriod(fg.productionDate, period.range) &&
         ([fg.barcode, fg.fgId, fg.poRef, fg.currentLocation, fg.product].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
           matchesRecord(pipeSearchRecord(fg, { ...app, specifications: readPipeSpecifications() }), search)),
     )
-  }, [finishedGoods, activeTab, grade, productType, search, period.range, app.productionOrders, app.manufacturingOrders, app.orders])
+  }, [finishedGoods, activeTab, grade, productType, search, productFilters.value, period.range, app.productionOrders, app.manufacturingOrders, app.orders])
 
   const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
@@ -324,6 +327,7 @@ export default function FinishedPipes() {
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." />
         <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); setPage(1); }} label="Finished pipe product type" />
         <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); setPage(1); }} label="Finished pipe material grade" />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
       </div>
 
       {/* Filter tabs */}
@@ -365,7 +369,7 @@ export default function FinishedPipes() {
             <div className="empty-state empty-state-action">
               <strong>NO RECORDS FOUND</strong>
               <span>No records match the selected search, date, or filters.</span>
-              <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setPage(1); }}>Clear Filters</button>
+              <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); period.setDate(''); setPage(1); }}>Clear Filters</button>
             </div>
           ) : (
             <table className="app-table" style={{ width: "100%" }}>
