@@ -138,19 +138,15 @@ try {
     ])
     assert.deepEqual(master.lengthsForForm(""), [])
   })
-  check("latest four material grades", () =>
-    assert.deepEqual(master.MATERIAL_GRADES, [
-      "HDPE Standard",
-      "PE100",
-      "Commercial Grade (CGPE)",
-      "CTS Grade",
-    ]),
+  check("exactly PE80 and PE100 active material grades", () =>
+    assert.deepEqual(master.MATERIAL_GRADES, ["PE80", "PE100"]),
   )
-  check("commercial and CTS grades are searchable", () => {
-    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "commercial"), [
-      "Commercial Grade (CGPE)",
-    ])
-    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "cts"), ["CTS Grade"])
+  check("PE / 80 / 100 grade searches use only the active master", () => {
+    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "PE"), ["PE80", "PE100"])
+    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "80"), ["PE80"])
+    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "100"), ["PE100"])
+    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "commercial"), [])
+    assert.deepEqual(searchValues(master.MATERIAL_GRADES, "cts"), [])
   })
   check("master product, color, stripe and construction search", () => {
     assert.deepEqual(searchValues(master.PRODUCT_TYPES, "spiral"), [

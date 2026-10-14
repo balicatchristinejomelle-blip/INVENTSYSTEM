@@ -2,8 +2,9 @@ export type Role = 'OWNER_SUPER_ADMIN' | 'accounting' | 'marketing' | 'managemen
 export type Plant = 'Main Plant' | 'Branch Plant' | 'Company Wide';
 export type Theme = 'light' | 'dark';
 export type ProductType = 'HDPE Pipe' | 'CTS HDPE Pipe' | 'Commercial HDPE Pipe (CGPE)' | 'Spiral Pipe' | 'Polytube';
-export type MaterialGrade = 'HDPE Standard' | 'PE100' | 'Commercial Grade (CGPE)' | 'CTS Grade';
-export type ProductMaterialGrade = MaterialGrade | 'PE80';
+export type MaterialGrade = 'PE80' | 'PE100';
+export type LegacyMaterialGrade = 'HDPE Standard' | 'Commercial Grade (CGPE)' | 'CTS Grade';
+export type ProductMaterialGrade = MaterialGrade | LegacyMaterialGrade;
 
 export interface User {
   id: string;

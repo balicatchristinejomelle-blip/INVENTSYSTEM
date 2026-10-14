@@ -21,7 +21,7 @@ import PeriodSelector, {
 
 import {
   MATERIAL_CATEGORIES,
-  MATERIAL_GRADES,
+  MATERIAL_GRADES, materialGradeFilterLabel,
   normalizedProductType,
   type MaterialCategoryTab,
   type PipeProductType,
@@ -447,7 +447,7 @@ export default function PlantManagerReports() {
                   resetPage()
                 }}
                 label={`${materialCategory} grade`}
-              />
+              displayLabel={materialGradeFilterLabel} />
             )}
             {materialCategory === "Recycled Pellets" && (
               <CategoryTabs

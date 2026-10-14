@@ -10,7 +10,7 @@ import { useApp } from "../../store"
 import {
   constructionForProduct, HPAI_PRODUCT_MASTER, lengthsForForm, normalizeProductSpecification, normalizeProductType, sizeLabelForProduct,
   sizesForProduct, specificationKey, specificationKeyFromRecord, specificationLength,
-  sizeUnitForProduct,
+  sizeUnitForProduct, isActiveMaterialGrade, READABLE_MATERIAL_GRADES,
 } from '../../productMaster';
 
 import type { MaterialGrade, ProductSpecification, ProductType, StockTarget, StorageLocation } from '../../types';
@@ -66,7 +66,7 @@ export default function Settings() {
       const productType = normalizeProductType(record.product);
       const productForm = record.productForm === 'Coil' ? 'Coil' : 'Straight Length';
       const spec: ProductSpecification = {
-        id: `spec-${index + 1}`, productType, materialGrade: [...HPAI_PRODUCT_MASTER.materialGrades, 'PE80'].includes(record.grade) ? record.grade as ProductSpecification['materialGrade'] : 'PE100',
+        id: `spec-${index + 1}`, productType, materialGrade: READABLE_MATERIAL_GRADES.includes(record.grade as ProductSpecification['materialGrade']) ? record.grade as ProductSpecification['materialGrade'] : 'PE100',
         size: record.diameter, sizeUnit: sizeUnitForProduct(productType), sdr: record.sdr, productForm,
         straightLength: productForm === 'Straight Length' ? record.length : undefined,
         coilLength: productForm === 'Coil' ? record.length : undefined,
@@ -160,6 +160,7 @@ export default function Settings() {
   const filteredTargets = stockTargets.filter(target => (!Object.values(productFilters.value).some(Boolean) || (target.inventoryType === 'Finished Pipe' && specifications.some(spec => spec.id === target.productSpecificationId && productFilters.matches(spec)))) && (!search.trim() || `${target.plant} ${target.inventoryType} ${targetLabel(target)} ${target.status}`.toLowerCase().includes(search.trim().toLowerCase())));
 
   const createSpecification = () => {
+    if (!isActiveMaterialGrade(specForm.materialGrade)) return notifySaved('Select PE80 or PE100 for Material Grade.');
     if (!specForm.productType || !specForm.materialGrade || !specForm.size || !specForm.sdr || !specForm.productForm || !specForm.length || !specForm.color || !specForm.stripe || !specForm.pipeConstruction) return notifySaved('Complete every required Product Specification field.');
     const candidate: ProductSpecification = {
       id: `spec-${Date.now()}`, productType: specForm.productType, materialGrade: specForm.materialGrade,
@@ -174,6 +175,8 @@ export default function Settings() {
   };
 
   const createTarget = () => {
+    if (targetForm.inventoryType === 'Finished Pipe' && !specifications.some(spec => spec.id === targetForm.productSpecificationId && spec.active && isActiveMaterialGrade(spec.materialGrade))) return notifySaved('Select an active PE80/PE100 Product Specification.');
+    if (targetForm.inventoryType.includes('Pellet') && !isActiveMaterialGrade(targetForm.materialGrade)) return notifySaved('Select PE80 or PE100 for Material Grade.');
     const minimumStock = Number(targetForm.minimumStock); const targetStock = Number(targetForm.targetStock);
     const missing = targetForm.inventoryType === 'Finished Pipe' ? !targetForm.productSpecificationId : targetForm.inventoryType === 'Colorant' ? !targetForm.color : !targetForm.materialGrade;
     if (missing || minimumStock < 0 || targetStock < minimumStock) return notifySaved('Select an inventory item and ensure Target Stock is at least Minimum Stock.');
@@ -234,8 +237,8 @@ export default function Settings() {
           <div className="settings-rule-grid">
             <div>
               <span>Active material grades</span>
-              <strong>HDPE Standard · PE100 · Commercial Grade (CGPE) · CTS Grade</strong>
-              <small>PE80 remains visible only on genuine historical records.</small>
+              <strong>{HPAI_PRODUCT_MASTER.materialGrades.join(' · ')}</strong>
+              <small>Older grade labels remain readable on historical records; new selections use PE80 / PE100.</small>
             </div>
             <div>
               <span>Physical Pellet Bag</span>
@@ -566,7 +569,7 @@ export default function Settings() {
               >
                 <option value="">Select an active exact specification</option>
                 {specifications
-                  .filter((spec) => spec.active)
+                  .filter((spec) => spec.active && isActiveMaterialGrade(spec.materialGrade))
                   .map((spec) => (
                     <option key={spec.id} value={spec.id}>
                       {specificationLabel(spec)}

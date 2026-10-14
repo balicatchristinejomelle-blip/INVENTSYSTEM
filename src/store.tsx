@@ -10,7 +10,7 @@ import type {
   ShiftAttendance, ShiftTurnover, AuditLog, Transaction, Employee, BarcodeRegistryRecord,
   ColorantInventory, MaterialUsageTransaction, ProductSpecification
 } from './types';
-import { colorCodeFromProductColor, colorCodeFromStripe, specificationKey, specificationKeyFromRecord, specificationLength } from './productMaster';
+import { colorCodeFromProductColor, colorCodeFromStripe, specificationKey, specificationKeyFromRecord, specificationLength, READABLE_MATERIAL_GRADES, isActiveMaterialGrade, MATERIAL_GRADES } from './productMaster';
 import { requestCategory, transferCategory } from './inventoryCategories';
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export const normalizeMaterialGrade = (value: string) => {
   return normalized;
 };
 export const isSupportedMaterialGrade = (value: string) =>
-  ['PE80', 'HDPE Standard', 'PE100', 'Commercial Grade (CGPE)', 'CTS Grade'].includes(normalizeMaterialGrade(value));
+  READABLE_MATERIAL_GRADES.some(grade => grade === normalizeMaterialGrade(value));
 
 export const USERS: User[] = [
   { id: 'u0', username: 'owner', password: 'HPAI@2026!', role: 'OWNER_SUPER_ADMIN', name: 'Roberto Lim', plant: 'Company Wide', employeeId: 'HQ-OWN-001', status: 'active', lastLogin: '2026-09-30 08:30' },
@@ -136,10 +136,7 @@ const makePelletBags = (
   };
 });
 
-const TEST_VIRGIN_GRADES = [
-  ['PE80', 'PE80'],
-  ['PE100', 'PE100'],
-] as const;
+const TEST_VIRGIN_GRADES = MATERIAL_GRADES.map(grade => [grade, grade] as const);
 
 const INITIAL_PELLETS: PelletInventory[] = [
   ...makePelletBags(1, {
@@ -1413,7 +1410,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return s;
       }
       const grade = normalizeMaterialGrade(data.grade);
-      if (!isSupportedMaterialGrade(grade)) {
+      if (!isActiveMaterialGrade(grade)) {
         result.error = 'INVALID PELLET GRADE — Select a supported material grade.';
         return s;
       }
@@ -1548,7 +1545,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }) => {
     setState(s => {
       const numberOfBags = Math.max(0, Math.floor(data.numberOfBags));
-      if (!numberOfBags || !isSupportedMaterialGrade(data.grade)) return s;
+      if (!numberOfBags || !isActiveMaterialGrade(normalizeMaterialGrade(data.grade))) return s;
       const year = String(new Date().getFullYear());
       const currentYearNumbers = s.rrRecords
         .filter(item => item.rrNumber.startsWith(`RR-${year}-`))
@@ -2023,7 +2020,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addMaterialRequest = useCallback((req: Omit<MaterialRequest, 'id'>) => {
     const category = requestCategory(req as MaterialRequest);
-    if (category !== 'Colorant' && !isSupportedMaterialGrade(req.grade)) return { success: false, error: 'Select a supported material grade.' };
+    if (category !== 'Colorant' && !isActiveMaterialGrade(normalizeMaterialGrade(req.grade))) return { success: false, error: 'Select a supported material grade.' };
     let result: { success: boolean; requestRef?: string; error?: string } = { success: false, error: 'Unable to create Material Request.' };
     setState(s => {
       if (s.currentUser?.role !== 'plantmanager') {
@@ -2572,6 +2569,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (!Number.isInteger(input.targetQty) || input.targetQty <= 0 || !input.requiredDate || !input.reason.trim()) {
         result = { success: false, error: 'Target Quantity, Required Date, and Reason are required.' };
+        return s;
+      }
+      if (!isActiveMaterialGrade(input.specification.materialGrade)) {
+        result = { success: false, error: 'Select PE80 or PE100 for new Stock Replenishment production.' };
         return s;
       }
       const duplicate = s.productionOrders.find(item =>

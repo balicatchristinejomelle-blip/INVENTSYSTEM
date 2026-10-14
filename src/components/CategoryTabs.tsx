@@ -6,9 +6,10 @@ interface CategoryTabsProps<T extends string> {
   onChange: (value: T) => void;
   counts?: Partial<Record<T, number>>;
   label?: string;
+  displayLabel?: (value: T) => React.ReactNode;
 }
 
-export default function CategoryTabs<T extends string>({ items, value, onChange, counts, label = 'Category' }: CategoryTabsProps<T>) {
+export default function CategoryTabs<T extends string>({ items, value, onChange, counts, label = 'Category', displayLabel }: CategoryTabsProps<T>) {
   return (
     <div className="category-tabs" role="tablist" aria-label={label}>
       {items.map(item => (
@@ -20,7 +21,7 @@ export default function CategoryTabs<T extends string>({ items, value, onChange,
           className={value === item ? 'category-tab category-tab-active' : 'category-tab'}
           onClick={() => onChange(item)}
         >
-          {item}
+          {displayLabel ? displayLabel(item) : item}
           {counts && <span>{counts[item] ?? 0}</span>}
         </button>
       ))}

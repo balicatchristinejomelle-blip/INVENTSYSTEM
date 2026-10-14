@@ -1,8 +1,14 @@
-import type { MaterialGrade, ProductSpecification, ProductType } from './types';
+import type { LegacyMaterialGrade, MaterialGrade, ProductMaterialGrade, ProductSpecification, ProductType } from './types';
 
 export const PRODUCT_TYPES: readonly ProductType[] = ['HDPE Pipe', 'CTS HDPE Pipe', 'Commercial HDPE Pipe (CGPE)', 'Spiral Pipe', 'Polytube'];
 
-export const MATERIAL_GRADES: readonly MaterialGrade[] = ['HDPE Standard', 'PE100', 'Commercial Grade (CGPE)', 'CTS Grade'];
+export const MATERIAL_GRADES: readonly MaterialGrade[] = ['PE80', 'PE100'];
+
+// Historical labels remain readable; they are never active selector options.
+export const LEGACY_MATERIAL_GRADES: readonly LegacyMaterialGrade[] = ['HDPE Standard', 'Commercial Grade (CGPE)', 'CTS Grade'];
+export const READABLE_MATERIAL_GRADES: readonly ProductMaterialGrade[] = [...MATERIAL_GRADES, ...LEGACY_MATERIAL_GRADES];
+export const isActiveMaterialGrade = (grade: string): grade is MaterialGrade => MATERIAL_GRADES.includes(grade as MaterialGrade);
+export const materialGradeFilterLabel = (grade: string) => grade === 'All' ? 'All Material Grades' : grade;
 
 export const STANDARD_DIAMETERS_MM = [13, 20, 25, 32, 40, 50, 63, 75, 90, 110, 160, 225, 280, 315, 355, 400, 450, 500] as const;
 
@@ -80,7 +86,7 @@ export const normalizeProductSpecification = (raw: unknown): ProductSpecificatio
   const pipeConstruction = constructionForProduct(productType);
   const length = value.productForm === 'Coil' ? value.coilLength || value.length : value.straightLength || value.length;
   return {
-    id: value.id, productType, materialGrade: value.materialGrade && [...MATERIAL_GRADES, 'PE80'].includes(value.materialGrade) ? value.materialGrade : 'PE100', size: value.size,
+    id: value.id, productType, materialGrade: value.materialGrade && READABLE_MATERIAL_GRADES.includes(value.materialGrade) ? value.materialGrade : 'PE100', size: value.size,
     sizeUnit: value.sizeUnit || sizeUnitForProduct(productType),
     sdr: value.sdr, productForm: value.productForm,
     straightLength: value.productForm === 'Straight Length' ? length : undefined,

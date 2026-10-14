@@ -362,7 +362,7 @@ export default function Pellets() {
             <SearchableDropdown
               className="app-select" value={grade} onChange={event => setGrade(event.target.value)}
             >
-              <option>All</option>
+              <option value="All">All Material Grades</option>
               {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
             </SearchableDropdown>
           )}
