@@ -1,3 +1,4 @@
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -59,7 +60,7 @@ function Transfers() {
         <div className="flex items-center gap-3 mb-4">
           <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: false })}>View Document</button>
-          <button className="btn-primary" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: true })}>Print</button>
+          <DocumentPrintButton className="btn-primary" recordId={viewTransfer.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700 }}>
             Transfer — {viewTransfer.refNo}
           </h2>
@@ -159,7 +160,7 @@ function Transfers() {
                 <td onClick={(e) => e.stopPropagation()}>
                   <div className="button-group">
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(t.id)}>View Details</button>
-                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })}>Print</button>
+                    <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
                   </div>
                 </td>
               </tr>

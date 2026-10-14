@@ -35,7 +35,7 @@ function DetailField({
 }
 
 function RejectedRecycling() {
-  const { rejectedMaterials, recyclingBatches, pellets, totalRejectedKg, markPelletBarcodePrinted, confirmRecyclingForCrushing } = useSearchableApp()
+  const { rejectedMaterials, recyclingBatches, pellets, totalRejectedKg, confirmRecyclingForCrushing } = useSearchableApp()
 
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -217,7 +217,6 @@ function RejectedRecycling() {
               value={pellet.barcode}
               recordId={pellet.id}
               recordLabel={pellet.bagNo}
-              onPrint={() => markPelletBarcodePrinted(pellet.id)}
             />)}
                   </div>
                 )

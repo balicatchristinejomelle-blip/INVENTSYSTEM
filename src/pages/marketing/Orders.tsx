@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import React, { useEffect, useMemo, useState } from "react"
@@ -29,7 +31,8 @@ import DocumentViewer from "../../components/DocumentViewer"
 import { customerOrderDocument } from "../../documentPrint"
 
 export default function Orders() {
-  const { orders, finishedGoods, customers, reserveFinishedGoods, createCustomerOrder } = useApp();
+  const app = useApp();
+  const { orders, finishedGoods, customers, reserveFinishedGoods, createCustomerOrder } = app;
 
   const [showNew, setShowNew] = useState(false)
 
@@ -62,7 +65,7 @@ export default function Orders() {
     (order) =>
       (filter === "All" || order.status === filter) &&
       ([order.orderNo, order.customerName, order.product, order.diameter, order.sdr, order.grade, order.color, order.stripe, order.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-        matchesRecord(order, search)),
+        matchesRecord(withPrintSearch(app, order), search)),
   )
 
   const viewOrder = orders.find((o) => o.id === viewId)
@@ -207,7 +210,7 @@ export default function Orders() {
                 <td onClick={e => e.stopPropagation()}>
                   <div className="button-group">
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(o.id)}>View Details</button>
-                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: o.id, autoPrint: true })}>Print</button>
+                    <DocumentPrintButton className="btn-secondary btn-compact" recordId={o.id} recordType="CUSTOMER ORDER" onClick={() => setDocumentAction({ id: o.id, autoPrint: true })} />
                   </div>
                 </td>
               </tr>
@@ -262,7 +265,7 @@ export default function Orders() {
           </div>
           <div className="mt-4 form-actions">
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: false })}>View Document</button>
-            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: true })}>Print</button>
+            <DocumentPrintButton className="btn-primary" recordId={viewOrder.id} recordType="CUSTOMER ORDER" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {viewOrder.status !== 'Released' && (viewOrder.reservedQuantity || 0) < viewOrder.quantity && <button className="btn-primary" onClick={() => {
               const remaining = Math.max(0, viewOrder.quantity - (viewOrder.reservedQuantity || 0) - (viewOrder.releasedQuantity || 0));

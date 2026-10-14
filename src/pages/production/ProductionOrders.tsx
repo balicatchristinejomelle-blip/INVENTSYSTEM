@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -45,7 +47,8 @@ const readOutputDraft = (): OutputDraft | null => {
 };
 
 export default function ProdOrders() {
-  const { productionOrders, rejectedMaterials, materialUsageTransactions, pellets, colorants, activeAttendance, navigate, recordOutput } = useApp();
+  const app = useApp();
+  const { productionOrders, rejectedMaterials, materialUsageTransactions, pellets, colorants, activeAttendance, navigate, recordOutput } = app;
 
   const [initialDraft] = useState(readOutputDraft)
 
@@ -98,7 +101,7 @@ export default function ProdOrders() {
       inView &&
       dateInPeriod(po.requiredDate, period.range) &&
       ((!query || [po.poNo, po.moRef, po.product, po.diameter, po.grade, po.productionLine].some(value => value.toLowerCase().includes(query))) ||
-          matchesRecord(po, query))
+          matchesRecord(withPrintSearch(app, po), query))
     )
   })
 
@@ -317,7 +320,7 @@ export default function ProdOrders() {
                   <td onClick={e => e.stopPropagation()}>
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View</button>
-                      <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button>
+                      <DocumentPrintButton className="btn-secondary btn-compact" recordId={po.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })} />
                       {po.status === 'In Production' && <button className="btn-primary btn-compact" onClick={() => { setViewId(po.id); setShowOutput(true); }}>Record Output</button>}
                     </div>
                   </td>
@@ -380,7 +383,7 @@ export default function ProdOrders() {
           )}
           <div className="form-actions">
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
-            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
+            <DocumentPrintButton className="btn-primary" recordId={viewPO.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {viewPO.status === "In Production" && (
               <>

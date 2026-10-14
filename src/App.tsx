@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import AccessRestricted from './components/AccessRestricted';
 import type { Role } from './types';
+import { ReprintRequestDialog } from './components/ReprintApprovals';
 
 // Pages
 import Login from './pages/Login';
@@ -161,6 +162,7 @@ function AppShell() {
         <Header onMenu={() => setMobileNavOpen(true)} />
         <main className="app-main" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
           {currentPage === 'production-dashboard' ? <ProductionDashboard /> : <PageRenderer />}
+          <ReprintRequestDialog />
         </main>
       </div>
     </div>

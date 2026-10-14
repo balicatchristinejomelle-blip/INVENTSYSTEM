@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { requestReprint, reviewReprint, completePrint, validatePrint, canViewRequest, printAuditRole, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
+import { hydratePrintWorkflow, printableRecords } from './printableRecords';
+import { seedReprintSamples } from './reprintSamples';
+import { hydrateFinishedPipe, hydratePipeRelationships, resolveFinishedPipe } from './finishedPipeRelations';
 import type {
   User, Role, Theme, Notification, MaterialRequest, Transfer, RRRecord,
   Customer, CustomerOrder, ManufacturingOrder, ProductionOrder,
@@ -507,7 +511,7 @@ export const calculateProductionMaterialPlan = (
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
-interface AppState {
+interface AppState extends PrintWorkflowState {
   theme: Theme;
   currentUser: User | null;
   currentPage: string;
@@ -539,6 +543,12 @@ interface AppState {
 }
 
 interface AppContextValue extends AppState {
+  selectedReprintRequestId: string | null;
+  openReprintRequest: (id: string | null) => void;
+  submitReprintRequest: (key: string, reason: string) => { success: boolean; error?: string };
+  decideReprintRequest: (id: string, decision: 'APPROVED' | 'REJECTED', reason?: string) => { success: boolean; error?: string };
+  beginPrint: (keys: string[], approvalId?: string) => Promise<{ success: boolean; error?: string; ticket?: string }>;
+  finishPrint: (ticket: string, successful: boolean) => { success: boolean; error?: string };
   barcodeResetVersion: string;
   activeAttendance: ShiftAttendance | null;
   activeProductionOrder: ProductionOrder | null;
@@ -592,8 +602,6 @@ interface AppContextValue extends AppState {
   recordColorantUsage: (colorantId: string, quantityKg: number, poId: string, usageType?: 'BASE_COLORANT' | 'STRIPE_COLORANT') => { success: boolean; error?: string };
   submitTurnover: (data: Pick<ShiftTurnover, 'machineCondition' | 'lineCondition' | 'lineConditionOther' | 'issueCategory' | 'issueDescription' | 'issuesEncountered' | 'nextRequiredAction' | 'nextRequiredActionOther' | 'notesForIncoming' | 'instructionType' | 'importantInstructions'>, poId: string) => { success: boolean; turnoverNo?: string; error?: string };
   updateFinishedGoodStorage: (fgId: string, location: string, purpose: 'General Inventory' | 'Customer Order', orderId?: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
-  markPelletBarcodePrinted: (pelletId: string) => void;
-  markFinishedGoodBarcodePrinted: (fgId: string) => void;
   createProductionOrder: (moId: string) => string | null;
   createStockReplenishmentPO: (input: {
     specification: ProductSpecification;
@@ -624,6 +632,8 @@ const AppContext = contextGlobal.__HPAI_APP_CONTEXT__
   ?? (contextGlobal.__HPAI_APP_CONTEXT__ = createContext<AppContextValue | null>(null));
 
 const createInitialState = (): AppState => ({
+  printMetadata: {},
+  reprintRequests: [],
   theme: 'light',
   currentUser: null,
   currentPage: 'login',
@@ -654,12 +664,34 @@ const createInitialState = (): AppState => ({
   totalRejectedKg: 42,
 });
 
+// One additive sample was explicitly requested. Never replace existing physical records.
+export function addReplenishmentSample<T extends AppState>(state: T): T {
+  if (state.productionOrders.some(po => po.id === 'hpai-replenishment-sample-po-v1')) return state;
+  if (state.finishedGoods.some(pipe => pipe.id === 'hpai-replenishment-sample-pipe-v1' || (pipe.qualityStatus === 'Pass' && resolveFinishedPipe(pipe, state).source === 'Stock Replenishment'))) return state;
+  const example = state.finishedGoods.find(pipe => pipe.qualityStatus === 'Pass');
+  if (!example) return state;
+  const now = new Date();
+  const year = now.getFullYear();
+  const next = Math.max(0, ...state.productionOrders.filter(po => po.poNo.startsWith(`PO-${year}-`)).map(po => Number(po.poNo.split('-').pop()) || 0)) + 1;
+  const poNo = `PO-${year}-${String(next).padStart(4, '0')}`;
+  const batchSequence = Math.max(0, ...[...state.finishedGoods, ...state.rejectedMaterials].map(item => Number(item.batch.split('-').pop()) || 0)) + 1;
+  const batch = `BATCH-${year}-${String(batchSequence).padStart(4, '0')}`;
+  const po: ProductionOrder = { id: 'hpai-replenishment-sample-po-v1', poNo, moRef: 'STOCK REPLENISHMENT', source: 'Stock Replenishment', originGroup: `REPLENISH-${year}-${String(next).padStart(4, '0')}`, product: example.product, grade: example.grade, diameter: example.diameter, sdr: example.sdr, length: example.length, color: example.color, stripe: example.stripe, construction: example.construction, productForm: example.productForm, targetQty: 1, completedQty: 1, pelletType: 'Virgin', requiredKg: 0, loadedKg: 0, productionLine: 'Line 1', priority: 'Normal', requiredDate: now.toISOString().slice(0, 10), status: 'Completed', replenishmentReason: 'One localhost relationship sample — not a live transaction' };
+  const [generated] = makePermanentFinishedPipes(1, { product: po.product, grade: po.grade, diameter: po.diameter, sdr: po.sdr, length: po.length, color: po.color, stripe: po.stripe, construction: po.construction, productForm: po.productForm, batch, poRef: poNo, productionDate: po.requiredDate, shift: 'Day', storageLocation: 'Section A', status: 'Available' }, state.barcodeRegistry, state.finishedGoods);
+  const pipe: FinishedGood = { ...generated, id: 'hpai-replenishment-sample-pipe-v1', source: 'Stock Replenishment', productionOrderId: po.id, originGroup: po.originGroup, inventoryPurpose: 'General Inventory', status: 'Available', reservationStatus: 'Available', storageStatus: 'Stored', locationStatus: 'Stored', currentLocation: 'Section A', availableQty: 1, qualityStatus: 'Pass', isTestData: true, storedBy: 'Localhost Sample', storedAt: now.toISOString(), locationHistory: [{ from: 'Production Area / Awaiting Storage', to: 'Section A', action: 'Stored', employee: 'Localhost Sample', employeeId: 'LOCALHOST-SAMPLE', dateTime: now.toISOString(), reason: 'Explicitly requested replenishment relationship sample' }] };
+  return { ...state, productionOrders: [...state.productionOrders, po], finishedGoods: [...state.finishedGoods, pipe], barcodeRegistry: [...state.barcodeRegistry, ...registryEntriesForFinishedGoods([pipe], now.toISOString())] };
+}
+
 const restoreAppState = (): AppState => {
   const initial = createInitialState();
   try {
     const stored = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
-    if (!stored) return initial;
+    if (!stored) {
+      const demo = seedReprintSamples(initial, USERS);
+      return { ...initial, ...demo, notifications: [...demo.notifications, ...initial.notifications], auditLogs: [...demo.auditLogs, ...initial.auditLogs] };
+    }
     const restored = { ...initial, ...JSON.parse(stored) } as AppState;
+    Object.assign(restored, hydratePrintWorkflow(restored, restored));
     if (restored.currentUser?.username === 'owner.admin' || restored.currentUser?.employeeId === 'HQ-OWN-TEST') {
       restored.currentUser = null;
       restored.currentPage = 'login';
@@ -858,7 +890,118 @@ export const formatProductionTime = (value?: string) => {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(restoreAppState);
+  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(addReplenishmentSample(restoreAppState())));
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const printTickets = useRef(new Map<string, { keys: string[]; approvalId?: string; employeeId: string; release?: () => void }>());
+  const refreshPrintState = () => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(APP_STATE_STORAGE_KEY) || 'null');
+      if (stored?.printMetadata && Array.isArray(stored.reprintRequests)) {
+        stateRef.current = { ...stateRef.current, printMetadata: stored.printMetadata, reprintRequests: stored.reprintRequests, notifications: stored.notifications || stateRef.current.notifications, auditLogs: stored.auditLogs || stateRef.current.auditLogs };
+      }
+    } catch { /* Keep the current state when storage is unavailable. */ }
+    return stateRef.current;
+  };
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key !== APP_STATE_STORAGE_KEY) return;
+      const refreshed = refreshPrintState();
+      setState(previous => ({ ...previous, printMetadata: refreshed.printMetadata, reprintRequests: refreshed.reprintRequests, notifications: refreshed.notifications, auditLogs: refreshed.auditLogs }));
+    };
+    window.addEventListener('storage', sync);
+    return () => { window.removeEventListener('storage', sync); printTickets.current.forEach(ticket => ticket.release?.()); printTickets.current.clear(); };
+  }, []);
+  const [selectedReprintRequestId, selectReprintRequest] = useState<string | null>(null);
+  const openReprintRequest = (id: string | null) => {
+    const request = stateRef.current.reprintRequests.find(item => item.id === id);
+    selectReprintRequest(id && request && canViewRequest(stateRef.current.currentUser, request) ? id : null);
+  };
+  const savePrintEvent = (workflow: PrintWorkflowState, action: string, record: PrintableRecord, request?: PrintWorkflowState['reprintRequests'][number]) => {
+    const current = stateRef.current;
+    const user = current.currentUser!;
+    const datetime = new Date().toISOString();
+    const eventId = crypto.randomUUID();
+    const notifications: Notification[] = request && action === 'Reprint Requested'
+      ? [{ id: `reprint-${eventId}`, title: 'Reprint Approval Requested', description: `${record.reference} · Requested by ${user.name} · ${request.reason}`, datetime, priority: 'Action Required', read: false, roles: ['management'], reference: record.reference, reprintRequestId: request.id }]
+      : request && ['Reprint Approved', 'Reprint Rejected'].includes(action)
+        ? [{ id: `reprint-${eventId}`, title: action === 'Reprint Approved' ? 'Reprint Approved' : 'Reprint Request Rejected', description: action === 'Reprint Approved' ? `${record.reference} · Management approved one Reprint.` : `${record.reference} · ${request.rejectionReason}`, datetime, priority: 'Information', read: false, roles: [request.requesterRole], recipientEmployeeId: request.requestedBy, reference: record.reference, reprintRequestId: request.id }]
+        : [];
+    const localDate = new Date();
+    const audit: AuditLog = { id: `print-${eventId}`, date: `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`, time: localDate.toLocaleTimeString('en-GB', { hour12: false }), user: user.name, employeeId: user.employeeId, role: printAuditRole(user.role), action, reference: record.reference, newValue: `${record.key}${request ? ` · ${request.id} · ${request.reason}${request.rejectionReason ? ` · Rejected: ${request.rejectionReason}` : ''}` : ''}` };
+    const updated = { ...current, ...workflow, notifications: [...notifications, ...current.notifications], auditLogs: [audit, ...current.auditLogs] };
+    stateRef.current = updated;
+    setState(previous => ({ ...previous, ...workflow, notifications: [...notifications, ...previous.notifications], auditLogs: [audit, ...previous.auditLogs] }));
+    // Persist administrative changes synchronously: refresh cannot lose a consumed approval.
+    try { window.localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(updated)); } catch { /* In-memory workflow remains usable. */ }
+  };
+  const submitReprintRequest = (key: string, reason: string) => {
+    const current = refreshPrintState();
+    const record = printableRecords(current).find(item => item.key === key);
+    if (!record) return { success: false, error: 'Printable record not found.' };
+    if ([...printTickets.current.values()].some(ticket => ticket.keys.includes(key))) return { success: false, error: 'Finish or cancel the current print first.' };
+    const result = requestReprint(current, current.currentUser, record, reason, new Date().toISOString(), `RP-${crypto.randomUUID()}`);
+    if (result.success) savePrintEvent(result.state, 'Reprint Requested', record, result.request);
+    return result.success ? { success: true } : result;
+  };
+  const decideReprintRequest = (id: string, decision: 'APPROVED' | 'REJECTED', reason = '') => {
+    const current = refreshPrintState();
+    const result = reviewReprint(current, current.currentUser, id, decision, reason, new Date().toISOString());
+    if (result.success) savePrintEvent(result.state, decision === 'APPROVED' ? 'Reprint Approved' : 'Reprint Rejected', result.request!.printable, result.request);
+    return result.success ? { success: true } : result;
+  };
+  const reservePrint = (keys: string[], approvalId?: string, release?: () => void) => {
+    const current = refreshPrintState();
+    if (!keys.length || new Set(keys).size !== keys.length || (approvalId && keys.length !== 1)) return { success: false, error: 'Invalid print selection.' };
+    const records = printableRecords(current);
+    for (const key of keys) {
+      const record = records.find(item => item.key === key);
+      if (!record) return { success: false, error: 'Printable record not found.' };
+      if ([...printTickets.current.values()].some(ticket => ticket.keys.includes(key))) return { success: false, error: 'This record is already being printed.' };
+      const error = validatePrint(current, current.currentUser, record, approvalId);
+      if (error) return { success: false, error };
+    }
+    const ticket = crypto.randomUUID();
+    printTickets.current.set(ticket, { keys, approvalId, employeeId: current.currentUser!.employeeId, release });
+    return { success: true, ticket };
+  };
+  const beginPrint = async (keys: string[], approvalId?: string) => {
+    // A browser-native origin lock prevents two tabs from opening the same approved print.
+    // The lock is released on completion, cancellation, unmount, or browser refresh.
+    if (typeof navigator === 'undefined' || !navigator.locks) return reservePrint(keys, approvalId);
+    return new Promise<{ success: boolean; error?: string; ticket?: string }>(resolve => {
+      navigator.locks.request('hpai:print-session-v1', { ifAvailable: true }, async lock => {
+        if (!lock) { resolve({ success: false, error: 'Another HPAI print session is open. Finish or cancel it first.' }); return; }
+        let release!: () => void;
+        const done = new Promise<void>(complete => { release = complete; });
+        const result = reservePrint(keys, approvalId, release);
+        resolve(result);
+        if (result.success) await done;
+      }).catch(() => resolve({ success: false, error: 'Print session lock could not be acquired.' }));
+    });
+  };
+  const finishPrint = (id: string, successful: boolean) => {
+    const ticket = printTickets.current.get(id);
+    if (!ticket) return { success: false, error: 'Print session already completed or cancelled.' };
+    printTickets.current.delete(id);
+    ticket.release?.();
+    if (!successful) return { success: true };
+    const current = refreshPrintState();
+    if (ticket.employeeId !== current.currentUser?.employeeId) return { success: false, error: 'Print session belongs to another user.' };
+    const records = printableRecords(current);
+    // Validate the entire batch before recording any print event.
+    for (const key of ticket.keys) {
+      const record = records.find(item => item.key === key);
+      const error = record ? validatePrint(current, current.currentUser, record, ticket.approvalId) : 'Printable record not found.';
+      if (error) return { success: false, error };
+    }
+    for (const key of ticket.keys) {
+      const record = records.find(item => item.key === key)!;
+      const result = completePrint(stateRef.current, current.currentUser, record, new Date().toISOString(), ticket.approvalId);
+      if (result.success) savePrintEvent(result.state, ticket.approvalId ? `${record.kind} Reprinted` : 'Initial Print', record, result.request);
+    }
+    return { success: true };
+  };
 
   useEffect(() => {
     setState(current => {
@@ -924,6 +1067,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Keep the application usable when persistent browser storage is unavailable.
     }
   }, [state]);
+
+  useEffect(() => { setState(current => hydratePipeRelationships(addReplenishmentSample(current))); }, []);
 
   const setTheme = useCallback((t: Theme) => {
     setState(s => ({ ...s, theme: t }));
@@ -1853,7 +1998,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             lastUpdated: `${date} ${time}`,
           };
         }),
-        finishedGoods: [...allocatedFinishedGoods, ...s.finishedGoods],
+        finishedGoods: [...allocatedFinishedGoods.map(pipe => hydrateFinishedPipe(pipe, s)), ...s.finishedGoods],
         orders: sourceOrder ? s.orders.map(item => item.id === sourceOrder.id ? {
           ...item,
           reservedQuantity: Math.min(item.quantity, (item.reservedQuantity || 0) + passedQty),
@@ -2260,6 +2405,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let stored = false;
     setState(s => {
       const fg = s.finishedGoods.find(item => item.id === fgId);
+      const origin = fg ? resolveFinishedPipe(fg, s) : undefined;
       const order = purpose === 'Customer Order'
         ? s.orders.find(item => item.id === (orderId || fg?.reservedForOrderId))
         : undefined;
@@ -2269,6 +2415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (
         !fg || s.currentUser?.role !== 'production' || fg.locationStatus === 'Stored' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
         || (purpose === 'General Inventory' && !generalLocation)
+        || (origin?.source === 'Manufacturing Order' && (purpose !== 'Customer Order' || !origin.order || origin.order.id !== order?.id))
         || (purpose === 'Customer Order' && (!order || !orderLocation))
         || (!!fg.reservedForOrderId && !alreadyReservedForOrder)
         || (purpose === 'Customer Order' && !alreadyReservedForOrder && !!order && (order.reservedQuantity || 0) + (order.releasedQuantity || 0) >= order.quantity)
@@ -2348,20 +2495,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return stored;
   }, []);
 
-  const markPelletBarcodePrinted = useCallback((pelletId: string) => {
-    setState(s => ({
-      ...s,
-      pellets: s.pellets.map(item => item.id === pelletId && item.barcode ? { ...item, printStatus: 'Printed' as const } : item),
-    }));
-  }, []);
-
-  const markFinishedGoodBarcodePrinted = useCallback((fgId: string) => {
-    setState(s => ({
-      ...s,
-      finishedGoods: s.finishedGoods.map(item => item.id === fgId && item.barcode ? { ...item, printStatus: 'Printed' as const } : item),
-    }));
-  }, []);
-
   const createProductionOrder = useCallback((moId: string) => {
     let poNumber: string | null = null;
     setState(s => {
@@ -2380,6 +2513,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: `po${Date.now()}`,
         poNo: poNumber,
         moRef: mo.moNo,
+        source: 'Manufacturing Order',
+        originGroup: mo.moNo,
         product: mo.product,
         diameter: mo.diameter,
         length: mo.length,
@@ -2458,6 +2593,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         moRef: 'STOCK REPLENISHMENT',
         source: 'Stock Replenishment',
         replenishmentReason: input.reason.trim(),
+        originGroup: `REPLENISH-${now.getFullYear()}-${String(next).padStart(4, '0')}`,
         product: spec.productType,
         diameter: spec.size,
         length: specificationLength(spec),
@@ -3131,6 +3267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppContextValue = {
     ...state,
+    selectedReprintRequestId, openReprintRequest, submitReprintRequest, decideReprintRequest, beginPrint, finishPrint,
     pendingTurnover: verifiedPendingTurnover,
     colorants: state.colorants || INITIAL_COLORANTS,
     materialUsageTransactions: state.materialUsageTransactions || [],
@@ -3146,7 +3283,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     markNotificationsRead, markNotificationRead, approveMaterialRequest, rejectMaterialRequest,
     acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, recordOutput,
     addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
-    markPelletBarcodePrinted, markFinishedGoodBarcodePrinted, createProductionOrder, createStockReplenishmentPO,
+    createProductionOrder, createStockReplenishmentPO,
     receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, completeRecyclingBatch,
     updateRecyclingStage, confirmRecyclingForCrushing,
   };

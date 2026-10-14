@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useApp } from "../store"
+import { withPrintSearch } from '../printableRecords';
 
 export const normalizeQuery = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim()
@@ -48,7 +49,7 @@ export function useSearchableApp(): App {
     collections.map((key) => [
       key,
       (app[key] as readonly unknown[]).filter((record) =>
-        matchesRecord(record, query),
+        matchesRecord(record && typeof record === 'object' && 'id' in record ? withPrintSearch(app, record as { id: string }) : record, query),
       ),
     ]),
   )

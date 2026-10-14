@@ -1,3 +1,4 @@
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -58,7 +59,7 @@ function BranchRequests() {
         <div className="flex items-center gap-3 mb-4">
           <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: false })}>View Document</button>
-          <button className="btn-primary" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: true })}>Print</button>
+          <DocumentPrintButton className="btn-primary" recordId={viewReq.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
             Material Request — {viewReq.refNo}
           </h2>
@@ -174,7 +175,7 @@ function BranchRequests() {
                 <td onClick={e => e.stopPropagation()}>
                   <div className="button-group">
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(req.id)}>View</button>
-                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: req.id, autoPrint: true })}>Print</button>
+                    <DocumentPrintButton className="btn-secondary btn-compact" recordId={req.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: req.id, autoPrint: true })} />
                     {(req.status === 'New' || req.status === 'Pending') && (
                       <>
                         <button className="btn-success btn-compact" onClick={() => { setSelectedId(req.id); setConfirmAction('approve'); }}>Approve</button>

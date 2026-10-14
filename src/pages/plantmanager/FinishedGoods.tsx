@@ -1,3 +1,5 @@
+import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import RecordList from "../../components/RecordList"
 
 import { matchesRecord } from "../../components/RecordSearch"
@@ -13,6 +15,9 @@ import Modal from "../../components/Modal"
 import StatusBadge from "../../components/StatusBadge"
 
 import BarcodeLabel, { printBarcodeBatch } from '../../components/BarcodeLabel';
+import { BatchPrintAction } from '../../components/PrintAction';
+import { metadataFor, printState } from '../../reprintWorkflow';
+import { printableRecords } from '../../printableRecords';
 
 import CategoryTabs from "../../components/CategoryTabs"
 
@@ -45,7 +50,10 @@ const matchesDestination = (item: FinishedGood, destination: Destination) => {
 };
 
 export default function PMFinishedGoods() {
-  const { finishedGoods, rejectedMaterials, productionOrders, markFinishedGoodBarcodePrinted, rejectFinishedGood, createStockReplenishmentPO, navigate } = useApp();
+  const app = useApp();
+  const { finishedGoods, rejectedMaterials, productionOrders, rejectFinishedGood, createStockReplenishmentPO, navigate } = app;
+  const printable = printableRecords(app);
+  const printRecord = (id: string) => printable.find(record => record.kind === 'Barcode' && record.recordType === 'Finished Pipe' && record.recordId === id);
 
   const [search, setSearch] = useState("")
 
@@ -129,9 +137,9 @@ export default function PMFinishedGoods() {
     && (size === 'All' || f.diameter === size)
     && (location === 'All' || f.currentLocation === location) &&
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-            matchesRecord(f, search)),
+            matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, location, productType, search, size, status],
+    [finishedGoods, grade, location, productType, search, size, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
@@ -173,7 +181,7 @@ export default function PMFinishedGoods() {
 
   const reserved = finishedGoods.reduce((sum, f) => sum + f.reservedQty, 0);
 
-  const unprinted = filtered.filter(item => item.printStatus === 'Not Printed');
+  const unprinted = filtered.filter(item => printRecord(item.id) && metadataFor(app, printRecord(item.id)!).printCount === 0);
 
   const currentRecords = pageRecords(filtered, page)
 
@@ -218,7 +226,7 @@ export default function PMFinishedGoods() {
       recordId: item.id,
       recordLabel: item.fgId,
     })));
-    printedIds.forEach(markFinishedGoodBarcodePrinted);
+    return printedIds.length === unprinted.length;
   };
 
   return (
@@ -295,7 +303,7 @@ export default function PMFinishedGoods() {
         </div>
         <div className="filter-actions">
         <CategoryTabs items={['By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
-        <button className="btn-primary" disabled={!unprinted.length} onClick={printAllUnprinted}>Print All Unprinted Barcodes ({unprinted.length})</button>
+        <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />
       </div>
       </div>
       <div className="app-card table-scroll desktop-record-table">
@@ -403,7 +411,7 @@ export default function PMFinishedGoods() {
                     <td className="font-mono">
                       {f.reservedForOrderRef || "—"}
                     </td>
-                    <td>{f.printStatus}</td>
+                    <td>{printRecord(f.id) ? printState(app, printRecord(f.id)!).replace(/_/g, ' ') : f.printStatus}</td>
                     <td>
                       <button className="btn-secondary btn-compact" onClick={() => setSelectedId(f.id)}>View Details</button>
                     </td>
@@ -591,19 +599,8 @@ export default function PMFinishedGoods() {
             value={selected.barcode}
             recordId={selected.id}
             recordLabel={selected.fgId}
-            onPrint={() => markFinishedGoodBarcodePrinted(selected.id)}
           />
-            <div className="app-card detail-card">
-              <div className="section-title">System Record Details · Not Printed</div>
-              <div className="responsive-grid">
-                {Object.entries({ Product: selected.product, Diameter: selected.diameter, Length: selected.length, 'SDR / Thickness': selected.sdr, Grade: selected.grade, Color: selected.color, Stripe: selected.stripe, Construction: selected.construction, Form: selected.productForm, 'Unit Weight': selected.unitWeightKg ? `${selected.unitWeightKg} kg` : '—', Batch: selected.batch, 'Production Order': selected.poRef, 'Manufacturing Order': selected.moRef || '—', 'Production Date': selected.productionDate, Shift: selected.shift, 'Quality Status': selected.qualityStatus || 'Pending', 'Inventory Purpose': selected.inventoryPurpose || 'Unassigned', 'Inventory Status': selected.status, 'Current Location': selected.currentLocation || 'Not Yet Assigned', 'Customer Order': selected.reservedForOrderRef || '—', Buyer: selected.buyer || '—', 'Release Status': selected.releaseStatus, Available: selected.availableQty, Reserved: selected.reservedQty }).map(([label, value]) => (
-                  <div key={label}>
-                    <div className="field-label">{label}</div>
-                    <div className="field-value">{value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <FinishedPipeDetails pipe={selected} onOpenBatch={() => { setSelectedId(null); setSelectedBatchId(selected.batch); setBatchPipePage(1); }} />
             {rejecting && (
               <div className="app-card detail-card">
                 <div className="section-title">Quality Rejection</div>

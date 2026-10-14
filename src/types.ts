@@ -28,9 +28,13 @@ export interface Notification {
   link?: string;
   reference?: string;
   roles: Role[];
+  recipientEmployeeId?: string;
+  reprintRequestId?: string;
 }
 
 export interface ProductSpecification {
+  itemCode?: string;
+  seasonal?: boolean;
   id: string;
   productType: ProductType;
   materialGrade: ProductMaterialGrade;
@@ -222,6 +226,7 @@ export interface ManufacturingOrder {
 }
 
 export interface ProductionOrder {
+  originGroup?: string;
   id: string;
   poNo: string;
   moRef: string;
@@ -292,6 +297,15 @@ export interface PelletInventory {
 }
 
 export interface FinishedGood {
+  source?: ProductionOrder['source'];
+  productionOrderId?: string;
+  manufacturingOrderId?: string;
+  customerOrderId?: string;
+  productSpecificationId?: string;
+  itemCode?: string;
+  productBarcode?: string;
+  seasonal?: boolean;
+  originGroup?: string;
   id: string;
   fgId: string;
   barcode: string;
@@ -322,7 +336,7 @@ export interface FinishedGood {
   releaseStatus: 'Not Released' | 'Released';
   availableQty: number;
   reservedQty: number;
-  status: 'Quality Pending' | 'Available' | 'Reserved' | 'Ready for Release' | 'Released' | 'Quality Reject' | 'Low Stock';
+  status: 'Quality Pending' | 'Awaiting Storage' | 'Stored' | 'Available' | 'Reserved' | 'Ready for Release' | 'Released' | 'Quality Reject' | 'Low Stock';
   qualityStatus?: 'Pending' | 'Pass' | 'Reject';
   unitWeightKg?: number;
   inventoryPurpose?: 'Unassigned' | 'General Inventory' | 'Customer Order';

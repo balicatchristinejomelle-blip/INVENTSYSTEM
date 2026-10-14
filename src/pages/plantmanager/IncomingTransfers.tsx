@@ -1,3 +1,4 @@
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -181,7 +182,7 @@ function IncomingTransfers() {
                         >
                           View
                         </button>
-                        <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })}>Print</button>
+                        <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
                         {effectiveStatus === 'In Transit' && (
                           <button
                             className="btn-success btn-compact"
@@ -316,7 +317,7 @@ function IncomingTransfers() {
 
           <div className="form-actions">
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
-            <button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button>
+            <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             {getEffectiveStatus(detail) === 'In Transit' && (
               <button

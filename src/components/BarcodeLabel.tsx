@@ -1,4 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { useApp } from '../store';
+import { printableRecords } from '../printableRecords';
+import PrintAction from './PrintAction';
 
 const CODE_128_PATTERNS = [
   '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213', '221312', '231212',
@@ -16,7 +19,6 @@ interface BarcodeLabelProps {
   value: string;
   recordId?: string;
   recordLabel?: string;
-  onPrint?: () => void;
 }
 
 type BatchBarcodeLabel = {
@@ -86,6 +88,7 @@ export function printBarcodeBatch(labels: BatchBarcodeLabel[]) {
   }).sort((a, b) => a.record.value.localeCompare(b.record.value, undefined, { numeric: true }));
   if (errors.length) {
     window.alert(`BARCODE LABEL ERROR\n\n${errors.join('\n')}`);
+    return [];
   }
   if (!printable.length) return [];
   const printWindow = window.open('', '_blank', 'width=860,height=720');
@@ -131,7 +134,9 @@ function escapeHtml(value: string) {
   }[character] as string));
 }
 
-export default function BarcodeLabel({ value, recordId, recordLabel, onPrint }: BarcodeLabelProps) {
+export default function BarcodeLabel({ value, recordId, recordLabel }: BarcodeLabelProps) {
+  const app = useApp();
+  const record = printableRecords(app).find(item => item.kind === 'Barcode' && item.recordId === recordId && item.value === value);
   const [copied, setCopied] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
   const validationError = barcodeValidationError(value);
@@ -159,10 +164,9 @@ export default function BarcodeLabel({ value, recordId, recordLabel, onPrint }: 
       return;
     }
     const barcodeSvg = labelRef.current?.querySelector<SVGElement>('.barcode-svg');
-    if (!barcodeSvg) return;
+    if (!barcodeSvg) return false;
     const printWindow = window.open('', '_blank', 'width=720,height=560');
-    if (!printWindow) return;
-    onPrint?.();
+    if (!printWindow) return false;
     printWindow.document.write(`<!doctype html><html><head><title>Barcode ${escapeHtml(value)}</title><style>
       *{box-sizing:border-box}@page{margin:10mm}body{font-family:Arial,sans-serif;margin:0;padding:10mm;color:#000;background:#fff}
       .label{background:#fff;display:flex;flex-direction:column;justify-content:center;margin:auto;max-width:90mm;min-height:38mm;padding:4mm}
@@ -173,6 +177,7 @@ export default function BarcodeLabel({ value, recordId, recordLabel, onPrint }: 
       <div class="value">${escapeHtml(value)}</div></div>
       <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
     printWindow.document.close();
+    return true;
   };
 
   if (validationError) {
@@ -188,8 +193,7 @@ export default function BarcodeLabel({ value, recordId, recordLabel, onPrint }: 
       </div>
       <div className="helper-text barcode-print-note">The physical sticker prints only the Code 128 barcode and this exact manual-entry value.</div>
       <div className="barcode-actions button-group">
-        <button className="btn-secondary" onClick={printBarcode}>Print Barcode</button>
-        <button className="btn-warning" onClick={printBarcode}>Reprint Barcode</button>
+        {record && <PrintAction record={record} onPreview={printBarcode} />}
         <button className="btn-secondary" onClick={copyValue}>{copied ? 'Copied' : 'Copy Barcode Value'}</button>
       </div>
     </section>

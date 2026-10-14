@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import React, { useEffect, useState } from "react"
 
 import { useApp } from "../../store"
@@ -17,15 +19,17 @@ import DocumentViewer from "../../components/DocumentViewer"
 import { productionOrderDocument } from '../../documentPrint';
 
 import { matchesRecord } from "../../components/RecordSearch"
+import ReprintApprovals from '../../components/ReprintApprovals';
 
 type ProductionView = 'Active / Ready' | 'In Progress' | 'Pending Turnover' | 'Completed';
 
 type PelletView = 'All' | 'Available' | 'Open / WIP' | 'Fully Consumed';
 
 export default function Operations() {
-  const { productionOrders, pellets, colorants, materialUsageTransactions, finishedGoods, attendance } = useApp();
+  const app = useApp();
+  const { productionOrders, pellets, colorants, materialUsageTransactions, finishedGoods, attendance } = app;
 
-  const [tab, setTab] = useState<'inventory' | 'production' | 'orders' | 'attendance'>('inventory');
+  const [tab, setTab] = useState<'inventory' | 'production' | 'orders' | 'attendance' | 'reprints'>('inventory');
 
   const [materialCategory, setMaterialCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
 
@@ -62,7 +66,7 @@ export default function Operations() {
   const selectedProductionOrders = productionOrders.filter(
     (po) =>
       dateInPeriod(po.requiredDate, period.range) &&
-      matchesRecord(po, query) &&
+      matchesRecord(withPrintSearch(app, po), query) &&
       (productionView === 'Active / Ready'
       ? ['Scheduled', 'Ready'].includes(po.status)
       : productionView === 'In Progress'
@@ -103,8 +107,8 @@ export default function Operations() {
       <div className="page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." />
       </div>
-      <div className="flex gap-2 mb-4">
-        {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance']].map(([k, l]) => (
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)} style={{
             padding: '6px 14px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: tab === k ? 600 : 400,
             border: `1px solid ${tab === k ? 'var(--accent-blue)' : 'var(--card-border)'}`,
@@ -114,6 +118,8 @@ export default function Operations() {
           </button>
         ))}
       </div>
+
+      {tab === 'reprints' && <ReprintApprovals search={search} />}
 
       {tab === "inventory" && (
         <div className="page-stack">
@@ -280,7 +286,7 @@ export default function Operations() {
                       <td>
                         <div className="button-group">
                           <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: false })}>View Document</button>
-                          <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button>
+                          <DocumentPrintButton className="btn-secondary btn-compact" recordId={po.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })} />
                         </div>
                       </td>
                     </tr>

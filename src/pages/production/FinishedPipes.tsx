@@ -1,3 +1,5 @@
+import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import React, { useState, useMemo } from "react"
@@ -60,64 +62,7 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
           <div className="helper-text">The system assigned this barcode after Quality Pass. Use Barcode Scanner for storage and release operations.</div>
         </div>
 
-        {/* IDs & Barcodes */}
-        <div className="app-card" style={{ background: 'var(--app-bg)', padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Identification</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <LabelValue label="FG ID" value={fg.fgId} mono />
-            <LabelValue label="Batch" value={fg.batch} mono />
-            <LabelValue label="PO Reference" value={fg.poRef} mono />
-          </div>
-        </div>
-
-        {/* Product spec */}
-        <div className="app-card" style={{ background: 'var(--app-bg)', padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Product Specification</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            <LabelValue label="Product" value={fg.product} />
-            <LabelValue label="Diameter" value={fg.diameter} />
-            <LabelValue label="Length" value={fg.length} />
-            <LabelValue label="SDR / Thickness" value={fg.sdr} />
-            <LabelValue label="Grade" value={fg.grade} />
-            <LabelValue label="Color" value={fg.color} />
-            <LabelValue label="Stripe" value={fg.stripe} />
-            <LabelValue label="Construction" value={fg.construction} />
-            <LabelValue label="Product Form" value={fg.productForm} />
-          </div>
-        </div>
-
-        {/* Quantities */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {[
-            ['Total Qty', fg.quantity, 'var(--text-primary)'],
-            ['Available', fg.availableQty, '#16a34a'],
-            ['Reserved', fg.reservedQty, '#2563eb'],
-          ].map(([label, val, color]) => (
-            <div key={label as string} className="app-card" style={{ background: 'var(--app-bg)', padding: '10px 12px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-                {label as string}
-              </div>
-              <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: color as string }}>
-                {val as number}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Production info */}
-        <div className="app-card" style={{ background: 'var(--app-bg)', padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Production Info</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            <LabelValue label="Production Date" value={fg.productionDate} mono />
-            <LabelValue label="Shift" value={fg.shift} />
-            <LabelValue label="Current Location" value={fg.currentLocation || 'Not Yet Assigned'} />
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Status</div>
-              <StatusBadge status={fg.status} />
-            </div>
-          </div>
-        </div>
-
+        <FinishedPipeDetails pipe={fg} />
         <div className="form-actions">
           <button className="btn-secondary" onClick={onClose}>Close</button>
         </div>
@@ -296,7 +241,8 @@ function RecordStorageModal({ open, onClose, currentShift, activePOProduct }: {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function FinishedPipes() {
-  const { finishedGoods, activeProductionOrder: activePO, currentShift, navigate } = useApp();
+  const app = useApp();
+  const { finishedGoods, activeProductionOrder: activePO, currentShift, navigate } = app;
 
   const activePOProduct = activePO
     ? `${activePO.product} ${activePO.diameter} ${activePO.length} ${activePO.sdr} ${activePO.grade} ${activePO.color}`
@@ -336,9 +282,9 @@ export default function FinishedPipes() {
       && matchesDestination(fg, activeTab)
       && dateInPeriod(fg.productionDate, period.range) &&
         ([fg.barcode, fg.fgId, fg.poRef, fg.currentLocation, fg.product].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-          matchesRecord(fg, search)),
+          matchesRecord(pipeSearchRecord(fg, { ...app, specifications: readPipeSpecifications() }), search)),
     )
-  }, [finishedGoods, activeTab, grade, productType, search, period.range])
+  }, [finishedGoods, activeTab, grade, productType, search, period.range, app.productionOrders, app.manufacturingOrders, app.orders])
 
   const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 

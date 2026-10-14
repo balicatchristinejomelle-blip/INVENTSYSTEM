@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useMemo, useState } from "react"
@@ -11,6 +13,7 @@ import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/Period
 import StatusBadge from "../../components/StatusBadge"
 
 import { useApp } from "../../store"
+import ReprintApprovals from '../../components/ReprintApprovals';
 
 import { MATERIAL_GRADES } from "../../inventoryCategories"
 
@@ -53,6 +56,7 @@ type RecordRow = {
 
 export default function OwnerRecords() {
   const app = useApp()
+  const [monitorReprints, setMonitorReprints] = useState(false);
 
   const period = usePeriod("month")
 
@@ -270,7 +274,7 @@ export default function OwnerRecords() {
     && (status === 'All Statuses' || item.status === status)
     && (grade === 'All Grades' || item.grade === grade)
     && (location === 'All Locations' || item.location === location) &&
-        matchesRecord(item, search),
+        matchesRecord(withPrintSearch(app, item), search),
     )
     .sort((a, b) => b.date.localeCompare(a.date))
 
@@ -336,6 +340,8 @@ export default function OwnerRecords() {
         </div>
         <span className="badge-blue">Read-only owner view</span>
       </div>
+      <div className="button-group"><button className="btn-secondary" onClick={() => setMonitorReprints(value => !value)}>{monitorReprints ? 'Hide Reprint History' : 'Reprint Requests & History'}</button></div>
+      {monitorReprints && <ReprintApprovals monitor search={search} />}
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
       <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." />
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
@@ -402,7 +408,7 @@ export default function OwnerRecords() {
                   {printableModules.includes(item.module) && (
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ module: item.module, id: item.id, autoPrint: false })}>View Document</button>
-                      <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ module: item.module, id: item.id, autoPrint: true })}>Print</button>
+                      <DocumentPrintButton className="btn-secondary btn-compact" recordId={item.id} recordType={item.module === 'Recycling Batch' ? 'RECYCLING RECORD' : item.module === 'Transfer' ? 'MATERIAL TRANSFER' : item.module.toUpperCase()} onClick={() => setDocumentAction({ module: item.module, id: item.id, autoPrint: true })} />
                     </div>
                   )}
                 </td>

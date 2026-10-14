@@ -87,7 +87,7 @@ export const normalizeProductSpecification = (raw: unknown): ProductSpecificatio
     coilLength: value.productForm === 'Coil' ? length : undefined,
     color: value.color, stripe: value.stripe,
     pipeConstruction: (value.pipeConstruction || value.construction || pipeConstruction) as ProductSpecification['pipeConstruction'],
-    unitWeightKg: value.unitWeightKg, active: value.active ?? value.status !== 'Inactive',
+    unitWeightKg: value.unitWeightKg, itemCode: value.itemCode, seasonal: value.seasonal, active: value.active ?? value.status !== 'Inactive',
   };
 };
 
