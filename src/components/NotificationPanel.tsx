@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import type { Notification, Role } from '../types';
 import type { ProductSpecification, StockTarget } from '../types';
+import type { ReprintRequest } from '../reprintWorkflow';
 import { normalizeProductSpecification, specificationKey, specificationKeyFromRecord } from '../productMaster';
 
 interface Props {
@@ -34,10 +35,11 @@ const priorityClass: Record<Notification['priority'], string> = {
   Information: 'notification-priority-info',
 };
 
-export const notificationsForRole = (notifications: Notification[], role?: Role) => {
+export const notificationsForRole = (notifications: Notification[], role?: Role, employeeId?: string) => {
   if (!role) return [];
   return notifications
     .filter(notification => role === 'OWNER_SUPER_ADMIN' || notification.roles.includes(role))
+    .filter(notification => !notification.recipientEmployeeId || role === 'OWNER_SUPER_ADMIN' || notification.recipientEmployeeId === employeeId)
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority] || b.datetime.localeCompare(a.datetime));
 };
 
@@ -50,6 +52,14 @@ export const notificationTarget = (notification: Notification, role?: Role) =>
 
 export const notificationReference = (notification: Notification) =>
   notification.reference || `${notification.title} ${notification.description}`.match(/(?:PO|MO|SO|MR|MT|RR|RB)-\d{4}-\d+/)?.[0];
+
+export function reprintNotificationAction(notification: Notification, role: Role | undefined, employeeId: string | undefined, requests: ReprintRequest[]) {
+  const request = requests.find(item => item.id === notification.reprintRequestId);
+  if (!request) return 'Open related record →';
+  if (role === 'management' && request.status === 'PENDING') return 'Review Request';
+  if (request.requestedBy === employeeId && request.status === 'APPROVED') return 'Reprint Now';
+  return 'View Request';
+}
 
 export const formatNotificationTime = (value: string) => {
   const date = new Date(value.replace(' ', 'T'));
@@ -101,12 +111,12 @@ export function useInventoryStockNotifications() {
 }
 
 export default function NotificationPanel({ open, onClose, onViewAll }: Props) {
-  const { notifications, currentUser, markNotificationsRead, markNotificationRead, navigate } = useApp();
+  const { notifications, currentUser, markNotificationsRead, markNotificationRead, navigate, openReprintRequest, reprintRequests } = useApp();
   const stockNotifications = useInventoryStockNotifications();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const ref = useRef<HTMLDivElement>(null);
   const role = currentUser?.role;
-  const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], role), [notifications, role, stockNotifications.notifications]);
+  const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], role, currentUser?.employeeId), [notifications, role, currentUser?.employeeId, stockNotifications.notifications]);
   const unreadCount = myNotifications.filter(notification => !notification.read).length;
   const visibleNotifications = filter === 'unread' ? myNotifications.filter(notification => !notification.read) : myNotifications;
 
@@ -129,6 +139,7 @@ export default function NotificationPanel({ open, onClose, onViewAll }: Props) {
   const openNotification = (notification: Notification) => {
     if (notification.id.startsWith('stock-')) stockNotifications.markOne(notification.id);
     else markNotificationRead(notification.id);
+    if (notification.reprintRequestId) { openReprintRequest(notification.reprintRequestId); onClose(); return; }
     const target = notificationTarget(notification, role);
     if (target) navigate(target);
     onClose();
@@ -156,7 +167,7 @@ export default function NotificationPanel({ open, onClose, onViewAll }: Props) {
               <span className="notification-row-title">{notification.title}{!notification.read && <span className="notif-dot" aria-label="Unread" />}</span>
               {reference && <span className="notification-reference">{reference}</span>}
               <span className="notification-description">{notification.description}</span>
-              <span className="notification-meta"><time>{formatNotificationTime(notification.datetime)}</time><span>Open record →</span></span>
+              <span className="notification-meta"><time>{formatNotificationTime(notification.datetime)}</time><span>{reprintNotificationAction(notification, role, currentUser?.employeeId, reprintRequests)}</span></span>
             </button>
           );
         })}
@@ -170,7 +181,7 @@ export default function NotificationPanel({ open, onClose, onViewAll }: Props) {
 export function NotifBellButton({ onClick, expanded }: { onClick: () => void; expanded?: boolean }) {
   const { notifications, currentUser } = useApp();
   const stockNotifications = useInventoryStockNotifications();
-  const count = notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role).filter(notification => !notification.read).length;
+  const count = notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role, currentUser?.employeeId).filter(notification => !notification.read).length;
   return (
     <button className="notification-bell" onClick={onClick} aria-label={count ? `Notifications, ${count} unread` : 'Notifications'} aria-haspopup="dialog" aria-expanded={expanded}>
       <svg width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">

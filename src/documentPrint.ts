@@ -16,6 +16,7 @@ const fields = (values: Array<[string, unknown]>): DocumentField[] =>
     .map(([label, value]) => ({ label, value: String(value) }));
 
 export const customerOrderDocument = (order: CustomerOrder): PrintableDocument => ({
+  recordId: order.id,
   type: 'CUSTOMER ORDER',
   reference: order.orderNo,
   date: order.orderDate,
@@ -40,6 +41,7 @@ export const customerOrderDocument = (order: CustomerOrder): PrintableDocument =
 });
 
 export const manufacturingOrderDocument = (mo: ManufacturingOrder, customer?: string): PrintableDocument => ({
+  recordId: mo.id,
   type: 'MANUFACTURING ORDER',
   reference: mo.moNo,
   date: mo.createdDate,
@@ -61,6 +63,7 @@ export const manufacturingOrderDocument = (mo: ManufacturingOrder, customer?: st
 });
 
 export const productionOrderDocument = (po: ProductionOrder): PrintableDocument => ({
+  recordId: po.id,
   type: 'PRODUCTION ORDER',
   reference: po.poNo,
   date: po.requiredDate,
@@ -83,6 +86,7 @@ export const productionOrderDocument = (po: ProductionOrder): PrintableDocument 
 });
 
 export const receivingReportDocument = (rr: RRRecord): PrintableDocument => ({
+  recordId: rr.id,
   type: 'RECEIVING REPORT',
   reference: rr.rrNumber,
   date: rr.date,
@@ -102,6 +106,7 @@ export const receivingReportDocument = (rr: RRRecord): PrintableDocument => ({
 });
 
 export const materialRequestDocument = (request: MaterialRequest): PrintableDocument => ({
+  recordId: request.id,
   type: 'MATERIAL REQUEST',
   reference: request.refNo,
   date: request.date,
@@ -124,6 +129,7 @@ export const materialRequestDocument = (request: MaterialRequest): PrintableDocu
 });
 
 export const transferDocument = (transfer: Transfer): PrintableDocument => ({
+  recordId: transfer.id,
   type: 'MATERIAL TRANSFER',
   reference: transfer.refNo,
   date: transfer.date,
@@ -147,6 +153,7 @@ export const transferDocument = (transfer: Transfer): PrintableDocument => ({
 });
 
 export const recyclingDocument = (batch: RecyclingBatch): PrintableDocument => ({
+  recordId: batch.id,
   type: 'RECYCLING RECORD',
   reference: batch.batchNo,
   date: batch.date,

@@ -1,3 +1,4 @@
+import DocumentPrintButton from './DocumentPrintButton';
 import React, { useState } from 'react';
 import StatusBadge from './StatusBadge';
 import type { CustomerOrder, ManufacturingOrder, MaterialRequest, PelletInventory, ProductionOrder } from '../types';
@@ -169,7 +170,7 @@ export default function ManufacturingOrderDetails({
     <div className="mo-actions">
       <button className="btn-secondary" onClick={onBack}>Back</button>
       <button className="btn-secondary" onClick={() => setDocumentAction('view')}>View Document</button>
-      <button className="btn-primary" onClick={() => setDocumentAction('print')}>Print</button>
+      <DocumentPrintButton className="btn-primary" recordId={mo.id} recordType="MANUFACTURING ORDER" onClick={() => setDocumentAction('print')} />
       {customerOrder && <button className="btn-secondary" onClick={() => setShowCustomerOrder(value => !value)}>
         {showCustomerOrder ? 'Hide Customer Order' : 'View Customer Order'}
       </button>}

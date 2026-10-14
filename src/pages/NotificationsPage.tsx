@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react"
 
 import { useApp } from "../store"
 
-import { formatNotificationTime, notificationReference, notificationsForRole, notificationTarget, useInventoryStockNotifications } from '../components/NotificationPanel';
+import { formatNotificationTime, notificationReference, notificationsForRole, notificationTarget, useInventoryStockNotifications, reprintNotificationAction } from '../components/NotificationPanel';
 
 import StatusBadge from "../components/StatusBadge"
 
@@ -11,7 +11,7 @@ import { matchesRecord } from "../components/RecordSearch"
 import Pagination, { pageRecords } from "../components/Pagination"
 
 export default function NotificationsPage() {
-  const { notifications, currentUser, markNotificationsRead, markNotificationRead, navigate } = useApp();
+  const { notifications, currentUser, markNotificationsRead, markNotificationRead, navigate, openReprintRequest, reprintRequests } = useApp();
 
   const stockNotifications = useInventoryStockNotifications()
 
@@ -21,7 +21,7 @@ export default function NotificationsPage() {
 
   const [page, setPage] = useState(1)
 
-  const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role), [notifications, currentUser?.role, stockNotifications.notifications]);
+  const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role, currentUser?.employeeId), [notifications, currentUser?.role, currentUser?.employeeId, stockNotifications.notifications]);
 
   const unreadCount = myNotifications.filter(notification => !notification.read).length;
 
@@ -36,6 +36,7 @@ export default function NotificationsPage() {
     if (!notification) return;
     if (id.startsWith('stock-')) stockNotifications.markOne(id);
     else markNotificationRead(id);
+    if (notification.reprintRequestId) { openReprintRequest(notification.reprintRequestId); return; }
     const target = notificationTarget(notification, currentUser?.role);
     if (target) navigate(target);
   };
@@ -97,7 +98,7 @@ export default function NotificationsPage() {
             <p>{notification.description}</p>
             <div className="notification-meta">
               <time>{formatNotificationTime(notification.datetime)}</time>
-              <span>Open related record →</span>
+              <span>{reprintNotificationAction(notification, currentUser?.role, currentUser?.employeeId, reprintRequests)}</span>
             </div>
           </button>
         ))}

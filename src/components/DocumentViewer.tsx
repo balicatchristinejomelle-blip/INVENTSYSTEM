@@ -1,4 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import { useApp } from '../store';
+import { printableRecords } from '../printableRecords';
+import PrintAction from './PrintAction';
 import hpaiLogo from '../assets/hpai-logo.png';
 
 export type DocumentField = {
@@ -12,6 +15,7 @@ export type DocumentSection = {
 };
 
 export type PrintableDocument = {
+  recordId: string;
   type: string;
   reference: string;
   date?: string;
@@ -28,11 +32,8 @@ interface DocumentViewerProps {
 }
 
 export default function DocumentViewer({ open, document, onClose, autoPrint = false }: DocumentViewerProps) {
-  useEffect(() => {
-    if (!open || !document || !autoPrint) return;
-    const timer = window.setTimeout(() => window.print(), 80);
-    return () => window.clearTimeout(timer);
-  }, [open, document?.reference, autoPrint]);
+  const app = useApp();
+  const record = document ? printableRecords(app).find(item => item.kind === 'Document' && item.recordId === document.recordId && item.recordType === document.type) : undefined;
 
   if (!open) return null;
 
@@ -40,7 +41,7 @@ export default function DocumentViewer({ open, document, onClose, autoPrint = fa
     <div className="document-viewer-overlay" role="dialog" aria-modal="true" aria-label={document ? `${document.type} ${document.reference}` : 'Document not found'}>
       <div className="document-viewer-shell">
         <div className="document-viewer-actions print-hidden">
-          <button className="btn-primary" disabled={!document} onClick={() => document && window.print()}>Print</button>
+          {record && <PrintAction key={record.key} record={record} autoStart={autoPrint} onPreview={() => { window.print(); return true; }} />}
           <button className="btn-secondary" onClick={onClose}>Close</button>
         </div>
         {document ? (

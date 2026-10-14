@@ -28,6 +28,8 @@ export interface Notification {
   link?: string;
   reference?: string;
   roles: Role[];
+  recipientEmployeeId?: string;
+  reprintRequestId?: string;
 }
 
 export interface ProductSpecification {

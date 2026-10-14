@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -39,7 +41,8 @@ function nextRefNo(existing: { refNo: string }[]): string {
 }
 
 export default function MainPlantRequests() {
-  const { materialRequests, productionOrders, addMaterialRequest, currentUser } = useApp();
+  const app = useApp();
+  const { materialRequests, productionOrders, addMaterialRequest, currentUser } = app;
 
   const [tab, setTab] = useState<RequestTab>("All")
 
@@ -101,7 +104,7 @@ export default function MainPlantRequests() {
     (request) =>
       (tab === "All" || requestCategory(request) === tab) &&
       ([request.refNo, request.grade, request.color, request.poRef || '', request.destination || '', request.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-        matchesRecord(request, search)),
+        matchesRecord(withPrintSearch(app, request), search)),
   )
 
   const detail = materialRequests.find(request => request.id === viewId);
@@ -233,7 +236,7 @@ export default function MainPlantRequests() {
                   <td>
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View Details</button>
-                      <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })}>Print</button>
+                      <DocumentPrintButton className="btn-secondary btn-compact" recordId={request.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })} />
                     </div>
                   </td>
                 </tr>
@@ -263,7 +266,7 @@ export default function MainPlantRequests() {
         </div>
           <div className="form-actions mt-4">
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
-            <button className="btn-primary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })}>Print</button>
+            <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
           </div>
         </Modal>
       )}

@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import RecordRows from "../../components/RecordRows"
 
 import { matchesRecord } from "../../components/RecordSearch"
@@ -21,7 +23,8 @@ import DocumentViewer from "../../components/DocumentViewer"
 import { receivingReportDocument } from '../../documentPrint';
 
 export default function RRRecords() {
-  const { rrRecords, pellets, createReceivingReport } = useApp();
+  const app = useApp();
+  const { rrRecords, pellets, createReceivingReport } = app;
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -60,9 +63,9 @@ export default function RRRecords() {
         (rr) =>
           (pelletTypeFilter === 'All' || rr.pelletType === pelletTypeFilter) &&
           ((!search.trim() || [rr.rrNumber, rr.supplier, rr.grade, rr.batchNo, rr.referenceNo, rr.destination].some(v => (v || '').toLowerCase().includes(search.trim().toLowerCase()))) ||
-              matchesRecord(rr, search)),
+              matchesRecord(withPrintSearch(app, rr), search)),
       ),
-    [rrRecords, search, pelletTypeFilter],
+    [rrRecords, search, pelletTypeFilter, app.printMetadata, app.reprintRequests],
   )
 
   const submitRR = () => {
@@ -88,7 +91,7 @@ export default function RRRecords() {
         <div className="flex items-center gap-3 mb-4">
           <button className="btn-secondary" onClick={() => setViewId(null)}>Back</button>
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: false })}>View Document</button>
-          <button className="btn-primary" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: true })}>Print</button>
+          <DocumentPrintButton className="btn-primary" recordId={viewRR.id} recordType="RECEIVING REPORT" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700 }}>
             RR Record — {viewRR.rrNumber}
           </h2>
@@ -221,7 +224,7 @@ export default function RRRecords() {
                 <td onClick={(e) => e.stopPropagation()}>
                   <div className="button-group">
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(rr.id)}>View Details</button>
-                    <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: rr.id, autoPrint: true })}>Print</button>
+                    <DocumentPrintButton className="btn-secondary btn-compact" recordId={rr.id} recordType="RECEIVING REPORT" onClick={() => setDocumentAction({ id: rr.id, autoPrint: true })} />
                   </div>
                 </td>
               </tr>

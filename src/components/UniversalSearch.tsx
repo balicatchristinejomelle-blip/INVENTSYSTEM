@@ -13,6 +13,8 @@ import {
 import Modal from "./Modal"
 import Pagination, { pageRecords } from "./Pagination"
 import { matchesRecord, searchableText } from "./RecordSearch"
+import { canViewRequest, metadataFor, printState } from '../reprintWorkflow';
+import { printableRecords } from '../printableRecords';
 
 export interface SearchResult {
   id: string
@@ -340,7 +342,7 @@ export function buildUniversalIndex(
   )
   add(
     "NOTIFICATIONS",
-    app.notifications.filter((item) => owner || item.roles.includes(role)),
+    app.notifications.filter((item) => (owner || item.roles.includes(role)) && (!item.recipientEmployeeId || owner || item.recipientEmployeeId === user.employeeId)),
     {
       OWNER_SUPER_ADMIN: "notifications",
       accounting: "notifications",
@@ -351,6 +353,15 @@ export function buildUniversalIndex(
     },
     (item) => [item.title, `${item.priority} · ${item.description}`],
   )
+  const printables = printableRecords(app);
+  for (const result of results) {
+    const record = printables.find(item => item.recordId === result.id && (item.reference === result.title || item.value === result.title));
+    if (record) result.record = { ...result.record, printStatus: printState(app, record), ...metadataFor(app, record) };
+  }
+  for (const request of app.reprintRequests || []) {
+    if (!canViewRequest(user, request)) continue;
+    results.push({ id: request.id, group: 'REPRINT REQUESTS', title: request.printable.reference, subtitle: `${request.id} · ${request.requesterName} · ${request.reason} · ${request.status}`, page: owner ? 'owner-records' : role === 'management' ? 'mgmt-operations' : 'notifications', record: request });
+  }
   return results
 }
 
@@ -446,6 +457,7 @@ export default function UniversalSearch() {
                     type="button"
                     key={`${group}-${result.id}`}
                     onClick={() => {
+                      if (result.group === 'REPRINT REQUESTS') { app.openReprintRequest(result.id); setOpen(false); return; }
                       setSelected({ group, id: result.id })
                       setOpen(false)
                     }}

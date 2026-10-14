@@ -11,6 +11,9 @@ import { useApp } from "../../store"
 import Modal from "../../components/Modal"
 
 import BarcodeLabel, { printBarcodeBatch } from '../../components/BarcodeLabel';
+import { BatchPrintAction } from '../../components/PrintAction';
+import { metadataFor, printState } from '../../reprintWorkflow';
+import { printableRecords } from '../../printableRecords';
 
 import StatusBadge from "../../components/StatusBadge"
 
@@ -23,7 +26,10 @@ import { MATERIAL_CATEGORIES, MATERIAL_GRADES, type MaterialCategoryTab } from '
 import type { StockTarget } from "../../types"
 
 export default function PelletInventory() {
-  const { pellets, colorants, recyclingBatches, materialUsageTransactions, materialRequests, transfers, markPelletBarcodePrinted, navigate } = useApp();
+  const app = useApp();
+  const { pellets, colorants, recyclingBatches, materialUsageTransactions, materialRequests, transfers, navigate } = app;
+  const printable = printableRecords(app);
+  const printRecord = (id: string) => printable.find(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && record.recordId === id);
 
   const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
 
@@ -60,7 +66,7 @@ export default function PelletInventory() {
     && (grade === 'All' || item.grade === grade)
     && (location === 'All' || item.currentLocation === location) &&
       ([item.barcode, item.batchNo, item.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-        matchesRecord(item, search)),
+        matchesRecord({ ...item, printStatus: printRecord(item.id) ? printState(app, printRecord(item.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(item.id)?.key)?.status }, search)),
   )
 
   const visibleColorants = colorants.filter(
@@ -78,7 +84,7 @@ export default function PelletInventory() {
 
   const bagUsage = (id: string) => materialUsageTransactions.filter(item => item.physicalBagId === id);
 
-  const unprinted = filtered.filter(item => item.printStatus === 'Not Printed');
+  const unprinted = filtered.filter(item => printRecord(item.id) && metadataFor(app, printRecord(item.id)!).printCount === 0);
 
   const currentPellets = pageRecords(filtered, page)
 
@@ -146,7 +152,7 @@ export default function PelletInventory() {
       recordId: item.id,
       recordLabel: item.bagNo,
     })));
-    printedIds.forEach(markPelletBarcodePrinted);
+    return printedIds.length === unprinted.length;
   };
 
   return (
@@ -156,7 +162,7 @@ export default function PelletInventory() {
           <div className="section-title">Material Monitoring & Barcode Management</div>
           <div className="helper-text">One permanent barcode per complete 25 kg pellet bag. Colorants remain kg-balance records.</div>
         </div>
-        {category !== 'Colorants' && <button className="btn-primary" disabled={!unprinted.length} onClick={printAll}>Print Unprinted ({unprinted.length})</button>}
+        {category !== 'Colorants' && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAll} label="Print Unprinted" />}
       </div>
 
       {materialStockRows.length > 0 && (
@@ -275,6 +281,7 @@ export default function PelletInventory() {
                 <th>PO Usage History</th>
                 <th>Lifecycle Date</th>
                 <th>Location</th>
+                <th>Print Status / Count</th>
                 <th data-actions>Action</th>
               </tr>
             </thead>
@@ -299,6 +306,7 @@ export default function PelletInventory() {
                     {item.fullyConsumedAt ? new Date(item.fullyConsumedAt).toLocaleString('en-PH') : item.loadedAt ? new Date(item.loadedAt).toLocaleString('en-PH') : item.receivedDate}
                   </td>
                   <td>{item.currentLocation || "Not Yet Assigned"}</td>
+                  <td>{printRecord(item.id) ? `${printState(app, printRecord(item.id)!).replace(/_/g, ' ')} / ${metadataFor(app, printRecord(item.id)!).printCount}` : 'Not printable'}</td>
                   <td>
                     <button className="btn-secondary btn-compact" onClick={() => setSelectedId(item.id)}>View</button>
                   </td>
@@ -317,7 +325,6 @@ export default function PelletInventory() {
           value={selected.barcode}
           recordId={selected.id}
           recordLabel={selected.bagNo}
-          onPrint={() => markPelletBarcodePrinted(selected.id)}
         />
             <div className="app-card detail-card">
               <div className="section-title">System Record Details · Not Printed</div>

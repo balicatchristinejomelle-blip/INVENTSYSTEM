@@ -1,3 +1,5 @@
+import { withPrintSearch } from '../../printableRecords';
+import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import React, { useEffect, useMemo, useState } from "react"
@@ -30,7 +32,8 @@ import {
 import type { MaterialGrade, ProductSpecification, ProductType, ProductionOrder } from '../../types';
 
 export default function PMProductionOrders() {
-  const { productionOrders, manufacturingOrders, pellets, orders, materialRequests, createProductionOrder, createStockReplenishmentPO, navigate } = useApp();
+  const app = useApp();
+  const { productionOrders, manufacturingOrders, pellets, orders, materialRequests, createProductionOrder, createStockReplenishmentPO, navigate } = app;
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -80,13 +83,13 @@ export default function PMProductionOrders() {
   const filteredMOs = manufacturingOrders.filter(
     (item) =>
       !query || [item.moNo, item.orderRef, item.poRef || '', item.product, item.grade, item.diameter, item.sdr, item.length, item.color, item.stripe, item.status, item.requiredDate].some(value => String(value).toLowerCase().includes(query)) ||
-        matchesRecord(item, query),
+        matchesRecord(withPrintSearch(app, item), query),
   )
 
   const filteredPOs = productionOrders.filter(
     (item) =>
       !query || [item.poNo, item.source || 'Manufacturing Order', item.moRef, item.product, item.grade, item.diameter, item.sdr, item.length, item.priority, item.requiredDate, item.status, item.replenishmentReason || ''].some(value => String(value).toLowerCase().includes(query)) ||
-        matchesRecord(item, query),
+        matchesRecord(withPrintSearch(app, item), query),
   )
 
   const submitReplenishment = () => {
@@ -227,7 +230,7 @@ export default function PMProductionOrders() {
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="button-group">
                         <button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View Details</button>
-                        <button className="btn-secondary btn-compact" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })}>Print</button>
+                        <DocumentPrintButton className="btn-secondary btn-compact" recordId={po.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })} />
                       </div>
                     </td>
                   </tr>
@@ -295,7 +298,7 @@ export default function PMProductionOrders() {
           <div className="form-actions">
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
-            <button className="btn-primary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })}>Print</button>
+            <DocumentPrintButton className="btn-primary" recordId={viewPO.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })} />
           </div>
         </Modal>
       )}

@@ -43,6 +43,7 @@ interface SearchableSelectProps {
   id?: string
 
   name?: string
+  menuClassName?: string
 }
 
 export const normalizeSelectSearch = (value: string) =>
@@ -77,6 +78,7 @@ export default function SearchableSelect({
   noResultsText = "No matching options",
   id,
   name,
+  menuClassName = '',
 }: SearchableSelectProps) {
   const listId = useId()
 
@@ -289,7 +291,7 @@ export default function SearchableSelect({
           <div
             ref={menuRef}
             style={mobileMenuStyle}
-            className="searchable-combobox-menu"
+            className={`searchable-combobox-menu ${menuClassName}`}
             id={listId}
             role="listbox"
             aria-label={`${ariaLabel} options`}
