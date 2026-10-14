@@ -1,3 +1,4 @@
+import { finishedGoodsSummary } from './finishedGoodsInventory';
 import { productionOriginGroup, resolveFinishedPipe, resolveProductionSource, type PipeRelationships } from './finishedPipeRelations';
 import type { FinishedGood, ProductionOrder, RejectedMaterial } from './types';
 
@@ -25,7 +26,7 @@ export function batchOriginTrace(pipes: readonly FinishedGood[], data: PipeRelat
     productBarcode: values(resolved.map(result => result.productBarcode), 'Not Configured'),
     seasonal: resolved.some(result => result.seasonal),
     shift: values(pipes.map(pipe => pipe.shift)),
-    temporary: resolved.filter(result => result.pipe.qualityStatus !== 'Reject' && result.pipe.releaseStatus !== 'Released' && result.pipe.storageStatus === 'Stored' && result.purpose === 'Temporary Storage').reduce((sum, result) => sum + result.pipe.quantity, 0),
+    temporary: finishedGoodsSummary(pipes, data).temporary,
   };
 }
 /** Read-only aggregation. No generated entities, references, or dataset writes. */
@@ -61,14 +62,15 @@ export function productionGroupSummary(group: ProductionGroup, data: PipeRelatio
   const good = group.pipes.filter(pipe => pipe.qualityStatus !== 'Reject');
   const rejected = group.rejects.reduce((sum, reject) => sum + reject.quantity, 0);
   const statuses = new Set(group.orders.map(po => po.status));
+  const inventory = finishedGoodsSummary(group.pipes, data);
   return {
     target: group.orders.reduce((sum, po) => sum + po.targetQty, 0),
     produced: good.reduce((sum, pipe) => sum + pipe.quantity, 0) + rejected,
     good: good.reduce((sum, pipe) => sum + pipe.quantity, 0), rejected,
-    available: good.reduce((sum, pipe) => sum + resolveFinishedPipe(pipe, data).availableQty, 0),
-    reserved: good.filter(pipe => pipe.releaseStatus !== 'Released').reduce((sum, pipe) => sum + pipe.reservedQty, 0),
-    temporary: good.filter(pipe => pipe.releaseStatus !== 'Released' && pipe.storageStatus === 'Stored' && resolveFinishedPipe(pipe, data).purpose === 'Temporary Storage').reduce((sum, pipe) => sum + pipe.quantity, 0),
-    ready: good.filter(pipe => pipe.status === 'Ready for Release' && pipe.releaseStatus !== 'Released').reduce((sum, pipe) => sum + pipe.quantity, 0),
+    available: inventory.available,
+    reserved: inventory.reserved,
+    temporary: inventory.temporary,
+    ready: inventory.ready,
     shipped: good.filter(pipe => pipe.releaseStatus === 'Released').reduce((sum, pipe) => sum + pipe.quantity, 0),
     batches: [...new Set([...group.pipes.map(pipe => pipe.batch), ...group.rejects.map(reject => reject.batch)])].filter(Boolean),
     status: statuses.size === 1 ? [...statuses][0] : statuses.size ? 'Mixed Statuses' : 'Historical Output',

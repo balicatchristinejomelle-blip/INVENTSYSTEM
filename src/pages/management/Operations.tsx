@@ -1,6 +1,7 @@
 import { withPrintSearch } from '../../printableRecords';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
+import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import React, { useEffect, useState } from "react"
 
 import { useApp } from "../../store"
@@ -333,10 +334,10 @@ export default function Operations() {
                       {fg.diameter} × {fg.length}
                     </td>
                     <td className="font-mono" style={{ fontWeight: 700, color: '#16a34a' }}>
-                      {fg.availableQty}
+                      {finishedPipeInventory(fg).available}
                     </td>
                     <td className="font-mono" style={{ fontWeight: 600, color: '#d97706' }}>
-                      {fg.reservedQty}
+                      {finishedPipeInventory(fg).reserved}
                     </td>
                     <td style={{ fontSize: 12 }}>
                       {fg.currentLocation || "Not Yet Assigned"}

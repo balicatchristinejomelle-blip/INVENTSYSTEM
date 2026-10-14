@@ -3,6 +3,7 @@ import {
   useSearchableApp,
 } from "../../components/RecordSearch"
 
+import { finishedGoodsSummary } from '../../finishedGoodsInventory';
 import React from "react"
 
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
@@ -50,9 +51,10 @@ function ManagementDashboard() {
 
   const recycledKg = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
 
-  const fgTotal = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+  const inventory = finishedGoodsSummary(finishedGoods);
+  const fgTotal = inventory.available;
 
-  const fgReserved = finishedGoods.reduce((s, f) => s + f.reservedQty, 0);
+  const fgReserved = inventory.reserved;
 
   const wip = activePO ? activePO.completedQty : 0
 
@@ -107,8 +109,10 @@ function ManagementDashboard() {
           <Metric label="Virgin Pellet" value={`${virginKg.toFixed(0)} kg`} color={virginKg < 500 ? '#dc2626' : '#2563eb'} />
           <Metric label="Recycled Pellet" value={`${recycledKg.toFixed(1)} kg`} color="#7c3aed" />
           <Metric label="WIP" value={wip + ' pcs'} color="#d97706" />
-          <Metric label="Finished Goods" value={fgTotal + ' pcs'} color="#16a34a" />
+          <Metric label="Available General FG" value={fgTotal + ' pcs'} color="#16a34a" />
           <Metric label="Reserved FG" value={fgReserved + ' pcs'} color="#d97706" />
+          <Metric label="Temporary Buyer FG" value={inventory.temporary + ' pcs'} />
+          <Metric label="Physical On Hand" value={inventory.onHand + ' pcs'} />
           <Metric label="Rejected Material" value={`${totalRejectedKg} kg`} color={totalRejectedKg >= 50 ? '#dc2626' : totalRejectedKg >= 40 ? '#d97706' : 'var(--text-primary)'} />
         </div>
       </section>
@@ -129,7 +133,7 @@ function ManagementDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Metric label="Active MOs" value={manufacturingOrders.filter(m=>m.status==='In Production').length} color="#d97706" />
             <Metric label="In Production" value={productionOrders.filter(p=>p.status==='In Production').length} color="#2563eb" />
-            <Metric label="Ready for Release" value={finishedGoods.filter(f=>f.reservedQty>0).length} color="#16a34a" />
+            <Metric label="Ready for Release" value={inventory.ready} color="#16a34a" />
             <Metric label="Completed POs" value={productionOrders.filter(p=>p.status==='Completed').length} />
           </div>
         </section>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { FinishedGood } from '../types';
 import { useApp } from '../store';
 import { readPipeSpecifications, resolveFinishedPipe } from '../finishedPipeRelations';
+import FinishedPipeStorage from './FinishedPipeStorage';
 import { metadataFor, printableKey } from '../reprintWorkflow';
 import DocumentViewer, { type PrintableDocument } from './DocumentViewer';
 import { customerOrderDocument, manufacturingOrderDocument, productionOrderDocument } from '../documentPrint';
@@ -23,7 +24,7 @@ export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch
     'Customer Order': reference(result.order?.orderNo, result.order ? customerOrderDocument(result.order) : undefined, ['OWNER_SUPER_ADMIN', 'marketing']),
     Buyer: result.buyer || '—', 'Group Type': (live.source || result.source) === 'Manufacturing Order' ? 'MO' : (live.source || result.source) === 'Stock Replenishment' ? 'Replenishment' : 'Not Resolved',
     'Origin Group': result.originGroup || 'Not Resolved', [result.source === 'Stock Replenishment' ? 'Replenishment Group' : 'MO Group']: result.originGroup === result.mo?.moNo ? moLink : result.originGroup || '—',
-    'Inventory Purpose': result.purpose, 'Inventory Status': result.inventoryStatus,
+    'Storage Purpose': result.purpose, 'Inventory Status': result.inventoryStatus, 'Current Inventory State': result.inventory.bucket,
   };
   const values: Record<string, React.ReactNode> = compact ? trace : {
     'Pipe Record ID': live.fgId, 'Physical Barcode': live.barcode,
@@ -32,8 +33,9 @@ export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch
     ...trace, Batch: onOpenBatch ? <button className="btn-secondary btn-compact" onClick={onOpenBatch}>{live.batch}</button> : live.batch,
     'Production Date': live.productionDate, Shift: live.shift, 'Quality Status': live.qualityStatus || 'Pending',
     'Current Location': live.currentLocation || 'Not Yet Assigned', 'Release Status': live.releaseStatus,
-    'Allocation / Reservation': live.reservationStatus || (live.reservedQty > 0 ? 'Reserved' : 'Unassigned'),
-    'Total Qty': live.quantity, 'Available General Inventory': result.availableQty, Reserved: live.reservedQty,
+    'Allocation / Reservation': result.inventory.allocated ? `Allocated${result.order ? ` to ${result.order.orderNo}` : ''}` : 'Unassigned',
+    'Shipment / Fulfillment Status': live.fulfillmentStatus || live.reservationStatus || 'Not Released',
+    'Total Qty': live.quantity, 'Available General Inventory': result.availableQty, Reserved: result.inventory.reserved, Temporary: result.inventory.temporary, 'Ready for Ship Out': result.inventory.ready,
   };
   const printRecord = { key: printableKey('Barcode', 'Finished Pipe', live.id), kind: 'Barcode' as const, recordType: 'Finished Pipe', recordId: live.id, reference: live.fgId, value: live.barcode, allowedRoles: [] };
   const count = metadataFor(app, printRecord, live.printStatus === 'Printed').printCount;
@@ -44,6 +46,8 @@ export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch
       <div className="responsive-grid">{Object.entries(values).map(([label, value]) => <div key={label}><div className="field-label">{label}</div><div className="field-value" style={{ overflowWrap: 'anywhere' }}>{value}</div></div>)}</div>
       {!!result.issues.length && <div className="alert-info mt-3">{result.issues.join(' · ')}</div>}
     </div>
+    {!compact && <FinishedPipeStorage pipe={live} />}
+    {!compact && role === 'production' && result.inventory.bucket === 'Ready for Ship Out' && live.fulfillmentStatus !== 'Loaded' && <div className="action-row"><button className="btn-secondary" onClick={() => app.markFinishedGoodLoaded(live.id)}>Confirm Loaded (still On Hand)</button></div>}
     <DocumentViewer open={!!document} document={document} onClose={() => setDocument(null)} />
   </>;
 }

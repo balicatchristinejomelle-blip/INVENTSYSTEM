@@ -1,6 +1,7 @@
 import { matchesRecord } from "../../components/RecordSearch"
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productFilterRecord } from '../../productFilters';
+import { finishedGoodsStockEffect, finishedGoodsStockCard } from '../../finishedGoodsInventory';
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -41,6 +42,7 @@ export default function Transactions() {
   const productFilters = useProductFilters(() => setPage(1));
 
   const types = useMemo(() => ['All', ...Array.from(new Set(transactions.map(item => item.transactionType)))], [transactions]);
+  const finishedCard = useMemo(() => finishedGoodsStockCard(transactions, app.finishedGoods), [transactions, app.finishedGoods]);
 
   const visible = transactions.filter(
     (item) =>
@@ -59,11 +61,11 @@ export default function Transactions() {
       const key = item.barcode || `${categoryOf(item)}|${item.item}|${item.batch}`;
       byItem.set(key, [...(byItem.get(key) || []), item]);
     });
-    const beginning = Array.from(byItem.values()).reduce((sum, items) => sum + (items[0]?.qtyBefore || 0), 0);
-    const stockIn = ordered.reduce((sum, item) => sum + Math.max(0, item.qtyChanged), 0);
-    const stockOut = ordered.reduce((sum, item) => sum + Math.abs(Math.min(0, item.qtyChanged)), 0);
+    const beginning = category === 'Finished Pipe' ? (finishedCard.rows.find(row => ordered.some(item => item.id === row.transaction.id))?.before ?? finishedCard.ending) : Array.from(byItem.values()).reduce((sum, items) => sum + (items[0]?.qtyBefore || 0), 0);
+    const stockIn = ordered.reduce((sum, item) => sum + finishedGoodsStockEffect(item, app.finishedGoods).stockIn, 0);
+    const stockOut = ordered.reduce((sum, item) => sum + finishedGoodsStockEffect(item, app.finishedGoods).stockOut, 0);
     return { beginning, stockIn, stockOut, ending: beginning + stockIn - stockOut };
-  }, [visible]);
+  }, [visible, category, finishedCard, app.finishedGoods]);
 
   const targetForReference = (reference: string) => {
     if (/^RR-/.test(reference)) return 'acc-rr-records';
@@ -114,7 +116,8 @@ export default function Transactions() {
         </div>
       </div>
       <div className="alert-info stock-card-note">
-        <strong>Internal movement:</strong> Raw Pellet → Production WIP is Stock Out in the raw scope and Stock In in WIP; company-wide net change remains zero.</div>
+        <strong>Internal movement:</strong> Finished Pipe storage, reservation, staging and loading have zero Stock In / Out. Good production output is the single Stock In; shipment/release is Stock Out. Raw Pellet → WIP remains unchanged.</div>
+      {category === 'Finished Pipe' && finishedCard.needsReconciliation && <div className="alert-warning">Historical movement totals do not reconcile with the retained physical sample records. No history was rewritten; review the opening balance before backend import.</div>}
       <CategoryTabs items={CATEGORIES} value={category} onChange={value => { setCategory(value); setPage(1); }} label="Inventory transaction category" />
       <div className="toolbar">
         <input className={`app-input${category === 'Finished Pipe' ? ' record-search' : ''}`} type="search" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
@@ -171,7 +174,7 @@ export default function Transactions() {
                     {item.transactionType}
                     <br />
                     <small>
-                      {item.source && item.destination && item.source !== item.destination ? 'Internal Movement' : categoryOf(item)}
+                      {finishedGoodsStockEffect(item, app.finishedGoods).internal ? 'Internal Movement' : categoryOf(item)}
                     </small>
                   </td>
                   <td>
@@ -182,13 +185,13 @@ export default function Transactions() {
                     </small>
                   </td>
                   <td className="font-mono stock-in-value">
-                    {item.qtyChanged > 0 ? formatQuantity(item.qtyChanged, unit) : '—'}
+                    {finishedGoodsStockEffect(item, app.finishedGoods).stockIn > 0 ? formatQuantity(finishedGoodsStockEffect(item, app.finishedGoods).stockIn, unit) : '—'}
                   </td>
                   <td className="font-mono stock-out-value">
-                    {item.qtyChanged < 0 ? formatQuantity(Math.abs(item.qtyChanged), unit) : '—'}
+                    {finishedGoodsStockEffect(item, app.finishedGoods).stockOut > 0 ? formatQuantity(finishedGoodsStockEffect(item, app.finishedGoods).stockOut, unit) : '—'}
                   </td>
                   <td className="font-mono">
-                    {formatQuantity(item.qtyAfter, unit)}
+                    {formatQuantity(categoryOf(item) === 'Finished Pipe' ? finishedCard.rows.find(row => row.transaction.id === item.id)?.balance ?? item.qtyAfter : item.qtyAfter, unit)}
                   </td>
                   <td>{unit}</td>
                   <td>{item.destination || item.source}</td>

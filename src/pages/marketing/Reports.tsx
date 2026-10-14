@@ -5,6 +5,7 @@ import {
   useSearchableApp,
 } from "../../components/RecordSearch"
 
+import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import React, { useState } from "react"
 
 import { DonutChart, LineChart, HorizontalBar, ReportCard } from '../../components/MiniChart';
@@ -65,7 +66,7 @@ function SalesOverviewTab({ period }: { period: PeriodRange }) {
     .map(([date, value]) => ({ label: date.slice(5), value }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         <ReportCard label="Orders During Period" value={totalOrders} sub={period.label} color="var(--accent-blue)" />
         <ReportCard label="Active Orders" value={activeOrders} sub="Not yet completed" color="#d97706" />
@@ -102,7 +103,7 @@ function OrdersTab({ period }: { period: PeriodRange }) {
   const filtered = filter === 'All' ? periodOrders : periodOrders.filter(o => o.status === filter);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="page-stack">
       {/* Filter Pills */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {ORDER_FILTERS.map(f => (
@@ -205,7 +206,7 @@ function ProductionStatusTab() {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         <ReportCard label="On Track Orders" value={onTrack} color="#16a34a" sub="Currently in production" />
         <ReportCard label="Behind Schedule" value={behind} sub="Scheduled, not started" color="#ef4444" />
@@ -275,16 +276,20 @@ function ProductionStatusTab() {
 function FinishedGoodsTab() {
   const { finishedGoods } = useSearchableApp()
 
-  const totalAvailable = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+  const inventory = finishedGoodsSummary(finishedGoods);
+  const totalAvailable = inventory.available;
 
-  const totalReserved = finishedGoods.reduce((s, f) => s + f.reservedQty, 0);
+  const totalReserved = inventory.reserved;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <ReportCard label="Total Available" value={totalAvailable} sub="Units ready to ship" color="#16a34a" />
-          <ReportCard label="Total Reserved" value={totalReserved} sub="Allocated to orders" color="#d97706" />
+          <ReportCard label="Total Available" value={totalAvailable} sub="General inventory for new orders" color="#16a34a" />
+          <ReportCard label="Total Reserved" value={totalReserved} sub="Reserved general inventory" color="#d97706" />
+          <ReportCard label="Temporary Buyer Stock" value={inventory.temporary} sub="Not available to other buyers" color="#7c3aed" />
+          <ReportCard label="Ready for Ship Out" value={inventory.ready} sub="Loaded remains On Hand" color="#2563eb" />
+          <ReportCard label="On Hand" value={inventory.onHand} sub="Unique physical pipes, including awaiting storage" color="#64748b" />
         </div>
         <div className="app-card" style={{ padding: 16 }}>
           <SectionLabel>Stock Status Breakdown</SectionLabel>
@@ -328,10 +333,10 @@ function FinishedGoodsTab() {
                       {fg.quantity}
                     </td>
                     <td className="font-mono" style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
-                      {fg.availableQty}
+                      {finishedPipeInventory(fg).available}
                     </td>
                     <td className="font-mono" style={{ textAlign: 'right', color: '#d97706', fontWeight: 600 }}>
-                      {fg.reservedQty}
+                      {finishedPipeInventory(fg).reserved}
                     </td>
                     <td style={{ color: "var(--text-secondary)" }}>
                       {fg.currentLocation || "Not Yet Assigned"}
@@ -355,7 +360,7 @@ function MarketingReports() {
   const period = usePeriod('month');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="page-stack">
       {/* Page Header */}
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>

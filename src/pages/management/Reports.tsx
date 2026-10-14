@@ -11,6 +11,7 @@ import { HPAI_PRODUCT_MASTER } from '../../productMaster';
 import { productFilterRecord } from '../../productFilters';
 import { useApp } from '../../store';
 
+import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import React, { useEffect, useState } from "react"
 
 import { BarChart, DonutChart, LineChart, HorizontalBar, ReportCard } from '../../components/MiniChart';
@@ -125,9 +126,10 @@ function Reports() {
     ? Math.round((totalRejectedPcs / (activeCompleted + totalRejectedPcs)) * 100)
     : 0;
 
-  const fgAvailable = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+  const inventory = finishedGoodsSummary(finishedGoods);
+  const fgAvailable = inventory.available;
 
-  const fgReserved = finishedGoods.reduce((s, f) => s + f.reservedQty, 0);
+  const fgReserved = inventory.reserved;
 
   const dayPresent = periodAttendance.filter(a => a.shift === 'Day').length;
 
@@ -204,6 +206,9 @@ function Reports() {
   const fgDonut = [
     { label: `Available (${fgAvailable})`, value: fgAvailable, color: '#16a34a' },
     { label: `Reserved (${fgReserved})`, value: fgReserved, color: '#d97706' },
+    { label: `Temporary (${inventory.temporary})`, value: inventory.temporary, color: '#7c3aed' },
+    { label: `Ready (${inventory.ready})`, value: inventory.ready, color: '#2563eb' },
+    { label: `Awaiting (${inventory.awaiting + inventory.qualityPending})`, value: inventory.awaiting + inventory.qualityPending, color: '#64748b' },
   ];
 
   // Rejected progress width
@@ -521,8 +526,8 @@ function Reports() {
             </div>
             <div className="app-card kpi-card">
               <div>Finished Pipes — Current Balance</div>
-              <strong>{fgAvailable} pcs</strong>
-              <small>{fgReserved} pcs reserved</small>
+              <strong>{inventory.onHand} pcs On Hand</strong>
+              <small>{fgAvailable} available · {fgReserved} reserved · {inventory.temporary} temporary · {inventory.ready} ready · {inventory.awaiting + inventory.qualityPending} awaiting/quality pending</small>
             </div>
           </div>
 
@@ -650,8 +655,8 @@ function Reports() {
                     <td style={{ fontSize: 11, color: "var(--text-muted)" }}>
                       {fg.diameter} {fg.length} {fg.sdr}
                     </td>
-                    <td className="font-mono">{fg.availableQty}</td>
-                    <td className="font-mono">{fg.reservedQty}</td>
+                    <td className="font-mono">{finishedPipeInventory(fg).available}</td>
+                    <td className="font-mono">{finishedPipeInventory(fg).reserved}</td>
                     <td style={{ fontSize: 11 }}>
                       {fg.currentLocation || "Not Yet Assigned"}
                     </td>

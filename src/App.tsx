@@ -160,7 +160,7 @@ function AppShell() {
       <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
       <div className="app-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Header onMenu={() => setMobileNavOpen(true)} />
-        <main className="app-main" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+        <main className={`app-main${/^(owner-|acc-|accounting-|mkt-|marketing-|mgmt-|management-|pm-|prod-|production-)/.test(currentPage) ? ' operational-content' : ''}`} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
           {currentPage === 'production-dashboard' ? <ProductionDashboard /> : <PageRenderer />}
           <ReprintRequestDialog />
         </main>

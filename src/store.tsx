@@ -3,6 +3,7 @@ import { requestReprint, reviewReprint, completePrint, validatePrint, canViewReq
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
 import { seedReprintSamples } from './reprintSamples';
 import { hydrateFinishedPipe, hydratePipeRelationships, resolveFinishedPipe } from './finishedPipeRelations';
+import { finishedPipeInventory, validStorageLocation, storageLocationFor, compatibleStorageLocations, finishedGoodsSummary } from './finishedGoodsInventory';
 import type {
   User, Role, Theme, Notification, MaterialRequest, Transfer, RRRecord,
   Customer, CustomerOrder, ManufacturingOrder, ProductionOrder,
@@ -614,6 +615,7 @@ interface AppContextValue extends AppState {
   reserveFinishedGoods: (orderId: string, quantity: number) => { success: boolean; error?: string };
   rejectFinishedGood: (fgId: string, weightKg: number, reason: string) => { success: boolean; error?: string };
   releaseFinishedGood: (fgId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
+  markFinishedGoodLoaded: (fgId: string) => boolean;
   completeRecyclingBatch: (batchId: string, recoveredKg: number) => void;
   updateRecyclingStage: (batchId: string, action: 'start-cutting' | 'complete-cutting' | 'submit-weight' | 'start-crushing' | 'complete-crushing' | 'start-pelletizing', weightKg?: number) => { success: boolean; error?: string };
   confirmRecyclingForCrushing: (batchId: string) => boolean;
@@ -1415,7 +1417,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return s;
       }
       const eligible = s.finishedGoods.filter(item =>
-        item.qualityStatus === 'Pass'
+        finishedPipeInventory(item, s).available === 1
+        && item.qualityStatus === 'Pass'
         && item.locationStatus === 'Stored'
         && item.releaseStatus !== 'Released'
         && item.status === 'Available'
@@ -1476,8 +1479,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         batch: item.batch,
         barcode: item.barcode,
         qtyBefore: 1,
-        qtyChanged: -1,
-        qtyAfter: 0,
+        qtyChanged: 0,
+        qtyAfter: 1,
         source: item.currentLocation,
         destination: `Reserved for ${orderNo}`,
         reference: orderNo,
@@ -1515,7 +1518,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           availableQty: 0,
           reservedQty: 1,
           status: 'Reserved' as const,
-          inventoryPurpose: 'Customer Order' as const,
+          inventoryPurpose: 'General Inventory' as const,
           reservationStatus: 'Reserved' as const,
           reservedForOrderId: order.id,
           reservedForOrderRef: order.orderNo,
@@ -1829,7 +1832,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const finishedGoods = makePermanentFinishedPipes(passedQty, {
         product: po.product, diameter: po.diameter, length: po.length, sdr: po.sdr,
         grade: po.grade, color: po.color, stripe: po.stripe, construction: po.construction,
-        productForm: po.productForm, batch, poRef: po.poNo, moRef: po.moRef,
+        productForm: po.productForm, batch, poRef: po.poNo, moRef: po.source === 'Stock Replenishment' ? undefined : po.moRef,
         productionDate: date, shift: s.currentShift,
         storageLocation: '', status: 'Available',
       }, s.barcodeRegistry, s.finishedGoods).map(item => ({
@@ -1837,15 +1840,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         qualityStatus: 'Pass' as const,
         isTestData: loadedBags.some(bag => bag.isTestData) || colorantRequirements.some(entry => entry.colorant.isTestData),
       }));
-      const sourceMo = s.manufacturingOrders.find(item => item.moNo === po.moRef);
+      const sourceMo = po.source === 'Stock Replenishment' ? undefined : s.manufacturingOrders.find(item => item.moNo === po.moRef);
       const sourceOrder = sourceMo && s.orders.find(item => item.orderNo === sourceMo.orderRef);
       const allocatedFinishedGoods = sourceOrder ? finishedGoods.map(item => ({
         ...item,
         moRef: sourceMo.moNo,
-        status: 'Reserved' as const,
+        status: 'Awaiting Storage' as const,
         inventoryPurpose: 'Customer Order' as const,
         reservationStatus: 'Reserved' as const,
-        reservedQty: 1,
+        reservedQty: 0,
         reservedForOrderId: sourceOrder.id,
         reservedForOrderRef: sourceOrder.orderNo,
         orderReference: sourceOrder.orderNo,
@@ -1913,6 +1916,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: `tx-output-${now.getTime()}`, txId: outputTransactionId,
         date, time, employee: s.currentUser.name, employeeId: s.currentUser.employeeId, role: 'Production',
         transactionType: 'Production Output', item: `${po.product} ${po.diameter}`, batch,
+        materialCategory: 'Finished Pipe', finishedGoodsQuantity: passedQty,
         qtyBefore: po.completedQty, qtyChanged: qty, qtyAfter: po.completedQty + qty,
         source: po.productionLine, destination: 'Quality Pass / Rejected Material', reference: po.poNo,
         status: 'Completed', shift: s.currentShift, attendanceSessionId: attendanceRecord.id,
@@ -2403,23 +2407,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => {
       const fg = s.finishedGoods.find(item => item.id === fgId);
       const origin = fg ? resolveFinishedPipe(fg, s) : undefined;
-      const order = purpose === 'Customer Order'
-        ? s.orders.find(item => item.id === (orderId || fg?.reservedForOrderId))
-        : undefined;
-      const generalLocation = ['Section A', 'Section B', 'Section C', 'Section D'].some(value => location === value || location.startsWith(`${value} / `));
-      const orderLocation = ['Customer Order Staging', 'Reserved Order Area', 'Ready for Ship-Out Area'].includes(location);
+      const expectedPurpose = origin?.source === 'Stock Replenishment' ? 'General Inventory' : origin?.source === 'Manufacturing Order' ? 'Customer Order' : undefined;
+      const order = origin?.order;
       const alreadyReservedForOrder = !!fg?.reservedForOrderId && fg.reservedForOrderId === order?.id;
       if (
-        !fg || s.currentUser?.role !== 'production' || fg.locationStatus === 'Stored' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
-        || (purpose === 'General Inventory' && !generalLocation)
-        || (origin?.source === 'Manufacturing Order' && (purpose !== 'Customer Order' || !origin.order || origin.order.id !== order?.id))
-        || (purpose === 'Customer Order' && (!order || !orderLocation))
+        !fg || s.currentUser?.role !== 'plantmanager' || fg.locationStatus === 'Stored' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
+        || !expectedPurpose || purpose !== expectedPurpose || !validStorageLocation(location, origin?.inventory.purpose)
+        || (origin?.source === 'Manufacturing Order' && !order)
+        || (!!orderId && orderId !== order?.id)
         || (!!fg.reservedForOrderId && !alreadyReservedForOrder)
-        || (purpose === 'Customer Order' && !alreadyReservedForOrder && !!order && (order.reservedQuantity || 0) + (order.releasedQuantity || 0) >= order.quantity)
       ) return s;
       const now = new Date();
       stored = true;
-      const reserved = purpose === 'Customer Order';
+      const reserved = origin?.source === 'Stock Replenishment' && !!order;
+      const buyerSpecific = origin?.source === 'Manufacturing Order';
       return {
         ...s,
         finishedGoods: s.finishedGoods.map(item => item.id === fgId ? {
@@ -2431,10 +2432,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           storedBy: s.currentUser?.name || '',
           storedAt: now.toISOString(),
           inventoryPurpose: purpose,
-          availableQty: reserved ? 0 : 1,
+          availableQty: buyerSpecific || reserved ? 0 : 1,
           reservedQty: reserved ? 1 : 0,
-          status: reserved ? 'Reserved' as const : 'Available' as const,
-          reservationStatus: reserved ? 'Reserved' as const : 'Available' as const,
+          status: buyerSpecific ? 'Stored' as const : reserved ? 'Reserved' as const : 'Available' as const,
+          reservationStatus: order ? 'Reserved' as const : 'Available' as const,
           reservedForOrderId: order?.id,
           reservedForOrderRef: order?.orderNo,
           orderReference: order?.orderNo,
@@ -2448,11 +2449,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             dateTime: now.toISOString(),
           }],
         } : item),
-        orders: reserved && order && !alreadyReservedForOrder ? s.orders.map(item => item.id === order.id ? {
-          ...item,
-          reservedQuantity: (item.reservedQuantity || 0) + 1,
-          status: 'Active' as const,
-        } : item) : s.orders,
+        orders: s.orders,
         transactions: [{
           id: `tx${Date.now()}`,
           txId: `TX-${Date.now()}`,
@@ -2460,14 +2457,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           time: now.toTimeString().slice(0, 5),
           employee: s.currentUser?.name || '',
           employeeId: s.currentUser?.employeeId || '',
-          role: 'Production',
+          role: 'Plant Manager',
           transactionType: 'Finished Pipe Stored',
+          materialCategory: 'Finished Pipe',
           item: `${fg.product} ${fg.diameter}`,
           batch: fg.batch,
           barcode: fg.barcode,
-          qtyBefore: fg.availableQty,
+          qtyBefore: finishedGoodsSummary(s.finishedGoods, s).onHand,
           qtyChanged: 0,
-          qtyAfter: fg.availableQty,
+          qtyAfter: finishedGoodsSummary(s.finishedGoods, s).onHand,
           source: fg.currentLocation || 'Not Yet Assigned',
           destination: location,
           reference: fg.poRef,
@@ -2479,7 +2477,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           id: `al${Date.now()}`,
           user: s.currentUser?.name || '',
           employeeId: s.currentUser?.employeeId || '',
-          role: 'Production',
+          role: 'Plant Manager',
           action: 'Finished Pipe Stored',
           date: now.toISOString().slice(0, 10),
           time: now.toTimeString().slice(0, 5),
@@ -2799,16 +2797,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => {
       if (!s.currentUser || !reason.trim()) return s;
       const now = new Date();
-      const allowed = category === 'Pellet'
-        ? ['Virgin Pellet Storage', 'Recycled Pellet Storage']
-        : ['Section A', 'Section B', 'Section C', 'Section D', 'Customer Order Staging', 'Reserved Order Area', 'Ready for Ship-Out Area'];
-      if (!allowed.some(value => location === value || location.startsWith(`${value} / `))) return s;
+      if (category === 'Pellet' && !['Virgin Pellet Storage', 'Recycled Pellet Storage'].some(value => location === value || location.startsWith(`${value} / `))) return s;
       const pellet = category === 'Pellet' ? s.pellets.find(item => item.id === itemId) : undefined;
       const fg = category === 'Finished Pipe' ? s.finishedGoods.find(item => item.id === itemId) : undefined;
+      const inventory = fg ? finishedPipeInventory(fg, s) : undefined;
+      const destination = storageLocationFor(location);
+      const ready = destination?.status === 'Active' && destination.plant === 'Branch Plant' && destination.locationType === 'Ready for Ship Out';
+      const compatible = inventory && (validStorageLocation(location, inventory.purpose) || (inventory.allocated && (ready || validStorageLocation(location, 'Temporary Storage'))));
       if (
         (!pellet && !fg)
         || (pellet && (location !== `${pellet.type} Pellet Storage` || ['Fully Consumed', 'Loaded', 'Partially Consumed'].includes(pellet.inventoryStatus)))
-        || (fg && (s.currentUser.role !== 'production' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'))
+        || (fg && (s.currentUser.role !== 'plantmanager' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass' || !compatible || !inventory || ['Awaiting Storage', 'Quality Pending'].includes(inventory.bucket)))
       ) return s;
       const currentLocation = pellet?.currentLocation || fg?.currentLocation || 'Not Yet Assigned';
       if (currentLocation === location) return s;
@@ -2831,14 +2830,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } : item) : s.pellets,
         finishedGoods: fg ? s.finishedGoods.map(item => item.id === itemId ? {
           ...item, currentLocation: location, storageLocation: location, locationStatus: 'Stored' as const,
-          status: item.reservedQty > 0
-            ? (['Customer Order Staging', 'Ready for Ship-Out Area'].includes(location) ? 'Ready for Release' as const : 'Reserved' as const)
-            : item.status,
-          reservationStatus: item.reservedQty > 0
-            ? (['Customer Order Staging', 'Ready for Ship-Out Area'].includes(location) ? 'Ready for Ship Out' as const : 'Reserved' as const)
-            : item.reservationStatus,
+          status: ready ? 'Ready for Release' as const : inventory?.source === 'Manufacturing Order' ? 'Stored' as const : inventory?.allocated ? 'Reserved' as const : 'Available' as const,
+          availableQty: !inventory?.allocated && inventory?.source === 'Stock Replenishment' ? item.quantity : 0,
+          reservedQty: !ready && inventory?.source === 'Stock Replenishment' && inventory.allocated ? item.quantity : 0,
+          reservationStatus: ready ? 'Ready for Ship Out' as const : inventory?.allocated ? 'Reserved' as const : 'Available' as const,
+          fulfillmentStatus: ready ? 'Ready for Ship Out' as const : inventory?.allocated ? 'Allocated' as const : undefined,
           locationHistory: [...(item.locationHistory || []), history],
         } : item) : s.finishedGoods,
+        transactions: fg ? [{
+          id: `tx-move-${now.getTime()}`, txId: `TX-MOVE-${now.getTime()}`, date: now.toISOString().slice(0, 10), time: now.toTimeString().slice(0, 5),
+          employee: s.currentUser.name, employeeId: s.currentUser.employeeId, role: 'Plant Manager', transactionType: ready ? 'Finished Pipe Ready for Ship Out' : 'Finished Pipe Internal Storage Move',
+          materialCategory: 'Finished Pipe' as const, item: `${fg.product} ${fg.diameter}`, batch: fg.batch, barcode: fg.barcode,
+          qtyBefore: finishedGoodsSummary(s.finishedGoods, s).onHand, qtyChanged: 0, qtyAfter: finishedGoodsSummary(s.finishedGoods, s).onHand,
+          source: currentLocation, destination: location, reference: fg.reservedForOrderRef || fg.poRef, status: 'Completed',
+        }, ...s.transactions] : s.transactions,
         auditLogs: [{
           id: `al${Date.now()}`, user: s.currentUser.name, employeeId: s.currentUser.employeeId,
           role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
@@ -2856,8 +2861,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => {
       const order = s.orders.find(item => item.id === orderId);
       if (!order || s.currentUser?.role !== 'marketing' || !Number.isInteger(quantity) || quantity < 1) return s;
+      if ((order.reservedQuantity || 0) + (order.releasedQuantity || 0) + quantity > order.quantity) { result.error = 'Reservation exceeds the remaining order quantity.'; return s; }
       const eligible = s.finishedGoods.filter(item =>
-        item.qualityStatus === 'Pass'
+        finishedPipeInventory(item, s).available === 1
+        && item.qualityStatus === 'Pass'
         && item.releaseStatus !== 'Released'
         && item.status === 'Available'
         && item.locationStatus === 'Stored'
@@ -2893,8 +2900,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         batch: item.batch,
         barcode: item.barcode,
         qtyBefore: 1,
-        qtyChanged: -1,
-        qtyAfter: 0,
+        qtyChanged: 0,
+        qtyAfter: 1,
         source: item.currentLocation,
         destination: `Reserved for ${order.orderNo}`,
         reference: order.orderNo,
@@ -2908,7 +2915,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           availableQty: 0,
           reservedQty: 1,
           status: 'Reserved' as const,
-          inventoryPurpose: 'Customer Order' as const,
+          inventoryPurpose: 'General Inventory' as const,
           reservationStatus: 'Reserved' as const,
           reservedForOrderId: order.id,
           reservedForOrderRef: order.orderNo,
@@ -2996,17 +3003,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const markFinishedGoodLoaded = useCallback((fgId: string) => {
+    let loaded = false;
+    setState(s => {
+      const fg = s.finishedGoods.find(pipe => pipe.id === fgId);
+      if (s.currentUser?.role !== 'production' || !fg || fg.fulfillmentStatus === 'Loaded' || finishedPipeInventory(fg, s).bucket !== 'Ready for Ship Out') return s;
+      const now = new Date(); loaded = true;
+      const onHand = finishedGoodsSummary(s.finishedGoods, s).onHand;
+      return { ...s,
+        finishedGoods: s.finishedGoods.map(pipe => pipe.id === fgId ? { ...pipe, fulfillmentStatus: 'Loaded' as const } : pipe),
+        transactions: [{ id: `tx-loaded-${now.getTime()}`, txId: `TX-LOADED-${now.getTime()}`, date: now.toISOString().slice(0, 10), time: now.toTimeString().slice(0, 5), employee: s.currentUser.name, employeeId: s.currentUser.employeeId, role: 'Production', transactionType: 'Finished Pipe Loaded', materialCategory: 'Finished Pipe' as const, item: `${fg.product} ${fg.diameter}`, batch: fg.batch, barcode: fg.barcode, qtyBefore: onHand, qtyChanged: 0, qtyAfter: onHand, source: fg.currentLocation, destination: fg.currentLocation, reference: fg.reservedForOrderRef || fg.poRef, status: 'Completed' }, ...s.transactions],
+      };
+    });
+    return loaded;
+  }, []);
+
   const releaseFinishedGood = useCallback((fgId: string, scannerMeta?: { shift: string; scannerMode: string }) => {
     let released = false;
     setState(s => {
       if (s.currentUser?.role !== 'production') return s;
       const fg = s.finishedGoods.find(item => item.id === fgId);
-      const order = fg && s.orders.find(item => item.id === fg.reservedForOrderId);
+      const order = fg ? resolveFinishedPipe(fg, s).order : undefined;
       if (
         !fg || !order || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
-        || fg.reservedQty !== 1
-        || fg.status !== 'Ready for Release'
-        || fg.reservedForOrderId !== order.id
+        || finishedPipeInventory(fg, s).bucket !== 'Ready for Ship Out'
+        || (!!fg.reservedForOrderId && fg.reservedForOrderId !== order.id)
       ) return s;
       released = true;
       const quantity = 1;
@@ -3020,6 +3041,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ...item, availableQty: 0, reservedQty: 0, status: 'Released' as const,
               releaseStatus: 'Released' as const, locationStatus: 'Released' as const,
               reservationStatus: 'Shipped Out' as const,
+              fulfillmentStatus: 'Shipped' as const,
               releasedBy: s.currentUser!.name, releasedAt: now.toISOString(),
               releaseReference: order.orderNo,
               currentLocation: 'Released / Shipped Out',
@@ -3036,7 +3058,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders: s.orders.map(item => item.id === order.id ? {
           ...item,
           releasedQuantity: (item.releasedQuantity || 0) + 1,
-          reservedQuantity: Math.max(0, (item.reservedQuantity || 0) - (fg.reservedQty > 0 ? 1 : 0)),
+          reservedQuantity: Math.max(0, (item.reservedQuantity || 0) - quantity),
           status: (item.releasedQuantity || 0) + 1 >= item.quantity ? 'Released' as const : item.status,
           availableStock: Math.max(0, item.availableStock || 0),
         } : item),
@@ -3053,9 +3075,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           item: `${fg.product} ${fg.diameter}`,
           batch: fg.batch,
           barcode: fg.barcode,
-          qtyBefore: fg.availableQty,
+          qtyBefore: finishedGoodsSummary(s.finishedGoods, s).onHand,
           qtyChanged: -quantity,
-          qtyAfter: 0,
+          qtyAfter: Math.max(0, finishedGoodsSummary(s.finishedGoods, s).onHand - quantity),
           source: fg.currentLocation,
           destination: order.customerName,
           reference: order.orderNo,
@@ -3285,7 +3307,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, recordOutput,
     addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
     createProductionOrder, createStockReplenishmentPO,
-    receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, completeRecyclingBatch,
+    receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, markFinishedGoodLoaded, completeRecyclingBatch,
     updateRecyclingStage, confirmRecyclingForCrushing,
   };
 

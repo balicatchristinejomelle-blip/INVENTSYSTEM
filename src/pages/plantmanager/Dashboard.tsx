@@ -3,6 +3,7 @@ import {
   useSearchableApp,
 } from "../../components/RecordSearch"
 
+import { finishedGoodsSummary } from '../../finishedGoodsInventory';
 import React, { useMemo } from "react"
 
 import type { ProductSpecification, StockTarget } from '../../types';
@@ -46,7 +47,7 @@ function PMDashboard() {
 
   const recycled = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
 
-  const finishedTotal = finishedGoods.reduce((s, f) => s + f.availableQty, 0);
+  const finishedTotal = finishedGoodsSummary(finishedGoods).available;
 
   const pending = turnovers.filter(t => t.status === 'Pending').length;
 
@@ -58,7 +59,7 @@ function PMDashboard() {
       targets.filter(target => target.status === 'Active' && target.plant === 'Branch Plant').forEach(target => {
         if (target.inventoryType === 'Finished Pipe') {
           const spec = specifications.find(item => item.id === target.productSpecificationId && item.active);
-          const current = spec ? finishedGoods.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released' && specificationKeyFromRecord(item) === specificationKey(spec)).reduce((sum, item) => sum + item.quantity, 0) : Number.POSITIVE_INFINITY;
+          const current = spec ? finishedGoodsSummary(finishedGoods.filter(item => specificationKeyFromRecord(item) === specificationKey(spec))).available : Number.POSITIVE_INFINITY;
           if (current <= target.minimumStock) finishedLow += 1;
         } else {
           const current = target.inventoryType === 'Colorant'

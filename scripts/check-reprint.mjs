@@ -1,3 +1,4 @@
+import { restoreStorageCallback } from './storage-inventory-baseline.mjs';
 import assert from 'node:assert/strict';
 import { restorePreviousGradeMaster, restoreGradeCreationGuard } from './material-grade-baseline.mjs';
 import fs from 'node:fs';
@@ -354,7 +355,7 @@ try {
   // Follow-up relationship work adds only these reviewed metadata/validation statements.
   // Preserve the exact baseline check for all remaining operational formula/transaction code.
   const withoutRelationshipAdditions = (name, source) => {
-    source = restoreGradeCreationGuard(name, source);
+    source = restoreGradeCreationGuard(name, restoreStorageCallback(name, source));
     if (name === 'createProductionOrder') return source.replace("        source: 'Manufacturing Order',\n        originGroup: mo.moNo,\n", '');
     if (name === 'createStockReplenishmentPO') return source.replace("        originGroup: `REPLENISH-${now.getFullYear()}-${String(next).padStart(4, '0')}`,\n", '');
     if (name === 'recordOutput') return source.replace('.map(pipe => hydrateFinishedPipe(pipe, s))', '');

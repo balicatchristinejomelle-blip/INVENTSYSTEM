@@ -1,3 +1,5 @@
+import { finishedGoodsSummary, finishedPipeInventory, generalStockStatus } from '../../finishedGoodsInventory';
+import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
 import { batchOriginTrace } from '../../productionGroups';
@@ -37,16 +39,17 @@ import {
   specificationLength,
 } from "../../productMaster"
 
-type Destination = 'All Statuses' | 'Awaiting Label / Storage' | 'Available' | 'Reserved' | 'Ready for Ship Out' | 'Released / Shipped Out';
+type Destination = 'All Statuses' | 'Awaiting Label / Storage' | 'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Ship Out' | 'Released / Shipped Out';
 
-const DESTINATIONS: readonly Destination[] = ['All Statuses', 'Awaiting Label / Storage', 'Available', 'Reserved', 'Ready for Ship Out', 'Released / Shipped Out'];
+const DESTINATIONS: readonly Destination[] = ['All Statuses', 'Awaiting Label / Storage', 'Available', 'Reserved', 'Temporary Storage', 'Ready for Ship Out', 'Released / Shipped Out'];
 
 const matchesDestination = (item: FinishedGood, destination: Destination) => {
   if (destination === 'All Statuses') return true;
   if (destination === 'Released / Shipped Out') return item.releaseStatus === 'Released';
   if (item.releaseStatus === 'Released') return false;
   if (destination === 'Awaiting Label / Storage') return item.locationStatus === 'Awaiting Storage';
-  if (destination === 'Reserved') return item.status === 'Reserved';
+  if (destination === 'Reserved') return finishedPipeInventory(item).bucket === 'Reserved';
+  if (destination === 'Temporary Storage') return finishedPipeInventory(item).bucket === 'Temporary Storage';
   if (destination === 'Ready for Ship Out') return item.status === 'Ready for Release';
   return item.status === 'Available';
 };
@@ -65,6 +68,7 @@ export default function PMFinishedGoods() {
 
   const [grade, setGrade] = useState("All")
 
+  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
   const [location, setLocation] = useState("All")
 
   const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Batch' | 'Individual Pipes'>('By Batch');
@@ -126,6 +130,7 @@ export default function PMFinishedGoods() {
           f.qualityStatus !== 'Reject'
     &&
     (productType === 'All' || normalizedProductType(f.product) === productType)
+    && (purpose === 'All' || finishedPipeInventory(f, app).purpose === purpose)
     && matchesDestination(f, status)
     && (grade === 'All' || f.grade === grade)
     && productFilters.matches(f)
@@ -133,7 +138,7 @@ export default function PMFinishedGoods() {
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, location, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, location, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
@@ -150,14 +155,15 @@ export default function PMFinishedGoods() {
 
   const batchSummary = (group: { item: FinishedGood; pipes: FinishedGood[] }) => {
     const rejected = rejectedMaterials.filter(item => item.batch === group.item.batch).reduce((sum, item) => sum + item.quantity, 0);
-    const available = group.pipes.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length;
-    const reserved = group.pipes.filter(item => item.status === 'Reserved').length;
-    const ready = group.pipes.filter(item => item.status === 'Ready for Release').length;
+    const inventory = finishedGoodsSummary(group.pipes, app);
+    const available = inventory.available;
+    const reserved = inventory.reserved;
+    const ready = inventory.ready;
     const shipped = group.pipes.filter(item => item.releaseStatus === 'Released').length;
     const statuses = new Set(group.pipes.map(item => item.releaseStatus === 'Released' ? 'Shipped Out' : item.status));
     const locations = new Set(group.pipes.map(item => item.currentLocation).filter(Boolean));
     return {
-      rejected, available, reserved, ready, shipped,
+      rejected, available, reserved, ready, shipped, temporary: inventory.temporary, onHand: inventory.onHand,
       produced: group.pipes.length + rejected,
       status: statuses.size === 1 ? Array.from(statuses)[0] : 'Mixed Statuses',
       location: locations.size > 1 ? 'Multiple Locations' : Array.from(locations)[0] || 'Not Yet Assigned',
@@ -169,11 +175,12 @@ export default function PMFinishedGoods() {
 
   const selectedBatch = batches.find(group => group.item.batch === selectedBatchId);
 
-  const total = finishedGoods.filter(f => f.releaseStatus !== 'Released' && f.qualityStatus === 'Pass').reduce((sum, f) => sum + f.quantity, 0);
+  const inventory = finishedGoodsSummary(finishedGoods, app);
+  const total = inventory.onHand;
 
-  const available = finishedGoods.reduce((sum, f) => sum + f.availableQty, 0);
+  const available = inventory.available;
 
-  const reserved = finishedGoods.reduce((sum, f) => sum + f.reservedQty, 0);
+  const reserved = inventory.reserved;
 
   const unprinted = filtered.filter(item => printRecord(item.id) && metadataFor(app, printRecord(item.id)!).printCount === 0);
 
@@ -183,9 +190,7 @@ export default function PMFinishedGoods() {
 
   const resetPage = () => setPage(1)
 
-  const exactOnHand = (spec: ProductSpecification) => finishedGoods
-    .filter(item => item.status === 'Available' && item.releaseStatus !== 'Released' && item.qualityStatus !== 'Reject' && specificationKeyFromRecord(item) === specificationKey(spec))
-    .reduce((sum, item) => sum + item.quantity, 0);
+  const exactOnHand = (spec: ProductSpecification) => finishedGoodsSummary(finishedGoods.filter(item => specificationKeyFromRecord(item) === specificationKey(spec)), app).available;
 
   const stockTargetRows = stockTargets.flatMap(target => {
     if (target.inventoryType !== 'Finished Pipe') return [];
@@ -193,7 +198,7 @@ export default function PMFinishedGoods() {
     if (!spec || target.status !== 'Active' || target.plant !== 'Branch Plant') return [];
     const onHand = exactOnHand(spec);
     const openPO = productionOrders.find(item => item.source === 'Stock Replenishment' && !['Completed', 'Cancelled'].includes(item.status) && specificationKeyFromRecord(item) === specificationKey(spec));
-    const stockStatus = openPO ? 'Replenishment In Progress' : onHand === 0 ? 'Out of Stock' : onHand <= target.minimumStock ? 'Low Stock' : 'Normal';
+    const stockStatus = openPO ? 'Replenishment In Progress' : generalStockStatus(onHand, target.minimumStock);
     return [{ target, spec, onHand, openPO, stockStatus }];
   });
 
@@ -212,7 +217,7 @@ export default function PMFinishedGoods() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); setLocation('All'); setStatus('All Statuses'); resetPage();
+    setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); setLocation('All'); setPurpose('All'); setStatus('All Statuses'); resetPage();
   };
 
   const printAllUnprinted = () => {
@@ -227,7 +232,7 @@ export default function PMFinishedGoods() {
   return (
     <div className="page-stack">
       <div className="kpi-grid">
-        {[['Physical On-Hand', total], ['Available for New Orders', available], ['Reserved', reserved], ['Ready for Ship Out', finishedGoods.filter(f => f.status === 'Ready for Release' && f.releaseStatus !== 'Released').length], ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length]].map(([label, value]) => (
+        {[['Physical On-Hand', total], ['Available for New Orders', available], ['Reserved', reserved], ['Temporary Buyer Stock', inventory.temporary], ['Ready for Ship Out', inventory.ready], ['Awaiting Storage', inventory.awaiting], ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length]].map(([label, value]) => (
           <div className="app-card kpi-card" key={label}>
             <div>{label}</div>
             <strong>{value}</strong>
@@ -238,6 +243,7 @@ export default function PMFinishedGoods() {
           <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
+          <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
           <SearchableDropdown
             className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
           >
@@ -385,7 +391,7 @@ export default function PMFinishedGoods() {
                     <td>
                       {f.grade} · {f.diameter} · {f.sdr} · {f.length}
                     </td>
-                    <td>{f.inventoryPurpose || "Unassigned"}</td>
+                    <td>{finishedPipeInventory(f, app).purpose || "Source Not Resolved"}</td>
                     <td>
                       <StatusBadge status={f.releaseStatus === 'Released' ? 'Shipped Out' : f.status}/>
                     </td>
@@ -467,7 +473,7 @@ export default function PMFinishedGoods() {
                   <div className="section-title">Batch Summary</div>
                   <BatchTraceability pipes={selectedBatch.pipes} />
                   <div className="responsive-grid">
-                    {Object.entries({ Batch: selectedBatch.item.batch, 'Production Order': selectedBatch.item.poRef, 'Manufacturing Order': manufacturingOrderFor(selectedBatch.item), Product: normalizedProductType(selectedBatch.item.product), 'Material Grade': selectedBatch.item.grade, Size: selectedBatch.item.diameter, 'SDR / Thickness': selectedBatch.item.sdr, Length: selectedBatch.item.length, Color: selectedBatch.item.color, Stripe: selectedBatch.item.stripe, Produced: summary.produced, Rejected: summary.rejected, 'Good Pipes': selectedBatch.pipes.length, Available: summary.available, Reserved: summary.reserved, 'Ready for Ship Out': summary.ready, Shipped: summary.shipped, Location: summary.location, Status: summary.status }).map(([label, value]) => (
+                    {Object.entries({ Batch: selectedBatch.item.batch, 'Production Order': selectedBatch.item.poRef, 'Manufacturing Order': manufacturingOrderFor(selectedBatch.item), Product: normalizedProductType(selectedBatch.item.product), 'Material Grade': selectedBatch.item.grade, Size: selectedBatch.item.diameter, 'SDR / Thickness': selectedBatch.item.sdr, Length: selectedBatch.item.length, Color: selectedBatch.item.color, Stripe: selectedBatch.item.stripe, Produced: summary.produced, Rejected: summary.rejected, 'Good Pipes': selectedBatch.pipes.length, Available: summary.available, Reserved: summary.reserved, Temporary: summary.temporary, 'On Hand': summary.onHand, 'Ready for Ship Out': summary.ready, Shipped: summary.shipped, Location: summary.location, Status: summary.status }).map(([label, value]) => (
                       <div key={label}>
                         <div className="field-label">{label}</div>
                         <div className="field-value">{value}</div>

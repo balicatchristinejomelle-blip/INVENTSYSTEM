@@ -12,7 +12,8 @@
     "check:reprint": "node scripts/check-reprint.mjs",
     "check:pipes": "node scripts/check-pipe-relations.mjs",
     "check:groups": "node scripts/check-product-groups.mjs",
-    "check:grades": "node scripts/check-material-grades.mjs"
+    "check:grades": "node scripts/check-material-grades.mjs",
+    "check:storage": "node scripts/check-storage-inventory.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",
