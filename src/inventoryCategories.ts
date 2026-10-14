@@ -1,5 +1,6 @@
 import type { MaterialRequest, Transfer } from './types';
 import { MATERIAL_GRADES as SHARED_MATERIAL_GRADES, PRODUCT_COLORS, PRODUCT_TYPES, STRIPE_OPTIONS } from './productMaster';
+export { materialGradeFilterLabel } from './productMaster';
 
 export const MATERIAL_CATEGORIES = ['Virgin Pellets', 'Recycled Pellets', 'Colorants'] as const;
 export type MaterialCategoryTab = typeof MATERIAL_CATEGORIES[number];

@@ -9,7 +9,7 @@ import StatusBadge from "../../components/StatusBadge"
 
 import CategoryTabs from "../../components/CategoryTabs"
 
-import { MATERIAL_CATEGORIES, MATERIAL_GRADES, normalizedProductType, type MaterialCategoryTab, type PipeProductType } from '../../inventoryCategories';
+import { MATERIAL_CATEGORIES, MATERIAL_GRADES, materialGradeFilterLabel, normalizedProductType, type MaterialCategoryTab, type PipeProductType } from '../../inventoryCategories';
 
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
@@ -165,7 +165,7 @@ export default function Operations() {
             </div>
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} />}
+          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} />}
           {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" />}
           <div className="app-card" style={{ overflow: "hidden" }}>
             {materialCategory === "Colorants" ? (

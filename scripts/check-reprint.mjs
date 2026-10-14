@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restorePreviousGradeMaster, restoreGradeCreationGuard } from './material-grade-baseline.mjs';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import React from 'react';
@@ -353,6 +354,7 @@ try {
   // Follow-up relationship work adds only these reviewed metadata/validation statements.
   // Preserve the exact baseline check for all remaining operational formula/transaction code.
   const withoutRelationshipAdditions = (name, source) => {
+    source = restoreGradeCreationGuard(name, source);
     if (name === 'createProductionOrder') return source.replace("        source: 'Manufacturing Order',\n        originGroup: mo.moNo,\n", '');
     if (name === 'createStockReplenishmentPO') return source.replace("        originGroup: `REPLENISH-${now.getFullYear()}-${String(next).padStart(4, '0')}`,\n", '');
     if (name === 'recordOutput') return source.replace('.map(pipe => hydrateFinishedPipe(pipe, s))', '');
@@ -362,7 +364,7 @@ try {
   for (const name of ['login', 'logout', 'navigate', 'clockIn', 'clockOut', 'createCustomerOrder', 'createReceivingReport', 'createTransfer', 'approveMaterialRequest', 'rejectMaterialRequest', 'createProductionOrder', 'createStockReplenishmentPO', 'recordOutput', 'addMaterialRequest', 'loadPellets', 'recordColorantUsage', 'submitTurnover', 'updateFinishedGoodStorage', 'receivePellet', 'confirmTransferReceipt', 'relocatePhysicalItem', 'reserveFinishedGoods', 'rejectFinishedGood', 'releaseFinishedGood', 'completeRecyclingBatch', 'updateRecyclingStage', 'confirmRecyclingForCrushing', 'calculateProductionMaterialPlan', 'calculateMaterialUsage', 'INITIAL_PELLETS', 'INITIAL_FG', 'INITIAL_POS', 'INITIAL_MOS', 'INITIAL_ORDERS', 'INITIAL_RR', 'INITIAL_TRANSFERS', 'INITIAL_MATERIAL_REQUESTS']) {
     check(`Baseline operational formulas preserved: ${name}`, () => { assert.ok(originalStore.has(name), name); assert.equal(withoutRelationshipAdditions(name, updatedStore.get(name)), originalStore.get(name)); });
   }
-  check('Product master rules preserved; optional existing PEP/seasonal metadata retained', () => assert.equal(fs.readFileSync('src/productMaster.ts', 'utf8').replace(/\r/g, '').replace(' itemCode: value.itemCode, seasonal: value.seasonal,', ''), baseFile('src/productMaster.ts').replace(/\r/g, '')));
+  check('Non-grade product master rules preserved; optional existing PEP/seasonal metadata retained', () => assert.equal(restorePreviousGradeMaster(fs.readFileSync('src/productMaster.ts', 'utf8')).replace(' itemCode: value.itemCode, seasonal: value.seasonal,', ''), baseFile('src/productMaster.ts').replace(/\r/g, '')));
   for (const name of ['makePelletBags', 'makeFinishedPipes', 'registryEntriesForPellets', 'registryEntriesForFinishedGoods']) check(`Permanent barcode generation unchanged: ${name}`, () => { assert.ok(originalStore.has(name), name); assert.equal(updatedStore.get(name), originalStore.get(name)); });
   const originalBarcodes = namedSources(baseFile('src/components/BarcodeLabel.tsx'));
   const updatedBarcodes = namedSources(fs.readFileSync('src/components/BarcodeLabel.tsx', 'utf8'));

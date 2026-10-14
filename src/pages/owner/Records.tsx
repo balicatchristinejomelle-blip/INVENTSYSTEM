@@ -371,7 +371,7 @@ export default function OwnerRecords() {
             <SearchableDropdown
               className="app-select" value={grade} onChange={event => { setGrade(event.target.value); setPage(1); }}
             >
-              <option>All Grades</option>
+              <option value="All Grades">All Material Grades</option>
               {grades.map((item) => (
                 <option key={item}>{item}</option>
               ))}

@@ -21,7 +21,7 @@ import CategoryTabs from "../../components/CategoryTabs"
 
 import Pagination, { pageRecords } from '../../components/Pagination';
 
-import { MATERIAL_CATEGORIES, MATERIAL_GRADES, type MaterialCategoryTab } from '../../inventoryCategories';
+import { MATERIAL_CATEGORIES, MATERIAL_GRADES, materialGradeFilterLabel, type MaterialCategoryTab } from '../../inventoryCategories';
 
 import type { StockTarget } from "../../types"
 
@@ -204,7 +204,7 @@ export default function PelletInventory() {
       <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setSearch(''); resetPage(); }} counts={counts} label="Material inventory category" />
 
       <div className="app-card detail-card page-stack">
-        {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); resetPage(); }} label={`${category} grade`} />}
+        {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); resetPage(); }} label={`${category} grade`} displayLabel={materialGradeFilterLabel} />}
         {category === 'Recycled Pellets' && <CategoryTabs items={['All', 'Complete 25 kg Bags', 'Loose Recycled Pellet'] as const} value={recycledView} onChange={value => { setRecycledView(value); resetPage(); }} label="Recycled pellet form" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); resetPage(); }} label="Colorant usage type" />}
         {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" />}

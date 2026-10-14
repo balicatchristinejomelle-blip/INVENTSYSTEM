@@ -21,7 +21,7 @@ export default function ProductFilters({ value, onChange, product = '', grade = 
   }, [product, value.product]);
   const field = (key: keyof ProductFilter, label: string, options: readonly string[]) => <label key={key} className="product-filter-field">
     <span className="field-label">{label}</span>
-    <SearchableSelect value={key === 'product' && onProductChange ? product === 'All' ? '' : product : key === 'grade' && onGradeChange ? grade === 'All' ? '' : grade : value[key]} options={options} ariaLabel={label} placeholder={`Select ${label}`} searchPlaceholder={`Search ${label}...`} onChange={selected => {
+    <SearchableSelect value={key === 'product' && onProductChange ? product === 'All' ? '' : product : key === 'grade' && onGradeChange ? grade === 'All' ? '' : grade : value[key]} options={options} ariaLabel={label} placeholder={key === 'grade' ? 'All Material Grades' : `Select ${label}`} searchPlaceholder={`Search ${label}...`} onChange={selected => {
       if (key === 'product' && onProductChange) { onProductChange(selected || 'All'); return; }
       if (key === 'grade' && onGradeChange) { onGradeChange(selected || 'All'); return; }
       const next = { ...value, [key]: selected };
