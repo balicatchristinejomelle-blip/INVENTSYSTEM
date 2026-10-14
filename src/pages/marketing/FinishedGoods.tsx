@@ -1,7 +1,8 @@
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
-import FinishedGoodGroups from '../../components/FinishedGoodGroups';
+import BatchTraceability from '../../components/BatchTraceability';
+import { batchOriginTrace } from '../../productionGroups';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
-import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
+import { pipeSearchRecord, readPipeSpecifications, resolveFinishedPipe } from '../../finishedPipeRelations';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -20,13 +21,13 @@ import Pagination, { pageRecords } from '../../components/Pagination';
 
 import type { FinishedGood } from "../../types"
 
-import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipeProductType } from '../../inventoryCategories';
+import { normalizedProductType, type PipeProductType } from '../../inventoryCategories';
 
-type ViewMode = "By Group" | "By Batch" | "Individual Pipes"
+type ViewMode = "Stock Levels" | "By Batch" | "Individual Pipes"
 
 export default function MarketingFG() {
   const app = useApp();
-  const { finishedGoods, productionOrders } = app;
+  const { finishedGoods } = app;
 
   const [productType, setProductType] = useState<'All' | PipeProductType>('All');
 
@@ -47,7 +48,6 @@ export default function MarketingFG() {
 
   const [batchPipePage, setBatchPipePage] = useState(1)
 
-  const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
   const visible = useMemo(
     () =>
@@ -77,7 +77,8 @@ export default function MarketingFG() {
     .sort((a, b) => b.item.productionDate.localeCompare(a.item.productionDate) || b.item.batch.localeCompare(a.item.batch, undefined, { numeric: true })),
   [finishedGoods, visibleBatchIds]);
 
-  const selectedGroup = productType === 'All' ? finishedGoods : finishedGoods.filter(item => normalizedProductType(item.product) === productType);
+  const productSelected = productType === 'All' ? finishedGoods : finishedGoods.filter(item => normalizedProductType(item.product) === productType);
+  const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
 
   const openBatch = batches.find(group => group.item.batch === selectedBatch);
 
@@ -87,7 +88,7 @@ export default function MarketingFG() {
 
   const resetPage = () => setPage(1)
 
-  const moFor = (item: FinishedGood) => item.moRef || productionOrders.find(order => order.poNo === item.poRef)?.moRef || '—';
+  const moFor = (item: FinishedGood) => resolveFinishedPipe(item, app).mo?.moNo || 'N/A';
 
   const batchStatus = (pipes: FinishedGood[]) => {
     const statuses = new Set(pipes.map(item => item.releaseStatus === 'Released' ? 'Shipped Out' : item.status));
@@ -100,7 +101,6 @@ export default function MarketingFG() {
         <div className="section-title">Finished Goods Availability</div>
         <div className="helper-text">Read-only stock visibility calculated from individual physical pipe records.</div>
       </div>
-      <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); resetPage(); }} label="Finished goods product type" />
       <div className="kpi-grid">
         {[
         ['Available', selectedGroup.filter(item => item.status === 'Available').length],
@@ -114,37 +114,31 @@ export default function MarketingFG() {
           </div>
         ))}
       </div>
-      <div className="toolbar">
-        <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, PO, MO, order, or product" />
-        {viewMode !== 'By Group' && <SearchableDropdown
+      <div className="filter-panel product-filter-panel">
+        <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
+        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
           <option>Available</option>
           <option>Reserved</option>
           <option>Ready for Release</option>
           <option>Shipped Out / Released</option>
-        </SearchableDropdown>}
-        <SearchableDropdown
-          className="app-select" value={grade} onChange={event => { setGrade(event.target.value); resetPage(); }}
-        >
-          <option>All</option>
-          {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
-        </SearchableDropdown>
+        </SearchableDropdown></div>}
       </div>
-      <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
-      <CategoryTabs items={['By Group', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
+      <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
 
-      {viewMode === 'By Group' ? <FinishedGoodGroups search={search} filter={{ ...productFilters.value, product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }} onViewPipe={setSelected} /> : viewMode === "By Batch" ? (
+      {viewMode === 'Stock Levels' ? <div className="app-card detail-card"><div className="section-title">Stock Levels</div><p className="helper-text">The availability cards above show matching physical stock. Replenishment configuration remains with Plant Manager.</p>{!selectedGroup.length && <div className="empty-state">No matching records. Available = 0.</div>}</div> : viewMode === "By Batch" ? (
         <>
           <div className="app-card table-scroll desktop-record-table">
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Batch</th>
+                  <th>Batch / Origin Group</th>
                   <th>PO / MO</th>
                   <th>Product</th>
                   <th>Grade / Specifications</th>
-                  <th>Good</th>
+                  <th>Produced / Good / Rejected</th>
                   <th>Available</th>
                   <th>Reserved</th>
                   <th>Ready</th>
@@ -162,23 +156,25 @@ export default function MarketingFG() {
                   const ready = group.pipes.filter(item => item.status === 'Ready for Release').length;
 
                   const shipped = group.pipes.filter(item => item.releaseStatus === 'Released').length;
+                  const trace = batchOriginTrace(group.pipes, { ...app, specifications: readPipeSpecifications() });
+                  const rejected = app.rejectedMaterials.filter(item => item.batch === group.item.batch).reduce((sum, item) => sum + item.quantity, 0);
 
                   return (
                     <tr key={group.item.batch}>
-                      <td className="font-mono">{group.item.batch}</td>
+                      <td className="font-mono">{group.item.batch}<br /><small>{trace.groupType} · {trace.originGroup}</small></td>
                       <td className="font-mono">
                         {group.item.poRef}
                         <br />
                         <small>{moFor(group.item)}</small>
                       </td>
-                      <td>{normalizedProductType(group.item.product)}</td>
+                      <td>{normalizedProductType(group.item.product)}<br /><small>{trace.itemCode}</small>{trace.seasonal && <span className="badge-amber">SEASONAL</span>}</td>
                       <td>
                         {group.item.grade} · {group.item.diameter} ·{" "}
                         {group.item.sdr} · {group.item.length}
                       </td>
-                      <td>{group.pipes.length}</td>
+                      <td>{group.pipes.length + rejected} / {group.pipes.length} / {rejected}</td>
                       <td>{available}</td>
-                      <td>{reserved}</td>
+                      <td>{reserved}<br /><small>{trace.temporary} Temporary Storage</small></td>
                       <td>{ready}</td>
                       <td>{shipped}</td>
                       <td>
@@ -207,6 +203,7 @@ export default function MarketingFG() {
                   </div>
                   <div className="mobile-record-grid">
                     <Info label="PO / MO" value={`${group.item.poRef} / ${moFor(group.item)}`} />
+                    <Info label="Origin Group / Type" value={`${batchOriginTrace(group.pipes, app).originGroup} · ${batchOriginTrace(group.pipes, app).groupType}`} />
                     <Info label="Product" value={normalizedProductType(group.item.product)} />
                     <Info label="Grade / Size" value={`${group.item.grade} · ${group.item.diameter} · ${group.item.sdr}`} />
                     <Info label="Good Pipes" value={group.pipes.length} />
@@ -287,6 +284,7 @@ export default function MarketingFG() {
           <div className="page-stack">
             <div className="app-card detail-card">
               <div className="section-title">Batch Summary</div>
+              <BatchTraceability pipes={openBatch.pipes} />
               <div className="responsive-grid">
                 <Info label="Batch" value={openBatch.item.batch} />
                 <Info label="PO / MO" value={`${openBatch.item.poRef} / ${moFor(openBatch.item)}`} />
@@ -294,6 +292,11 @@ export default function MarketingFG() {
                 <Info label="Grade" value={openBatch.item.grade} />
                 <Info label="Specifications" value={`${openBatch.item.diameter} · ${openBatch.item.sdr} · ${openBatch.item.length}`} />
                 <Info label="Good Pipes" value={openBatch.pipes.length} />
+                <Info label="Rejected" value={app.rejectedMaterials.filter(item => item.batch === openBatch.item.batch).reduce((sum, item) => sum + item.quantity, 0)} />
+                <Info label="Available" value={openBatch.pipes.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length} />
+                <Info label="Reserved" value={openBatch.pipes.filter(item => item.status === 'Reserved').length} />
+                <Info label="Ready for Ship Out" value={openBatch.pipes.filter(item => item.status === 'Ready for Release').length} />
+                <Info label="Shipped" value={openBatch.pipes.filter(item => item.releaseStatus === 'Released').length} />
               </div>
             </div>
             <div className="mobile-record-list always-visible-mobile">

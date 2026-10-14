@@ -37,9 +37,8 @@ export default function ProductionHistory() {
     : myRecycling.length;
 
   return <div className="page-stack">
-    <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search PO, MO, product, barcode, employee, shift..." compact />
+    <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search PO, MO, product, barcode, employee, shift..." compact filters={productTab ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade /> : undefined} />
     <div className="tab-strip">{tabs.map(item => <button key={item} className={tab === item ? 'tab-active' : ''} onClick={() => { setTab(item); setPage(1); }}>{item}</button>)}</div>
-    {productTab && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
     <div className="app-card table-scroll"><table className="app-table"><thead><tr>
       {tab === 'My Attendance' && <><th>Date</th><th>Shift</th><th>Clock In</th><th>Clock Out</th><th>Status</th></>}
       {tab === 'My Production' && <><th>Date</th><th>Shift</th><th>PO</th><th>Product / Action</th><th>Quantity</th><th>Status</th></>}

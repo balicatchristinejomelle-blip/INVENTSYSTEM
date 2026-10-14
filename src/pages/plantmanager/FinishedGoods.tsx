@@ -1,7 +1,8 @@
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
-import FinishedGoodGroups from '../../components/FinishedGoodGroups';
+import BatchTraceability from '../../components/BatchTraceability';
+import { batchOriginTrace } from '../../productionGroups';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
-import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
+import { pipeSearchRecord, readPipeSpecifications, resolveFinishedPipe } from '../../finishedPipeRelations';
 import RecordList from "../../components/RecordList"
 
 import { matchesRecord } from "../../components/RecordSearch"
@@ -25,7 +26,7 @@ import CategoryTabs from "../../components/CategoryTabs"
 
 import Pagination, { pageRecords } from '../../components/Pagination';
 
-import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipeProductType } from '../../inventoryCategories';
+import { normalizedProductType, type PipeProductType } from '../../inventoryCategories';
 
 import type { FinishedGood, ProductSpecification, StockTarget } from '../../types';
 
@@ -66,7 +67,7 @@ export default function PMFinishedGoods() {
 
   const [location, setLocation] = useState("All")
 
-  const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Group' | 'By Batch' | 'Individual Pipes'>('By Batch');
+  const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Batch' | 'Individual Pipes'>('By Batch');
 
   const [page, setPage] = useState(1)
   const productFilters = useProductFilters(() => setPage(1));
@@ -112,11 +113,9 @@ export default function PMFinishedGoods() {
 
   const selected = finishedGoods.find(item => item.id === selectedId);
 
-  const productTabs: readonly ('All' | PipeProductType)[] = ['All', ...PIPE_PRODUCT_TYPES];
 
   const productEligible = useMemo(() => finishedGoods.filter(item => productType === 'All' || normalizedProductType(item.product) === productType), [finishedGoods, productType]);
 
-  const gradeOptions = MATERIAL_GRADES
 
   const locationOptions = useMemo(() => Array.from(new Set(productEligible.map(item => item.currentLocation))).filter(Boolean).sort(), [productEligible]);
 
@@ -166,7 +165,7 @@ export default function PMFinishedGoods() {
   };
 
   const manufacturingOrderFor = (item: FinishedGood) =>
-    item.moRef || productionOrders.find(order => order.poNo === item.poRef)?.moRef || '—';
+    resolveFinishedPipe(item, app).mo?.moNo || 'N/A';
 
   const selectedBatch = batches.find(group => group.item.batch === selectedBatchId);
 
@@ -235,6 +234,27 @@ export default function PMFinishedGoods() {
           </div>
         ))}
       </div>
+      <div className="filter-panel product-filter-panel">
+          <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
+        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
+          <SearchableDropdown
+            className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
+          >
+            {DESTINATIONS.map(item => <option key={item}>{item}</option>)}
+          </SearchableDropdown>
+          <SearchableDropdown
+            className="app-select" aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); resetPage(); }}
+          >
+            <option value="All">All Locations</option>
+            {locationOptions.map(item => <option key={item}>{item}</option>)}
+          </SearchableDropdown>
+        </div>}
+      </div>
+        <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
+        <div className="product-view-actions">
+        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
+      </div>
       {viewMode === 'Stock Levels' && (
         <div className="low-stock-panel">
           <div className="section-title">Finished Pipe Stock Targets</div>
@@ -267,37 +287,6 @@ export default function PMFinishedGoods() {
           {!visibleStockTargetRows.length && <div className="empty-state">No finished-pipe targets match this filter or search.</div>}
         </div>
       )}
-      <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); resetPage(); }} label="Finished pipe product type" />
-      <div className="filter-panel">
-        <div className="filter-row">
-          <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, PO, MO, customer, status, or location" />
-          <SearchableDropdown
-            className="app-select" aria-label="Material grade" value={grade} onChange={e => { setGrade(e.target.value); resetPage(); }}
-          >
-            <option value="All">All Material Grades</option>
-            {gradeOptions.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
-        </div>
-        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="filter-row">
-          <SearchableDropdown
-            className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
-          >
-            {DESTINATIONS.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
-          <SearchableDropdown
-            className="app-select" aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); resetPage(); }}
-          >
-            <option value="All">All Locations</option>
-            {locationOptions.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
-        </div>}
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
-        <div className="filter-actions">
-        <CategoryTabs items={['Stock Levels', 'By Group', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
-        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
-      </div>
-      </div>
-      {viewMode === 'By Group' && <FinishedGoodGroups search={search} filter={{ ...productFilters.value, product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }} onViewPipe={pipe => setSelectedId(pipe.id)} />}
       {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <>
       <div className="app-card table-scroll desktop-record-table">
         {filtered.length === 0 ? (
@@ -311,7 +300,7 @@ export default function PMFinishedGoods() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Batch ID</th>
+                  <th>Batch / Origin Group</th>
                   <th>PO / MO</th>
                   <th>Product Type</th>
                   <th>Grade</th>
@@ -330,16 +319,17 @@ export default function PMFinishedGoods() {
               <tbody>
                 {currentBatches.map((group) => {
                   const summary = batchSummary(group)
+                  const trace = batchOriginTrace(group.pipes, { ...app, specifications: readPipeSpecifications() });
 
                   return (
                     <tr key={group.item.batch}>
-                      <td className="font-mono">{group.item.batch}</td>
+                      <td className="font-mono">{group.item.batch}<br /><small>{trace.groupType} · {trace.originGroup}</small></td>
                       <td>
                         <span className="font-mono">{group.item.poRef}</span>
                         <br />
                         <small>{manufacturingOrderFor(group.item)}</small>
                       </td>
-                      <td>{normalizedProductType(group.item.product)}</td>
+                      <td>{normalizedProductType(group.item.product)}<br /><small>{trace.itemCode}</small>{trace.seasonal && <span className="badge-amber">SEASONAL</span>}</td>
                       <td>{group.item.grade}</td>
                       <td>
                         {group.item.diameter} · {group.item.sdr} ·{" "}
@@ -348,13 +338,13 @@ export default function PMFinishedGoods() {
                       <td>
                         {group.item.color} · {group.item.stripe}
                       </td>
-                      <td>{group.item.productionDate}</td>
+                      <td>{group.item.productionDate}<br /><small>{trace.shift}</small></td>
                       <td>
                         {summary.produced} / {group.pipes.length} /{" "}
                         {summary.rejected}
                       </td>
                       <td>{summary.available}</td>
-                      <td>{summary.reserved}</td>
+                      <td>{summary.reserved}<br /><small>{trace.temporary} Temporary Storage</small></td>
                       <td>{summary.ready}</td>
                       <td>{summary.shipped}</td>
                       <td>
@@ -435,6 +425,7 @@ export default function PMFinishedGoods() {
                 </div>
                 <div className="mobile-record-grid">
               <Info label="PO / MO" value={`${group.item.poRef} / ${manufacturingOrderFor(group.item)}`} />
+              <Info label="Origin Group / Type" value={`${batchOriginTrace(group.pipes, app).originGroup} · ${batchOriginTrace(group.pipes, app).groupType}`} />
               <Info label="Product / Grade" value={`${normalizedProductType(group.item.product)} · ${group.item.grade}`} />
               <Info label="Good / Rejected" value={`${group.pipes.length} / ${summary.rejected}`} />
               <Info label="Available / Reserved" value={`${summary.available} / ${summary.reserved}`} />
@@ -474,6 +465,7 @@ export default function PMFinishedGoods() {
               <div className="page-stack">
                 <div className="app-card detail-card">
                   <div className="section-title">Batch Summary</div>
+                  <BatchTraceability pipes={selectedBatch.pipes} />
                   <div className="responsive-grid">
                     {Object.entries({ Batch: selectedBatch.item.batch, 'Production Order': selectedBatch.item.poRef, 'Manufacturing Order': manufacturingOrderFor(selectedBatch.item), Product: normalizedProductType(selectedBatch.item.product), 'Material Grade': selectedBatch.item.grade, Size: selectedBatch.item.diameter, 'SDR / Thickness': selectedBatch.item.sdr, Length: selectedBatch.item.length, Color: selectedBatch.item.color, Stripe: selectedBatch.item.stripe, Produced: summary.produced, Rejected: summary.rejected, 'Good Pipes': selectedBatch.pipes.length, Available: summary.available, Reserved: summary.reserved, 'Ready for Ship Out': summary.ready, Shipped: summary.shipped, Location: summary.location, Status: summary.status }).map(([label, value]) => (
                       <div key={label}>

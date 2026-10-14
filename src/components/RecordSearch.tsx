@@ -79,7 +79,7 @@ export function withRecordSearch(
     const productFilters = useProductFilters();
     return (
       <SearchContext.Provider value={{ query, collections, productFilter: productControls && Object.keys(emptyProductFilter).some(key => productFilters.value[key as keyof ProductFilter]) ? productFilters.value : undefined }}>
-        <div className="page-stack">
+        <div className={`page-stack${productControls ? ' product-filter-page' : ''}`}>
           <div className="record-filter-bar">
             <input
               className="app-input record-search"
