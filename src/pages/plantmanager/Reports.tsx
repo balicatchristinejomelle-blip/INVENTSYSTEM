@@ -4,7 +4,10 @@ import ProductFilters, { useProductFilters } from '../../components/ProductFilte
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
+import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
+import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import React, { useMemo, useState } from "react"
+import FinishedGoodsMetrics from '../../components/FinishedGoodsMetrics';
 
 import { calculateRecyclingMetrics, useApp } from "../../store"
 
@@ -39,7 +42,7 @@ type Report = typeof REPORTS[number]
 
 type Lifecycle = "All" | "Available" | "Open / WIP" | "Fully Consumed"
 
-type FinishedStatus = "All Statuses" | "Awaiting Label / Storage" | "Available" | "Reserved" | "Ready for Ship Out" | "Released / Shipped Out"
+type FinishedStatus = "All Statuses" | "Awaiting Label / Storage" | "Available" | "Reserved" | "Temporary Storage" | "Ready for Ship Out" | "Released / Shipped Out"
 
 const lifecycleForPellet = (status: string): Exclude<Lifecycle, "All"> => {
   if (status === "Fully Consumed") return "Fully Consumed"
@@ -95,6 +98,7 @@ export default function PlantManagerReports() {
   const [productType, setProductType] = useState<"All" | PipeProductType>("All")
 
   const [finishedGrade, setFinishedGrade] = useState("All")
+  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
 
 
   const [finishedStatus, setFinishedStatus] =
@@ -283,6 +287,7 @@ export default function PlantManagerReports() {
     .sort()
 
   const filteredFinished = finishedProductEligible.filter((item) => {
+    if (purpose !== 'All' && finishedPipeInventory(item).purpose !== purpose) return false;
     const statusMatches =
       finishedStatus === "All Statuses" ||
       (finishedStatus === "Awaiting Label / Storage" &&
@@ -290,7 +295,8 @@ export default function PlantManagerReports() {
       (finishedStatus === "Available" &&
         item.status === "Available" &&
         item.releaseStatus !== "Released") ||
-      (finishedStatus === "Reserved" && item.status === "Reserved") ||
+      (finishedStatus === "Reserved" && finishedPipeInventory(item).bucket === 'Reserved') ||
+      (finishedStatus === "Temporary Storage" && finishedPipeInventory(item).bucket === 'Temporary Storage') ||
       (finishedStatus === "Ready for Ship Out" &&
         item.status === "Ready for Release") ||
       (finishedStatus === "Released / Shipped Out" &&
@@ -555,9 +561,11 @@ export default function PlantManagerReports() {
             ))}
           </div>
           <div className="filter-panel product-filter-panel">
+            <FinishedGoodsMetrics pipes={filteredFinished} />
             <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, product, grade, size, origin group, PO, or customer order" />
             <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeLength />
             <div className="product-operational-filters">
+              <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
               <SearchableDropdown
                 className="app-select"
                 value={finishedStatus}
@@ -571,6 +579,7 @@ export default function PlantManagerReports() {
                   "Awaiting Label / Storage",
                   "Available",
                   "Reserved",
+                  "Temporary Storage",
                   "Ready for Ship Out",
                   "Released / Shipped Out",
                 ] as const).map((item) => (

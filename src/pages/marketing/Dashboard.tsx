@@ -25,7 +25,7 @@ function MarketingDashboard() {
     useSearchableApp()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="page-stack">
       {/* Orders */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Orders</h3>

@@ -1,5 +1,6 @@
 import type { Customer, CustomerOrder, FinishedGood, ManufacturingOrder, ProductionOrder, ProductSpecification } from './types';
 import { normalizeProductSpecification, specificationKey, specificationKeyFromRecord } from './productMaster';
+import { finishedPipeInventory, hasConfirmedPipeStorage, storagePurposeFromSource } from './finishedGoodsInventory';
 
 export interface PipeRelationships {
   productionOrders: ProductionOrder[];
@@ -25,7 +26,7 @@ export function productionOriginGroup(po: ProductionOrder, data: Pick<PipeRelati
 }
 export function resolveFinishedPipe(pipe: FinishedGood, data: PipeRelationships) {
   const po = pipe.productionOrderId ? data.productionOrders.find(item => item.id === pipe.productionOrderId && (!pipe.poRef || item.poNo === pipe.poRef)) : data.productionOrders.find(item => item.poNo === pipe.poRef);
-  const source = resolveProductionSource(po, data);
+  const source = resolveProductionSource(po, data) || pipe.source;
   const mo = source === 'Manufacturing Order' ? data.manufacturingOrders.find(item => item.moNo === po?.moRef) : undefined;
   const originOrder = mo ? data.orders.find(item => item.orderNo === mo.orderRef) : undefined;
   const allocatedOrder = pipe.reservedForOrderId ? data.orders.find(item => item.id === pipe.reservedForOrderId) : pipe.reservedForOrderRef ? data.orders.find(item => item.orderNo === pipe.reservedForOrderRef) : undefined;
@@ -41,29 +42,30 @@ export function resolveFinishedPipe(pipe: FinishedGood, data: PipeRelationships)
   const storedBarcode = storedParts?.length === 4 && storedParts[0].startsWith('PEP-') && storedParts[1] === product.product && storedParts[2] === `${product.diameter}x${product.length}` && storedParts[3] === product.sdr ? pipe.productBarcode : undefined;
   const itemCode = pipe.itemCode || storedBarcode?.split('|')[0] || specification?.itemCode;
   const productBarcode = storedBarcode || (itemCode ? `${itemCode}|${product.product}|${product.diameter}x${product.length}|${product.sdr}` : undefined);
-  const buyerSpecific = source === 'Manufacturing Order';
-  const purpose = buyerSpecific || allocatedOrder || pipe.inventoryPurpose === 'Customer Order' ? 'Temporary Storage' : source === 'Stock Replenishment' || pipe.inventoryPurpose === 'General Inventory' ? 'Inventory Storage' : 'Source Not Resolved';
+  const purpose = storagePurposeFromSource(source) || 'Source Not Resolved';
   const rejected = pipe.qualityStatus === 'Reject' || pipe.status === 'Quality Reject' || pipe.locationStatus === 'Rejected Material';
   const released = pipe.releaseStatus === 'Released' || pipe.locationStatus === 'Released';
-  const stored = pipe.storageStatus === 'Stored' && (pipe.locationStatus === 'Stored' || (pipe.locationStatus === 'Quality Pending' && !!pipe.storedAt));
+  const stored = hasConfirmedPipeStorage(pipe, storagePurposeFromSource(source));
+  const inventory = finishedPipeInventory(pipe, data);
   const inventoryStatus = rejected ? 'Rejected Material' : released ? 'Released' : pipe.qualityStatus !== 'Pass' ? 'Quality Pending' : stored ? 'Stored' : 'Awaiting Storage';
   const issues = [!po && 'Production Order Not Found', source === 'Manufacturing Order' && !mo && 'Manufacturing Order Not Found', mo && !originOrder && 'Customer Order Not Found', !source && 'Production Source Not Resolved', mo && pipe.moRef && pipe.moRef !== mo.moNo && 'Stored MO reference differs from source PO', originOrder && allocatedOrder && originOrder.id !== allocatedOrder.id && 'Allocation differs from originating Customer Order'].filter(Boolean) as string[];
-  return { pipe, product, po, mo, order, customer, source, specification, itemCode, productBarcode, seasonal: (pipe.seasonal ?? specification?.seasonal) === true, unitWeightKg, unitWeightSource, buyer: order?.customerName || customer?.name, originGroup: validOriginGroup(pipe.originGroup, pipe.source || source) ? pipe.originGroup : po ? productionOriginGroup(po, data) : undefined, purpose, inventoryStatus, issues, availableQty: buyerSpecific || rejected || released || !stored ? 0 : pipe.availableQty };
+  return { pipe, product, po, mo, order, customer, source, specification, itemCode, productBarcode, seasonal: (pipe.seasonal ?? specification?.seasonal) === true, unitWeightKg, unitWeightSource, buyer: order?.customerName || customer?.name, originGroup: validOriginGroup(pipe.originGroup, pipe.source || source) ? pipe.originGroup : po ? productionOriginGroup(po, data) : undefined, purpose, inventoryStatus, issues, availableQty: inventory.available, inventory };
 }
 /** Idempotent hydration: no identity/quantity/print metadata or physical movement changes. */
 export function hydrateFinishedPipe(pipe: FinishedGood, data: PipeRelationships): FinishedGood {
   const resolved = resolveFinishedPipe(pipe, data);
   const updates: Partial<FinishedGood> = { ...resolved.product, source: resolved.source ?? pipe.source, productionOrderId: resolved.po?.id ?? pipe.productionOrderId, manufacturingOrderId: resolved.mo?.id ?? pipe.manufacturingOrderId, customerOrderId: resolved.order?.id ?? pipe.customerOrderId, moRef: resolved.mo?.moNo ?? pipe.moRef, orderReference: resolved.order?.orderNo ?? pipe.orderReference, buyer: resolved.buyer ?? pipe.buyer, originGroup: resolved.originGroup ?? pipe.originGroup };
-  if (resolved.source === 'Manufacturing Order') {
-    updates.inventoryPurpose = 'Customer Order';
-    updates.availableQty = 0;
-    if (pipe.status === 'Available' || pipe.status === 'Low Stock') updates.status = resolved.inventoryStatus === 'Stored' ? (pipe.reservedQty > 0 ? 'Reserved' : 'Stored') : 'Awaiting Storage';
-  } else if (resolved.source === 'Stock Replenishment' && (!pipe.inventoryPurpose || pipe.inventoryPurpose === 'Unassigned')) updates.inventoryPurpose = 'General Inventory';
-  if (pipe.qualityStatus === 'Pass' && pipe.status === 'Quality Pending') updates.status = resolved.inventoryStatus === 'Stored' ? pipe.reservedQty > 0 ? 'Reserved' : resolved.source === 'Manufacturing Order' ? 'Stored' : 'Available' : 'Awaiting Storage';
-  if (pipe.qualityStatus === 'Pass' && pipe.locationStatus === 'Quality Pending') updates.locationStatus = resolved.inventoryStatus === 'Stored' ? 'Stored' : 'Awaiting Storage';
-  if (resolved.source && (resolved.inventoryStatus !== 'Stored' || resolved.source === 'Manufacturing Order')) updates.availableQty = 0;
-  if (pipe.qualityStatus === 'Pending') { updates.availableQty = 0; if (pipe.releaseStatus !== 'Released') updates.status = 'Quality Pending'; }
-  if (pipe.qualityStatus === 'Reject') { updates.availableQty = 0; if (pipe.releaseStatus !== 'Released') updates.status = 'Quality Reject'; }
+  const inventory = resolved.inventory;
+  updates.availableQty = inventory.available;
+  updates.reservedQty = inventory.reserved;
+  if (resolved.source === 'Stock Replenishment') updates.inventoryPurpose = 'General Inventory';
+  else if (resolved.source === 'Manufacturing Order') updates.inventoryPurpose = 'Customer Order';
+  updates.status = inventory.bucket === 'Temporary Storage' ? 'Stored' : inventory.bucket === 'Ready for Ship Out' ? 'Ready for Release' : inventory.bucket === 'Shipped' ? 'Released' : inventory.bucket === 'Rejected' ? 'Quality Reject' : inventory.bucket;
+  if (inventory.bucket === 'Shipped') { updates.releaseStatus = 'Released'; updates.locationStatus = 'Released'; }
+  else if (inventory.bucket === 'Rejected') updates.locationStatus = 'Rejected Material';
+  else if (inventory.bucket === 'Awaiting Storage') updates.locationStatus = 'Awaiting Storage';
+  else if (inventory.bucket === 'Quality Pending') updates.locationStatus = 'Quality Pending';
+  else updates.locationStatus = 'Stored';
   return Object.entries(updates).every(([key, value]) => pipe[key as keyof FinishedGood] === value) ? pipe : { ...pipe, ...updates };
 }
 export function hydratePipeRelationships<T extends PipeRelationships & { finishedGoods: FinishedGood[] }>(state: T): T {
@@ -78,5 +80,5 @@ export function hydratePipeRelationships<T extends PipeRelationships & { finishe
 }
 export function pipeSearchRecord(pipe: FinishedGood, data: PipeRelationships) {
   const result = resolveFinishedPipe(pipe, data);
-  return { ...pipe, ...result.product, itemCode: result.itemCode, productBarcode: result.productBarcode, productionSource: result.source, moReference: result.mo?.moNo, customerOrder: result.order?.orderNo, buyer: result.buyer, originGroup: result.originGroup, inventoryPurpose: result.purpose, inventoryStatus: result.inventoryStatus, unitWeightKg: result.unitWeightKg, unitWeightSource: result.unitWeightSource };
+  return { ...pipe, ...result.product, itemCode: result.itemCode, productBarcode: result.productBarcode, productionSource: result.source, moReference: result.mo?.moNo, customerOrder: result.order?.orderNo, buyer: result.buyer, originGroup: result.originGroup, inventoryPurpose: result.purpose, storagePurpose: result.purpose, inventoryStatus: result.inventoryStatus, currentInventoryBucket: result.inventory.bucket, unitWeightKg: result.unitWeightKg, unitWeightSource: result.unitWeightSource };
 }

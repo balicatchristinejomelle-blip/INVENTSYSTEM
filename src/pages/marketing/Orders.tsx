@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
@@ -107,7 +108,7 @@ export default function Orders() {
     const qty = parseInt(form.quantity);
     if (!qty) return;
     const available = finishedGoods.filter(fg =>
-      fg.qualityStatus === 'Pass' && fg.status === 'Available' && fg.availableQty === 1
+      finishedPipeInventory(fg, app).available === 1 && fg.qualityStatus === 'Pass' && fg.status === 'Available' && fg.availableQty === 1
       && fg.locationStatus === 'Stored'
       && normalizeProductType(fg.product) === normalizeProductType(form.product) && fg.diameter === form.diameter && fg.length === form.length
       && fg.sdr === form.sdr && fg.grade === form.grade && fg.color === form.color

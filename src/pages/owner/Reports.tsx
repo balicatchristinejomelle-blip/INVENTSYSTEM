@@ -4,6 +4,7 @@ import {
 } from "../../components/RecordSearch"
 
 import React from "react"
+import FinishedGoodsMetrics from '../../components/FinishedGoodsMetrics';
 
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 
@@ -36,6 +37,7 @@ function OwnerReports() {
 
   return (
     <div className="page-stack">
+      <FinishedGoodsMetrics />
       <div className="page-intro">
         <div>
           <span className="eyebrow">Historical performance</span>

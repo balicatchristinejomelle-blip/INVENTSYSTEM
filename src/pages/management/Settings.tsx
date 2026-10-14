@@ -4,6 +4,7 @@ import ProductFilters, { useProductFilters } from '../../components/ProductFilte
 import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useEffect, useMemo, useState } from "react"
+import { DEFAULT_STORAGE_LOCATIONS, STORAGE_LOCATION_TYPES, finishedGoodsSummary } from '../../finishedGoodsInventory';
 
 import { useApp } from "../../store"
 
@@ -27,11 +28,7 @@ const TABS = ['General', 'Product Specifications', 'Stock Targets / Reorder Leve
 
 type Tab = typeof TABS[number]
 
-const INITIAL_LOCATIONS: StorageLocation[] = [
-  { id: 'loc-a', name: 'Section A', plant: 'Branch Plant', locationType: 'Finished Goods Area', description: 'General pipe storage', status: 'Active' },
-  { id: 'loc-b', name: 'Section B', plant: 'Branch Plant', locationType: 'Finished Goods Area', description: 'Large-diameter pipe storage', status: 'Active' },
-  { id: 'loc-c', name: 'Section C', plant: 'Branch Plant', locationType: 'Raw Material Area', description: 'Pellet and raw-material staging', status: 'Active' },
-];
+const INITIAL_LOCATIONS: StorageLocation[] = DEFAULT_STORAGE_LOCATIONS.map(location => ({ ...location }));
 
 const specificationLabel = (spec: ProductSpecification) =>
   `${spec.productType} · ${spec.materialGrade} · ${spec.size} · ${spec.sdr} · ${specificationLength(spec)} · ${spec.color} · ${spec.stripe}`;
@@ -144,7 +141,7 @@ export default function Settings() {
   const currentForTarget = (target: StockTarget) => {
     if (target.inventoryType === 'Finished Pipe') {
       const spec = specifications.find(item => item.id === target.productSpecificationId);
-      return spec ? finishedGoods.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released' && specificationKeyFromRecord(item) === specificationKey(spec)).reduce((sum, item) => sum + item.quantity, 0) : 0;
+      return spec ? finishedGoodsSummary(finishedGoods.filter(item => specificationKeyFromRecord(item) === specificationKey(spec))).available : 0;
     }
     if (target.inventoryType === 'Colorant') return colorants.filter(item => item.color === target.color && item.usageType === target.colorantUsageType).reduce((sum, item) => sum + item.availableKg, 0);
     const pelletType = target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled';
@@ -645,7 +642,7 @@ export default function Settings() {
             <SearchableDropdown
               className="app-select" value={locationForm.locationType} onChange={event => setLocationForm(value => ({ ...value, locationType: event.target.value as StorageLocation['locationType'] }))}
             >
-              {['Production Area', 'Finished Goods Area', 'Raw Material Area', 'Staging Area'].map(value => <option key={value}>{value}</option>)}
+              {STORAGE_LOCATION_TYPES.map(value => <option key={value}>{value}</option>)}
             </SearchableDropdown>
           </label>
           <label>

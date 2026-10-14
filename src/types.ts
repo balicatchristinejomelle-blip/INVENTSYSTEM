@@ -69,7 +69,7 @@ export interface StorageLocation {
   id: string;
   name: string;
   plant: Exclude<Plant, 'Company Wide'>;
-  locationType: 'Production Area' | 'Finished Goods Area' | 'Raw Material Area' | 'Staging Area';
+  locationType: 'Production Area' | 'Finished Goods Area' | 'Raw Material Area' | 'Staging Area' | 'Finished Goods Inventory' | 'Temporary Finished Goods' | 'Ready for Ship Out' | 'WIP' | 'Rejected Materials' | 'Recycling';
   description?: string;
   status: 'Active' | 'Inactive';
 }
@@ -298,6 +298,7 @@ export interface PelletInventory {
 }
 
 export interface FinishedGood {
+  fulfillmentStatus?: 'Allocated' | 'Ready for Ship Out' | 'Loaded' | 'Shipped';
   source?: ProductionOrder['source'];
   productionOrderId?: string;
   manufacturingOrderId?: string;
@@ -514,6 +515,7 @@ export interface AuditLog {
 }
 
 export interface Transaction {
+  finishedGoodsQuantity?: number;
   id: string;
   txId: string;
   date: string;

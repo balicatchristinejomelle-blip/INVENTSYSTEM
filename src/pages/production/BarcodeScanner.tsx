@@ -1,6 +1,7 @@
 import SearchableDropdown from "../../components/SearchableDropdown"
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import { resolveFinishedPipe } from '../../finishedPipeRelations';
+import { finishedPipeInventory } from '../../finishedGoodsInventory';
 
 import React, { useEffect, useRef, useState } from "react"
 
@@ -52,7 +53,7 @@ export default function BarcodeScanner() {
   const app = useApp();
   const {
     pellets, finishedGoods, activeProductionOrder, transfers, orders, transactions,
-    loadPellets, updateFinishedGoodStorage, receivePellet, relocatePhysicalItem, releaseFinishedGood,
+    loadPellets, receivePellet, releaseFinishedGood,
     currentUser, currentShift, barcodeResetVersion, barcodeRegistry, navigate,
   } = app;
 
@@ -70,22 +71,7 @@ export default function BarcodeScanner() {
 
   const [error, setError] = useState("")
 
-  const [section, setSection] = useState("")
-
-  const [rack, setRack] = useState("")
-
-  const [storagePurpose, setStoragePurpose] = useState<'General Inventory' | 'Customer Order' | ''>('');
-
-  const [storageOrderId, setStorageOrderId] = useState("")
   const pipeOrigin = result?.category === 'Finished Pipe' ? resolveFinishedPipe(result.record, app) : undefined;
-  useEffect(() => {
-    if (pipeOrigin?.source === 'Manufacturing Order') { setStoragePurpose('Customer Order'); setStorageOrderId(pipeOrigin.order?.id || ''); }
-  }, [result?.barcode, pipeOrigin?.source, pipeOrigin?.order?.id]);
-
-  const [relocating, setRelocating] = useState(false)
-
-  const [relocationReason, setRelocationReason] = useState("")
-
   const [sessionItems, setSessionItems] = useState<Record<string, SessionScan[]>>({});
 
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
@@ -133,7 +119,7 @@ export default function BarcodeScanner() {
 
   const storedThisSession = scans.reduce((sum, item) => sum + item.quantity, 0);
 
-  const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode;
+  const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode === 'Store Finished Pipes' ? 'Inspect Finished Pipe Storage' : mode;
 
   const focusHardwareInput = () => undefined
 
@@ -148,12 +134,6 @@ export default function BarcodeScanner() {
     setManualOpen(false);
     setScannerStatus('READY TO SCAN');
     setError('');
-    setSection('');
-    setRack('');
-    setStoragePurpose('');
-    setStorageOrderId('');
-    setRelocating(false);
-    setRelocationReason('');
     focusHardwareInput();
   }, [barcodeResetVersion]);
 
@@ -262,8 +242,7 @@ export default function BarcodeScanner() {
     if (isStorageOperation && found.record.locationStatus === 'Stored') {
       setScannerStatus('ITEM FOUND');
       setResult(found);
-      setRelocating(false);
-      return;
+        return;
     }
 
     const previousTransaction = transactions.find(item =>
@@ -437,68 +416,6 @@ export default function BarcodeScanner() {
     setResult(null);
   };
 
-  const confirmStorage = () => {
-    if (!result || result.category !== 'Finished Pipe' || !section || !storagePurpose || !('availableQty' in result.record)) return;
-    const duplicate = processedRef.current.get(duplicateKey(result.record.barcode));
-    if (duplicate) return showDuplicate(duplicate);
-    const location = `${section}${rack.trim() ? ` / ${rack.trim()}` : ''}`;
-    const now = new Date();
-    const time = now.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
-    const item: SessionScan = {
-      barcode: result.record.barcode,
-      category: 'Finished Pipe',
-      title: result.record.fgId,
-      subtitle: `${result.record.product} ${result.record.diameter} ${result.record.length}`,
-      quantity: 1,
-      status: 'Stored',
-      date: now.toISOString().slice(0, 10),
-      time,
-      reference: result.record.poRef,
-      beforeInventory: result.record.availableQty,
-      change: 0,
-      afterInventory: result.record.availableQty,
-      employee: currentUser?.name || '',
-      employeeId: currentUser?.employeeId || '',
-      shift: currentShift,
-      scannerMode,
-      location,
-    };
-    if (!updateFinishedGoodStorage(result.record.id, location, storagePurpose, storageOrderId || undefined, { shift: currentShift, scannerMode })) {
-      setError('Storage could not be saved. Complete the required purpose, Customer Order, and valid location fields.');
-      return;
-    }
-    processedRef.current.set(duplicateKey(item.barcode), item);
-    setSessionItems(items => ({ ...items, [sessionKey]: [...(items[sessionKey] || []), item] }));
-    setLastScan({
-      kind: 'success',
-      barcode: item.barcode,
-      itemType: 'Finished Pipe',
-      time: item.time,
-      status: 'Stored',
-      message: '1 pipe stored',
-      detail: `${location} · ${item.time}`,
-    });
-    setResult(null); setSection(''); setRack(''); setStoragePurpose(''); setStorageOrderId('');
-  };
-
-  const confirmRelocation = () => {
-    if (!result || !section || !relocationReason.trim()) return;
-    const location = `${section}${rack.trim() ? ` / ${rack.trim()}` : ''}`;
-    if (!relocatePhysicalItem(result.category, result.record.id, location, relocationReason)) {
-      setError('Relocation could not be saved. Choose a different valid location and provide a reason.');
-      return;
-    }
-    setLastScan({
-      kind: 'success',
-      barcode: result.barcode,
-      itemType: result.itemType,
-      time: new Date().toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
-      status: 'Relocated',
-      message: `Item relocated to ${location}`,
-      detail: `Reason: ${relocationReason.trim()} · ${currentUser?.name || ''}`,
-    });
-    setResult(null); setSection(''); setRack(''); setRelocating(false); setRelocationReason('');
-  };
 
   const confirmReceive = () => {
     if (!result || result.category !== 'Pellet' || !('availableKg' in result.record)) return;
@@ -541,8 +458,8 @@ export default function BarcodeScanner() {
     if (duplicate) return showDuplicate(duplicate);
     if (result.record.releaseStatus === 'Released') return setError(`ALREADY RELEASED\nBarcode: ${result.record.barcode}\nReleased: ${result.record.releasedAt ? new Date(result.record.releasedAt).toLocaleString('en-PH') : 'Recorded'}\nCustomer Order: ${result.record.releaseReference || 'Recorded'}\nNo inventory changes were made.`);
     if (result.record.qualityStatus !== 'Pass') return setError('QUALITY PASS REQUIRED');
-    if (result.record.availableQty <= 0 && result.record.reservedQty <= 0) return setError(`WRONG LIFECYCLE — Pipe status is ${result.record.status}.`);
-    const matchingOrder = orders.find(order => order.id === result.record.reservedForOrderId);
+    if (finishedPipeInventory(result.record, app).bucket !== 'Ready for Ship Out') return setError(`WRONG LIFECYCLE — Pipe status is ${result.record.status}.`);
+    const matchingOrder = resolveFinishedPipe(result.record, app).order;
     if (!matchingOrder) return setError('No authorized Customer Order reservation matches this finished good.');
     const now = new Date();
     const item: SessionScan = {
@@ -574,12 +491,6 @@ export default function BarcodeScanner() {
 
   useEffect(() => {
     if (!result) return;
-    if (mode === 'Store Finished Pipes' && result.category === 'Finished Pipe' && result.record.locationStatus !== 'Stored') {
-      const suggestedOrderId = result.record.reservedForOrderId || '';
-      setStoragePurpose(suggestedOrderId ? 'Customer Order' : '');
-      setStorageOrderId(suggestedOrderId);
-      setSection('');
-    }
     if (mode === 'Load Pellets' && 'inventoryStatus' in result.record && result.record.inventoryStatus === 'Available') confirmPellet();
     if (mode === 'Release Finished Goods') confirmRelease();
   }, [result]);
@@ -594,7 +505,6 @@ export default function BarcodeScanner() {
   };
 
   const hasBottomAction = (result?.category === 'Pellet' && mode === 'Receive Pellets' && result.record.locationStatus !== 'Stored')
-    || (result?.category === 'Finished Pipe' && mode === 'Store Finished Pipes' && (result.record.locationStatus !== 'Stored' || relocating))
     || scans.length > 0;
 
   return (
@@ -620,7 +530,7 @@ export default function BarcodeScanner() {
         >
           <option>Receive Pellets</option>
           <option>Load Pellets</option>
-          <option>Store Finished Pipes</option>
+          <option value="Store Finished Pipes">Inspect Finished Pipe Storage</option>
           <option value="Release Finished Goods">Release Finished Pipes</option>
         </SearchableDropdown>
       </div>
@@ -749,66 +659,10 @@ export default function BarcodeScanner() {
           </div>
           <FinishedPipeDetails pipe={result.record} compact />
           {mode === "Store Finished Pipes" ? (
-            <>
-              {result.record.locationStatus === "Stored" && !relocating ? (
-                <div className="action-row mt-3">
-                  <button className="btn-secondary" onClick={() => setRelocating(true)}>Relocate Item</button>
-                </div>
-              ) : (
-                <>
-                  {!relocating && <div className="mt-3">
-              <div className="section-title">Where should this pipe go?</div>
-              <div className="action-row">
-                <button disabled={pipeOrigin?.source === 'Manufacturing Order'} className={storagePurpose === 'General Inventory' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('General Inventory'); setStorageOrderId(''); setSection(''); }}>General Inventory</button>
-                <button className={storagePurpose === 'Customer Order' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('Customer Order'); setSection(''); }}>Customer Order</button>
-              </div>
-            </div>}
-                  {storagePurpose === "Customer Order" && !relocating && (
-                    <label className="block-label mt-3">
-                      Customer Order / Buyer
-                      <SearchableDropdown
-                        className="app-select" value={storageOrderId} onChange={e => setStorageOrderId(e.target.value)}
-                      >
-                        <option value="">Select Customer Order</option>
-                        {orders.filter(order => (pipeOrigin?.source !== 'Manufacturing Order' || order.id === pipeOrigin.order?.id) && order.status !== 'Released' && order.status !== 'Completed').map((order) => (
-                            <option key={order.id} value={order.id}>
-                              {order.orderNo} · {order.customerName}
-                            </option>
-                          ))}
-                      </SearchableDropdown>
-                    </label>
-                  )}
-                  {(relocating || storagePurpose) && (
-                    <div className="form-grid mt-3">
-                      <label>
-                        {relocating ? "New Location" : "Storage Location"}
-                        <SearchableDropdown
-                          className="app-select" value={section} onChange={e => setSection(e.target.value)}
-                        >
-                          <option value="">Select location</option>
-                          {((relocating ? result.record.inventoryPurpose : storagePurpose) === 'Customer Order' ? ['Customer Order Staging', 'Reserved Order Area', 'Ready for Ship-Out Area'] : ['Section A', 'Section B', 'Section C', 'Section D']).map(location => <option key={location}>{location}</option>)}
-                        </SearchableDropdown>
-                      </label>
-                      {(relocating ? result.record.inventoryPurpose : storagePurpose) === 'General Inventory' && (
-                        <label>
-                          Rack / Row / Bay / Area (Optional)
-                          <input className="app-input" value={rack} onChange={e => setRack(e.target.value)} />
-                        </label>
-                      )}
-                    </div>
-                  )}
-                  {relocating && (
-                    <label className="block-label mt-3">
-                      Reason for Relocation
-                      <input className="app-input" value={relocationReason} onChange={e => setRelocationReason(e.target.value)} placeholder="Enter required reason" />
-                    </label>
-                  )}
-                </>
-              )}
-            </>
+            <div className="alert-info mt-3">Storage Purpose: {pipeOrigin?.purpose || 'Source Not Resolved'} (read-only). Plant Manager confirms compatible physical locations in Finished Goods. Production cannot change Storage Purpose or confirm storage.</div>
           ) : (
             <div className="action-row mt-3">
-              <button className="btn-primary" disabled={(result.record.availableQty <= 0 && result.record.reservedQty <= 0) || result.record.releaseStatus === 'Released' || result.record.qualityStatus !== 'Pass'} onClick={confirmRelease}>Confirm Release</button>
+              <button className="btn-primary" disabled={finishedPipeInventory(result.record, app).bucket !== 'Ready for Ship Out'} onClick={confirmRelease}>Confirm Release</button>
             </div>
           )}
         </div>
@@ -818,10 +672,6 @@ export default function BarcodeScanner() {
         ? <button className="btn-success" onClick={confirmReceive}>
             {result.record.type === 'Virgin' ? 'Confirm Receipt' : 'Confirm Storage'}
           </button>
-        : result?.category === 'Finished Pipe' && mode === 'Store Finished Pipes' && (result.record.locationStatus !== 'Stored' || relocating)
-          ? <button className="btn-primary" disabled={!section || (!relocating && (!storagePurpose || (storagePurpose === 'Customer Order' && !storageOrderId))) || (relocating && !relocationReason.trim())} onClick={relocating ? confirmRelocation : confirmStorage}>
-              {relocating ? 'Confirm Relocation' : 'Confirm Storage'}
-            </button>
           : <button className="btn-primary" onClick={finishSession}>
               {mode === 'Receive Pellets' ? 'Complete Receiving'
                 : mode === 'Load Pellets' ? 'Finish Pellet Loading'

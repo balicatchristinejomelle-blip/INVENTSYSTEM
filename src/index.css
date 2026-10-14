@@ -822,6 +822,43 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .print-document-footer { break-inside: avoid; }
 }
 
+/* Compact centered operational content; navigation, auth, charts and printed documents retain their intentional layouts. */
+.operational-content { --operational-gap: 10px; }
+.operational-content .page-stack { gap: var(--operational-gap); }
+.operational-content .app-card:not(:has(.print-document)) { text-align: center; }
+.operational-content .product-filter-panel.mb-4 { margin-bottom: 0; }
+.operational-content :is(.detail-card, .record-context-card, .mo-section) { padding: 12px; }
+.operational-content :is(.section-title, .table-title, .field-label, .field-value, .helper-text, .page-intro, .kpi-card, .confirm-copy, .empty-state, .mobile-record-card) { text-align: center; }
+.operational-content :is(.app-table th, .app-table td, .app-table th[data-actions]) { text-align: center !important; }
+.operational-content .app-table td > .button-group { justify-content: center; }
+.operational-content :is(.form-grid, .block-label, .confirm-panel, .product-filter-field) label,
+.operational-content :is(.form-grid label, label.block-label, .confirm-panel label, .product-filter-field) { text-align: center; }
+.operational-content :is(.app-input:not(textarea), .app-select, .searchable-combobox-option) { text-align: center; }
+.operational-content .searchable-select { padding-left: 58px; }
+.operational-content :is(.responsive-grid, .form-grid, .mobile-record-grid) { gap: var(--operational-gap); }
+.operational-content .report-grid { gap: var(--operational-gap); }
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions, .pagination-bar, .pagination-controls, .reprint-action) { justify-content: center; }
+.operational-content .pagination-bar { flex-wrap: wrap; min-width: 0; gap: 8px 16px; }
+.operational-content :is(.mobile-record-heading, .mo-detail-header) { justify-content: center; flex-wrap: wrap; }
+.operational-content .empty-state { padding: 20px 12px; }
+.operational-content .filter-panel { gap: 8px; padding: 12px; }
+.operational-content .record-filter-bar:has(.product-filter-controls) { grid-template-columns: minmax(0, 1fr); }
+.operational-content .record-filter-bar .record-search { min-height: 36px; height: 36px; }
+.operational-content .record-filter-bar .date-filter { max-width: 220px; justify-self: center; }
+.operational-content .product-operational-filters { align-items: start; }
+.operational-content :is(.toolbar, .filter-row):has(.product-filter-controls) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.operational-content :is(.toolbar, .filter-row) > :is(.record-search, .product-filter-controls) { grid-column: 1 / -1; }
+.operational-content :is(.modal-header h3, .modal-box > h3, .modal-box > p, h2, h3, label.block-label) { text-align: center; }
+.operational-content .modal-header h3 { flex: 1; }
+@media (max-width: 1100px) { .operational-content :is(.toolbar, .filter-row):has(.product-filter-controls) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.operational-content .filter-panel + :is(.app-card, .alert-info, .alert-warning) { margin-top: 0; }
+@media (max-width: 600px) {
+  .operational-content :is(.action-row, .form-actions, .product-view-actions) > button { width: 100%; }
+  .operational-content .record-filter-bar .date-filter { max-width: none; }
+  .operational-content .product-operational-filters { grid-template-columns: minmax(0, 1fr); }
+  .operational-content :is(.toolbar, .filter-row):has(.product-filter-controls) { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Owner plant cards use fixed label/value rows so wrapped labels never move values. */
 .plant-cards-grid { align-items: stretch; display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .plant-summary-card { display: flex; flex-direction: column; height: 100%; }

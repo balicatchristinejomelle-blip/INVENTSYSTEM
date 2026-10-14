@@ -4,6 +4,7 @@ import {
   useSearchPaginationReset,
 } from "../../components/RecordSearch"
 
+import { finishedGoodsSummary } from '../../finishedGoodsInventory';
 import React, { useMemo, useState } from "react"
 
 import CategoryTabs from "../../components/CategoryTabs"
@@ -42,11 +43,12 @@ function OwnerDashboard() {
 
   const colorantKg = app.colorants.reduce((sum, item) => sum + item.availableKg, 0);
 
-  const availablePipes = app.finishedGoods.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length;
+  const inventory = finishedGoodsSummary(app.finishedGoods, app);
+  const availablePipes = inventory.available;
 
-  const reserved = app.finishedGoods.filter(item => item.status === 'Reserved').length;
+  const reserved = inventory.reserved;
 
-  const ready = app.finishedGoods.filter(item => item.status === 'Ready for Release').length;
+  const ready = inventory.ready;
 
   const activeAlerts = app.notifications.filter(item => item.priority !== 'Information' && !item.read);
 
@@ -93,6 +95,8 @@ function OwnerDashboard() {
         <Metric label="PE100 Stock" value={`${pe100Kg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
         <Metric label="Available Finished Pipes" value={availablePipes} tone="green" onClick={goRecords} />
         <Metric label="Reserved Finished Pipes" value={reserved} tone="amber" onClick={goRecords} />
+        <Metric label="Temporary Buyer Stock" value={inventory.temporary} tone="amber" onClick={goRecords} />
+        <Metric label="Physical On Hand" value={inventory.onHand} tone="blue" onClick={goRecords} />
         <Metric label="Active Production Orders" value={app.productionOrders.filter(item => !['Completed', 'Cancelled'].includes(item.status)).length} tone="blue" />
         <Metric label="Rejected Today" value={`${app.rejectedMaterials.filter(item => item.date === today).reduce((sum, item) => sum + item.quantity, 0)} pipes`} tone={app.rejectedMaterials.some(item => item.date === today) ? 'red' : 'green'} />
       </div>

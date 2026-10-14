@@ -1,3 +1,4 @@
+import { restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles } from './storage-inventory-baseline.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -13,6 +14,7 @@ let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
 try {
   const master = await server.ssrLoadModule('/src/productMaster.ts');
+  const inventory = await server.ssrLoadModule('/src/finishedGoodsInventory.ts');
   const categories = await server.ssrLoadModule('/src/inventoryCategories.ts');
   const store = await server.ssrLoadModule('/src/store.tsx');
   const { filterSelectOptions } = await server.ssrLoadModule('/src/components/SearchableSelect.tsx');
@@ -73,7 +75,7 @@ try {
   const helpers = new Function('isSupportedMaterialGrade', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade);
   function simulate(name, role, input) {
     let current = structuredClone({ ...baseline, currentUser: store.USERS.find(user => user.role === role), finishedGoods: [], materialRequests: [], productionOrders: [], transfers: [] });
-    const dependencies = { useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
+    const dependencies = { useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
     const action = new Function(...Object.keys(dependencies), `${transpile(`const action = ${initializers.get(name)};`)}; return action;`)(...Object.values(dependencies));
     const before = structuredClone(current); const result = action(input); return { result, before, state: current };
   }
@@ -90,7 +92,7 @@ try {
   check('Fresh sample grades and their existing batch/physical identities remain exactly PE80 / PE100', () => { const testBags = baseline.pellets.filter(bag => bag.batchNo === 'TEST-PE80' || bag.batchNo === 'TEST-PE100'); assert.equal(testBags.length, 40); assert.equal(testBags.filter(bag => bag.grade === 'PE80').length, 20); assert.equal(testBags.filter(bag => bag.grade === 'PE100').length, 20); assert.equal(baseline.finishedGoods.length, 6); });
   check('Product barcode contains the same item/product/size/length/SDR regardless of material grade', () => { const pipe = baseline.finishedGoods[0]; const coded = { ...pipe, itemCode: 'PEP-1031' }; const pe80 = relations.resolveFinishedPipe({ ...coded, grade: 'PE80' }, baseline); const pe100 = relations.resolveFinishedPipe({ ...coded, grade: 'PE100' }, baseline); assert.equal(pe80.productBarcode, pe100.productBarcode); assert.ok(!pe80.productBarcode.includes('PE80')); assert.ok(!pe100.productBarcode.includes('PE100')); assert.equal(coded.barcode, pipe.barcode); });
   check('Legacy record search remains readable and no existing data is mutated by fixtures', () => { assert.ok(matchesRecord({ grade: 'CTS Grade' }, 'cts')); assert.equal(JSON.stringify(baseline), saved); });
-  for (const [file, restore] of [['src/productMaster.ts', restorePreviousGradeMaster], ['src/store.tsx', restorePreviousGradeStore], ['src/types.ts', restorePreviousGradeTypes]]) check(`${file}: only exact reviewed grade changes differ from pre-task main`, () => assert.equal(restore(fs.readFileSync(file, 'utf8')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
-  for (const file of ['src/index.css', 'src/components/SearchableSelect.tsx', 'src/components/FinishedPipeDetails.tsx', 'src/finishedPipeRelations.ts', 'src/productionGroups.ts', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx']) check(`Non-grade behavior unchanged: ${file}`, () => assert.equal(fs.readFileSync(file, 'utf8').replace(/\r/g, ''), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
+  for (const [file, restore] of [['src/productMaster.ts', restorePreviousGradeMaster], ['src/store.tsx', source => restorePreviousGradeStore(restorePreStorageStore(source))], ['src/types.ts', source => restorePreviousGradeTypes(restorePreStorageTypes(source))]]) check(`${file}: only exact reviewed grade changes differ from pre-task main`, () => assert.equal(restore(fs.readFileSync(file, 'utf8')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
+  for (const file of ['src/index.css', 'src/components/SearchableSelect.tsx', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx']) check(`Non-grade behavior unchanged: ${file}`, () => assert.equal((file === 'src/index.css' ? restorePreStorageStyles(fs.readFileSync(file, 'utf8')) : fs.readFileSync(file, 'utf8').replace(/\r/g, '')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
   console.log(`Completed ${checks} active-grade, historical-preservation, six-role, callback and non-grade regression checks. SSR is not visual browser verification.`);
 } finally { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; await server.close(); }

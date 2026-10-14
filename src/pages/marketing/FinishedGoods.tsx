@@ -1,3 +1,5 @@
+import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
+import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
 import { batchOriginTrace } from '../../productionGroups';
@@ -31,8 +33,9 @@ export default function MarketingFG() {
 
   const [productType, setProductType] = useState<'All' | PipeProductType>('All');
 
-  const [status, setStatus] = useState<'Available' | 'Reserved' | 'Ready for Release' | 'Shipped Out / Released'>('Available');
+  const [status, setStatus] = useState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>('Available');
 
+  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
   const [grade, setGrade] = useState("All")
 
   const [search, setSearch] = useState("")
@@ -54,14 +57,15 @@ export default function MarketingFG() {
       finishedGoods.filter(
         (item) =>
           item.qualityStatus !== 'Reject'
+    && (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose)
     && productFilters.matches(item)
     && (productType === 'All' || normalizedProductType(item.product) === productType)
     && (grade === 'All' || item.grade === grade)
-    && (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && item.status === status) &&
+    && (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && (status === 'Temporary Storage' ? finishedPipeInventory(item, app).bucket === status : item.status === status)) &&
           ([item.barcode, item.fgId, item.poRef, item.moRef || '', item.batch, item.product, item.grade, item.reservedForOrderRef || ''].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)),
       ),
-    [finishedGoods, grade, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, purpose, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
@@ -78,8 +82,9 @@ export default function MarketingFG() {
   [finishedGoods, visibleBatchIds]);
 
   const productSelected = productType === 'All' ? finishedGoods : finishedGoods.filter(item => normalizedProductType(item.product) === productType);
-  const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
+  const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose) && productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
 
+  const inventory = finishedGoodsSummary(selectedGroup, app);
   const openBatch = batches.find(group => group.item.batch === selectedBatch);
 
   const currentPipes = pageRecords(visible, page)
@@ -103,9 +108,10 @@ export default function MarketingFG() {
       </div>
       <div className="kpi-grid">
         {[
-        ['Available', selectedGroup.filter(item => item.status === 'Available').length],
-        ['Reserved', selectedGroup.filter(item => item.status === 'Reserved').length],
-        ['Ready for Release', selectedGroup.filter(item => item.status === 'Ready for Release').length],
+        ['Available General Inventory', inventory.available],
+        ['Reserved General Inventory', inventory.reserved],
+        ['Temporary Buyer Stock', inventory.temporary], ['On Hand', inventory.onHand],
+        ['Ready for Ship Out', inventory.ready],
       ].map(([label, value]) => (
           <div className="app-card kpi-card" key={label}>
             <div>{label}</div>
@@ -117,11 +123,12 @@ export default function MarketingFG() {
       <div className="filter-panel product-filter-panel">
         <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
-        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><SearchableDropdown
+        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
           <option>Available</option>
           <option>Reserved</option>
+          <option>Temporary Storage</option>
           <option>Ready for Release</option>
           <option>Shipped Out / Released</option>
         </SearchableDropdown></div>}
@@ -149,11 +156,11 @@ export default function MarketingFG() {
               </thead>
               <tbody>
                 {currentBatches.map((group) => {
-                  const available = group.pipes.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length;
+                  const available = finishedGoodsSummary(group.pipes, app).available;
 
-                  const reserved = group.pipes.filter(item => item.status === 'Reserved').length;
+                  const reserved = finishedGoodsSummary(group.pipes, app).reserved;
 
-                  const ready = group.pipes.filter(item => item.status === 'Ready for Release').length;
+                  const ready = finishedGoodsSummary(group.pipes, app).ready;
 
                   const shipped = group.pipes.filter(item => item.releaseStatus === 'Released').length;
                   const trace = batchOriginTrace(group.pipes, { ...app, specifications: readPipeSpecifications() });
@@ -191,9 +198,9 @@ export default function MarketingFG() {
           </div>
           <div className="mobile-record-list">
             {currentBatches.map((group) => {
-              const available = group.pipes.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length;
+              const available = finishedGoodsSummary(group.pipes, app).available;
 
-              const reserved = group.pipes.filter(item => item.status === 'Reserved').length;
+              const reserved = finishedGoodsSummary(group.pipes, app).reserved;
 
               return (
                 <article className="app-card mobile-record-card" key={group.item.batch}>
@@ -293,9 +300,9 @@ export default function MarketingFG() {
                 <Info label="Specifications" value={`${openBatch.item.diameter} · ${openBatch.item.sdr} · ${openBatch.item.length}`} />
                 <Info label="Good Pipes" value={openBatch.pipes.length} />
                 <Info label="Rejected" value={app.rejectedMaterials.filter(item => item.batch === openBatch.item.batch).reduce((sum, item) => sum + item.quantity, 0)} />
-                <Info label="Available" value={openBatch.pipes.filter(item => item.status === 'Available' && item.releaseStatus !== 'Released').length} />
-                <Info label="Reserved" value={openBatch.pipes.filter(item => item.status === 'Reserved').length} />
-                <Info label="Ready for Ship Out" value={openBatch.pipes.filter(item => item.status === 'Ready for Release').length} />
+                <Info label="Available" value={finishedGoodsSummary(openBatch.pipes, app).available} />
+                <Info label="Reserved" value={finishedGoodsSummary(openBatch.pipes, app).reserved} />
+                <Info label="Ready for Ship Out" value={finishedGoodsSummary(openBatch.pipes, app).ready} />
                 <Info label="Shipped" value={openBatch.pipes.filter(item => item.releaseStatus === 'Released').length} />
               </div>
             </div>

@@ -54,7 +54,7 @@ function AccountingDashboard() {
   const trReceived = transfers.filter(t => t.status === 'Received').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="page-stack">
       {/* Raw Material Inventory */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Raw Material Inventory</h3>

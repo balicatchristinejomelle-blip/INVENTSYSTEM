@@ -40,7 +40,7 @@ const CARD_GRID4: React.CSSProperties = {
 const TWO_COL: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: 18,
+  gap: 10,
 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -69,7 +69,7 @@ function OverviewTab({ period }: { period: PeriodRange }) {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={CARD_GRID4}>
         <ReportCard label="Current Pellet Stock" value={`${totalKg.toFixed(1)} kg`} sub={`Balance as of ${period.end}`} color="var(--accent-blue)" />
         <ReportCard label="Active Transfers" value={activeTransfers} sub="Preparing + In Transit" color="var(--accent-gold)" />
@@ -110,7 +110,7 @@ function InventoryTab() {
   const recycledKg = pellets.filter(p => p.type === 'Recycled' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div className="app-card" style={{ padding: 16 }}>
         <SectionLabel>Pellet Batch Stock Levels</SectionLabel>
         <HorizontalBar
@@ -193,7 +193,7 @@ function TransfersTab({ period }: { period: PeriodRange }) {
   const transferTrend = periodTransfers.map(item => ({ label: item.date.slice(5), value: item.weightKg }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         {Object.entries(statusCounts).map(([status, count]) => (
           <ReportCard
@@ -271,7 +271,7 @@ function RequestsTab({ period }: { period: PeriodRange }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page-stack">
       <div style={CARD_GRID4}>
         <ReportCard label="New" value={counts.New} color="#2563eb" />
         <ReportCard label="Pending" value={counts.Pending} color="#d97706" />
@@ -337,7 +337,7 @@ function AccountingReports() {
   const period = usePeriod('month');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="page-stack">
       {/* Page Header */}
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>

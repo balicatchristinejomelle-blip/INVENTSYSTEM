@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -192,7 +193,7 @@ export default function OwnerRecords() {
         date: item.productionDate,
         reference: item.barcode,
         module: "Finished Pipe",
-        detail: `${item.product} ${item.diameter} · ${item.inventoryPurpose}`,
+        detail: `${item.product} ${item.diameter} · ${finishedPipeInventory(item, app).purpose || 'Source Not Resolved'}`,
         quantity: "1 pc",
         status: item.releaseStatus === 'Released' ? 'Shipped Out' : item.status,
         grade: item.grade,
