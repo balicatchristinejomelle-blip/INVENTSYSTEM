@@ -16,6 +16,7 @@ import { matchesRecord, searchableText } from "./RecordSearch"
 import { canViewRequest, metadataFor, printState } from '../reprintWorkflow';
 import { printableRecords } from '../printableRecords';
 import { pipeSearchRecord } from '../finishedPipeRelations';
+import { productFilterRecord } from '../productFilters';
 
 export interface SearchResult {
   id: string
@@ -356,6 +357,7 @@ export function buildUniversalIndex(
   )
   const printables = printableRecords(app);
   for (const result of results) {
+    if (['PRODUCTION ORDERS', 'MANUFACTURING ORDERS', 'CUSTOMER ORDERS'].includes(result.group)) result.record = productFilterRecord(result.record, { ...app, specifications: configuration.specifications || [] });
     if (result.group === 'FINISHED PIPES') {
       const pipe = app.finishedGoods.find(item => item.id === result.id);
       if (pipe) result.record = pipeSearchRecord(pipe, { ...app, specifications: configuration.specifications || [] });

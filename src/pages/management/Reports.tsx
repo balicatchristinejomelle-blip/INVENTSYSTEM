@@ -7,6 +7,9 @@ import {
 } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
+import { HPAI_PRODUCT_MASTER } from '../../productMaster';
+import { productFilterRecord } from '../../productFilters';
+import { useApp } from '../../store';
 
 import React, { useEffect, useState } from "react"
 
@@ -27,6 +30,7 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => (
 );
 
 function Reports() {
+  const fullApp = useApp();
   const {
     pellets,
     colorants,
@@ -68,7 +72,7 @@ function Reports() {
 
   const productionStaff = employees.filter(employee => employee.role === 'production');
 
-  const qualityProducts = Array.from(new Set(periodRejected.map(item => item.product)));
+  const qualityProducts = HPAI_PRODUCT_MASTER.products;
 
   const filteredQuality = periodRejected.filter((item) => {
     const query = qualitySearch.trim().toLowerCase()
@@ -77,7 +81,7 @@ function Reports() {
 
     return (
       (qualityStaff === 'All Staff' || item.employee === qualityStaff)
-      && (qualityProduct === 'All Products' || item.product === qualityProduct)
+      && (qualityProduct === 'All Products' || productFilterRecord(item, fullApp).product === qualityProduct)
       && (qualityResult === 'All Results' || result === qualityResult) &&
       ((!query || [item.employee, item.poRef, item.product, item.rejectionId, item.reason]
         .some(value => value?.toLowerCase().includes(query))) ||
@@ -1011,4 +1015,4 @@ export default withRecordSearch(Reports, [
   "turnovers",
   "rejectedMaterials",
   "employees",
-])
+], true)

@@ -1,4 +1,6 @@
 import { withPrintSearch } from '../../printableRecords';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
+import { productionOriginGroup } from '../../finishedPipeRelations';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
@@ -84,6 +86,7 @@ export default function ProdOrders() {
   const [search, setSearch] = useState("")
 
   const [pages, setPages] = useState<Record<OrderView, number>>({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
+  const productFilters = useProductFilters(() => setPages({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 }));
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
@@ -99,6 +102,7 @@ export default function ProdOrders() {
 
     return (
       inView &&
+      productFilters.matches(po) &&
       dateInPeriod(po.requiredDate, period.range) &&
       ((!query || [po.poNo, po.moRef, po.product, po.diameter, po.grade, po.productionLine].some(value => value.toLowerCase().includes(query))) ||
           matchesRecord(withPrintSearch(app, po), query))
@@ -266,6 +270,7 @@ export default function ProdOrders() {
         onDateChange={resetPages}
         placeholder="Search PO, MO, product, barcode, reference..."
       />
+      <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
       <div className="tab-strip">
         {ORDER_VIEWS.map(view => (
         <button key={view} className={orderView === view ? 'tab-active' : ''} onClick={() => setOrderView(view)}>
@@ -350,6 +355,7 @@ export default function ProdOrders() {
               ["Diameter", viewPO.diameter],
               ["Length", viewPO.length],
               ["SDR / Thickness", viewPO.sdr],
+              ["Origin Group (read-only)", productionOriginGroup(viewPO, app) || 'Not Resolved'],
               ["Grade", viewPO.grade],
               ["Color", viewPO.color],
               ["Stripe", viewPO.stripe],
@@ -419,6 +425,7 @@ export default function ProdOrders() {
               <div>
                 <div className="field-label">SDR / Thickness</div>
                 <div className="field-value">{viewPO.sdr}</div>
+                <div className="field-label">Origin Group (read-only)</div><div className="field-value">{productionOriginGroup(viewPO, app) || 'Not Resolved'}</div>
               </div>
               <div>
                 <div className="field-label">Length</div>

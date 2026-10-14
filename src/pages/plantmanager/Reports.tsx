@@ -1,6 +1,6 @@
 import { matchesRecord } from "../../components/RecordSearch"
 
-import { sortSizes } from "../../productMaster"
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -79,6 +79,7 @@ export default function PlantManagerReports() {
   const [report, setReport] = useState<Report>("Material Inventory")
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [search, setSearch] = useState("")
 
@@ -96,7 +97,6 @@ export default function PlantManagerReports() {
 
   const [finishedGrade, setFinishedGrade] = useState("All")
 
-  const [finishedSize, setFinishedSize] = useState("All")
 
   const [finishedStatus, setFinishedStatus] =
     useState<FinishedStatus>("All Statuses")
@@ -278,10 +278,6 @@ export default function PlantManagerReports() {
 
   const finishedGradeOptions = MATERIAL_GRADES
 
-  const finishedSizeOptions = sortSizes(
-    finishedProductEligible.map((item) => item.diameter),
-  )
-
   const finishedLocationOptions = Array.from(
     new Set(finishedProductEligible.map((item) => item.currentLocation)),
   )
@@ -305,7 +301,7 @@ export default function PlantManagerReports() {
     return (
       statusMatches &&
       (finishedGrade === "All" || item.grade === finishedGrade) &&
-      (finishedSize === "All" || item.diameter === finishedSize) &&
+      productFilters.matches(item) &&
       (finishedLocation === "All" ||
         item.currentLocation === finishedLocation) &&
       ([
@@ -326,6 +322,7 @@ export default function PlantManagerReports() {
 
   const filteredProduction = periodProductionOrders.filter(
     (item) =>
+      productFilters.matches(item) &&
       (productType === "All" ||
         normalizedProductType(item.product) === productType) &&
       ([
@@ -358,10 +355,10 @@ export default function PlantManagerReports() {
 
   const filteredRecycling = periodRecycling.filter(
     (item) =>
-      [item.batchNo, item.status, item.sourcePO || "", item.product || ""]
+      productFilters.matches(item) && ([item.batchNo, item.status, item.sourcePO || "", item.product || ""]
 
         .some((value) => value.toLowerCase().includes(search.toLowerCase())) ||
-      matchesRecord(item, search),
+      matchesRecord(item, search)),
   )
 
   const recyclingMetrics = periodRecycling
@@ -398,6 +395,7 @@ export default function PlantManagerReports() {
         onChange={changeReport}
         label="Report type"
       />
+      {['Finished Goods', 'Production', 'Recycling'].includes(report) && <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} includeProduct={report === 'Recycling'} includeGrade={report !== 'Finished Goods'} includeLength />}
 
       {report === "Material Inventory" && (
         <>
@@ -566,7 +564,6 @@ export default function PlantManagerReports() {
                 onChange={(event) => {
                   setProductType(event.target.value as "All" | PipeProductType)
                   setFinishedGrade("All")
-                  setFinishedSize("All")
                   resetPage()
                 }}
               >
@@ -585,19 +582,6 @@ export default function PlantManagerReports() {
               >
                 <option value="All">All Material Grades</option>
                 {finishedGradeOptions.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </SearchableDropdown>
-              <SearchableDropdown
-                className="app-select"
-                value={finishedSize}
-                onChange={(event) => {
-                  setFinishedSize(event.target.value)
-                  resetPage()
-                }}
-              >
-                <option value="All">All Sizes / Diameters</option>
-                {finishedSizeOptions.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </SearchableDropdown>

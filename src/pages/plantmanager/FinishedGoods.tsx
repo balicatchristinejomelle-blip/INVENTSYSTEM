@@ -1,4 +1,6 @@
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import FinishedGoodGroups from '../../components/FinishedGoodGroups';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import RecordList from "../../components/RecordList"
 
@@ -29,7 +31,6 @@ import type { FinishedGood, ProductSpecification, StockTarget } from '../../type
 
 import {
   normalizeProductSpecification,
-  sortSizes,
   specificationKey,
   specificationKeyFromRecord,
   specificationLength,
@@ -65,11 +66,10 @@ export default function PMFinishedGoods() {
 
   const [location, setLocation] = useState("All")
 
-  const [size, setSize] = useState("All")
-
-  const [viewMode, setViewMode] = useState<'By Batch' | 'Individual Pipes'>('By Batch');
+  const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Group' | 'By Batch' | 'Individual Pipes'>('By Batch');
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
@@ -118,11 +118,6 @@ export default function PMFinishedGoods() {
 
   const gradeOptions = MATERIAL_GRADES
 
-  const sizeOptions = useMemo(
-    () => sortSizes(productEligible.map((item) => item.diameter)),
-    [productEligible],
-  )
-
   const locationOptions = useMemo(() => Array.from(new Set(productEligible.map(item => item.currentLocation))).filter(Boolean).sort(), [productEligible]);
 
   const filtered = useMemo(
@@ -134,12 +129,12 @@ export default function PMFinishedGoods() {
     (productType === 'All' || normalizedProductType(f.product) === productType)
     && matchesDestination(f, status)
     && (grade === 'All' || f.grade === grade)
-    && (size === 'All' || f.diameter === size)
+    && productFilters.matches(f)
     && (location === 'All' || f.currentLocation === location) &&
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, location, productType, search, size, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, location, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
@@ -205,6 +200,7 @@ export default function PMFinishedGoods() {
 
   const visibleStockTargetRows = stockTargetRows.filter(
     ({ spec, openPO, stockStatus }) =>
+      productFilters.matches(spec) && (productType === 'All' || spec.productType === productType) && (grade === 'All' || spec.materialGrade === grade) &&
       (targetStockFilter === 'All' || stockStatus === targetStockFilter) &&
       ([spec.productType, spec.materialGrade, spec.size, spec.sdr, specificationLength(spec), spec.color, spec.stripe, openPO?.poNo || '', stockStatus].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(spec, search)),
@@ -217,7 +213,7 @@ export default function PMFinishedGoods() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setProductType('All'); setGrade('All'); setSize('All'); setLocation('All'); setStatus('All Statuses'); resetPage();
+    setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); setLocation('All'); setStatus('All Statuses'); resetPage();
   };
 
   const printAllUnprinted = () => {
@@ -239,7 +235,7 @@ export default function PMFinishedGoods() {
           </div>
         ))}
       </div>
-      {stockTargetRows.length > 0 && (
+      {viewMode === 'Stock Levels' && (
         <div className="low-stock-panel">
           <div className="section-title">Finished Pipe Stock Targets</div>
           <CategoryTabs items={['All', 'Normal', 'Low Stock', 'Out of Stock', 'Replenishment In Progress'] as const} value={targetStockFilter} onChange={value => { setTargetStockFilter(value); resetPage(); }} label="Finished pipe stock target state" />
@@ -271,7 +267,7 @@ export default function PMFinishedGoods() {
           {!visibleStockTargetRows.length && <div className="empty-state">No finished-pipe targets match this filter or search.</div>}
         </div>
       )}
-      <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); setGrade('All'); setSize('All'); resetPage(); }} label="Finished pipe product type" />
+      <CategoryTabs items={productTabs} value={productType} onChange={value => { setProductType(value); resetPage(); }} label="Finished pipe product type" />
       <div className="filter-panel">
         <div className="filter-row">
           <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, PO, MO, customer, status, or location" />
@@ -281,14 +277,8 @@ export default function PMFinishedGoods() {
             <option value="All">All Material Grades</option>
             {gradeOptions.map(item => <option key={item}>{item}</option>)}
           </SearchableDropdown>
-          <SearchableDropdown
-            className="app-select" aria-label="Size or diameter" value={size} onChange={e => { setSize(e.target.value); resetPage(); }}
-          >
-            <option value="All">All Sizes / Diameters</option>
-            {sizeOptions.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
         </div>
-        <div className="filter-row">
+        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="filter-row">
           <SearchableDropdown
             className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
           >
@@ -300,12 +290,15 @@ export default function PMFinishedGoods() {
             <option value="All">All Locations</option>
             {locationOptions.map(item => <option key={item}>{item}</option>)}
           </SearchableDropdown>
-        </div>
+        </div>}
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
         <div className="filter-actions">
-        <CategoryTabs items={['By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
-        <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />
+        <CategoryTabs items={['Stock Levels', 'By Group', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
+        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
       </div>
       </div>
+      {viewMode === 'By Group' && <FinishedGoodGroups search={search} filter={{ ...productFilters.value, product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }} onViewPipe={pipe => setSelectedId(pipe.id)} />}
+      {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <>
       <div className="app-card table-scroll desktop-record-table">
         {filtered.length === 0 ? (
           <div className="empty-state empty-state-action">
@@ -471,6 +464,7 @@ export default function PMFinishedGoods() {
       <div className="mobile-pagination-only">
         {viewMode === 'By Batch' ? <Pagination page={page} totalRecords={batches.length} onPageChange={setPage} noun="batches" /> : <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} noun="pipes" />}
       </div>
+      </>}
       {selectedBatch &&
         (() => {
           const summary = batchSummary(selectedBatch)

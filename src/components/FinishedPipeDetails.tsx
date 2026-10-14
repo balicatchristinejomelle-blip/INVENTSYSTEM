@@ -21,7 +21,8 @@ export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch
     'Production Order': reference(result.po?.poNo, result.po ? productionOrderDocument(result.po) : undefined, ['OWNER_SUPER_ADMIN', 'management', 'plantmanager', 'production']),
     'Manufacturing Order': moLink,
     'Customer Order': reference(result.order?.orderNo, result.order ? customerOrderDocument(result.order) : undefined, ['OWNER_SUPER_ADMIN', 'marketing']),
-    Buyer: result.buyer || '—', [result.source === 'Stock Replenishment' ? 'Replenishment Group' : 'MO Group']: result.source === 'Manufacturing Order' ? moLink : result.originGroup || '—',
+    Buyer: result.buyer || '—', 'Group Type': (live.source || result.source) === 'Manufacturing Order' ? 'MO' : (live.source || result.source) === 'Stock Replenishment' ? 'Replenishment' : 'Not Resolved',
+    'Origin Group': result.originGroup || 'Not Resolved', [result.source === 'Stock Replenishment' ? 'Replenishment Group' : 'MO Group']: result.originGroup === result.mo?.moNo ? moLink : result.originGroup || '—',
     'Inventory Purpose': result.purpose, 'Inventory Status': result.inventoryStatus,
   };
   const values: Record<string, React.ReactNode> = compact ? trace : {

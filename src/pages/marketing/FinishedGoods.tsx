@@ -1,4 +1,6 @@
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import FinishedGoodGroups from '../../components/FinishedGoodGroups';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import { matchesRecord } from "../../components/RecordSearch"
 
@@ -20,7 +22,7 @@ import type { FinishedGood } from "../../types"
 
 import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipeProductType } from '../../inventoryCategories';
 
-type ViewMode = "By Batch" | "Individual Pipes"
+type ViewMode = "By Group" | "By Batch" | "Individual Pipes"
 
 export default function MarketingFG() {
   const app = useApp();
@@ -41,6 +43,7 @@ export default function MarketingFG() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [batchPipePage, setBatchPipePage] = useState(1)
 
@@ -51,13 +54,14 @@ export default function MarketingFG() {
       finishedGoods.filter(
         (item) =>
           item.qualityStatus !== 'Reject'
+    && productFilters.matches(item)
     && (productType === 'All' || normalizedProductType(item.product) === productType)
     && (grade === 'All' || item.grade === grade)
     && (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && item.status === status) &&
           ([item.barcode, item.fgId, item.poRef, item.moRef || '', item.batch, item.product, item.grade, item.reservedForOrderRef || ''].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)),
       ),
-    [finishedGoods, grade, productType, search, status, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
@@ -112,14 +116,14 @@ export default function MarketingFG() {
       </div>
       <div className="toolbar">
         <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, PO, MO, order, or product" />
-        <SearchableDropdown
+        {viewMode !== 'By Group' && <SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
           <option>Available</option>
           <option>Reserved</option>
           <option>Ready for Release</option>
           <option>Shipped Out / Released</option>
-        </SearchableDropdown>
+        </SearchableDropdown>}
         <SearchableDropdown
           className="app-select" value={grade} onChange={event => { setGrade(event.target.value); resetPage(); }}
         >
@@ -127,9 +131,10 @@ export default function MarketingFG() {
           {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
         </SearchableDropdown>
       </div>
-      <CategoryTabs items={['By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
+      <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} />
+      <CategoryTabs items={['By Group', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
 
-      {viewMode === "By Batch" ? (
+      {viewMode === 'By Group' ? <FinishedGoodGroups search={search} filter={{ ...productFilters.value, product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }} onViewPipe={setSelected} /> : viewMode === "By Batch" ? (
         <>
           <div className="app-card table-scroll desktop-record-table">
             <table className="app-table">

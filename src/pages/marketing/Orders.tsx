@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
@@ -43,6 +44,7 @@ export default function Orders() {
   const [search, setSearch] = useState("")
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [stockCheck, setStockCheck] = useState<{ available: number; shortage: number } | null>(null);
 
@@ -64,6 +66,7 @@ export default function Orders() {
   const filtered = orders.filter(
     (order) =>
       (filter === "All" || order.status === filter) &&
+      productFilters.matches(order) &&
       ([order.orderNo, order.customerName, order.product, order.diameter, order.sdr, order.grade, order.color, order.stripe, order.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(withPrintSearch(app, order), search)),
   )
@@ -93,11 +96,11 @@ export default function Orders() {
 
   const updateProduct = (product: string) => {
     const construction = constructionForProduct(product);
-    setForm(current => ({ ...current, product, grade: '', diameter: '', sdr: '', productForm: '', length: '', color: '', stripe: '', construction }));
+    setForm(current => ({ ...current, product, diameter: product && sizesForProduct(product, configuredPolytubeSizes).includes(current.diameter) ? current.diameter : '', construction: product ? construction : '' }));
   };
 
   const updateProductForm = (productForm: string) => {
-    setForm(current => ({ ...current, productForm, length: '' }));
+    setForm(current => ({ ...current, productForm, length: lengthsForForm(productForm).includes(current.length) ? current.length : '' }));
   };
 
   const handleCheckStock = () => {
@@ -169,6 +172,7 @@ export default function Orders() {
 
       <div className="record-filter-bar">
         <input className="app-input record-search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search order, customer, product, size, grade, color, or status" />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
       </div>
 
       <div className="app-card table-scroll">
@@ -300,7 +304,7 @@ export default function Orders() {
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Material Grade</label>
-            <SearchableSelect value={form.grade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!form.product} ariaLabel="Material Grade" placeholder="Search material grade..." onChange={grade => setForm(f => ({ ...f, grade, diameter: '', sdr: '', productForm: '', length: '', color: '', stripe: '' }))} />
+            <SearchableSelect value={form.grade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!form.product} ariaLabel="Material Grade" placeholder="Search material grade..." onChange={grade => setForm(f => ({ ...f, grade }))} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
@@ -313,12 +317,12 @@ export default function Orders() {
               required
               ariaLabel={sizeLabelForProduct(form.product)}
               placeholder={normalizeProductType(form.product) === 'HDPE Pipe' || normalizeProductType(form.product) === 'Commercial HDPE Pipe (CGPE)' ? 'Select size / diameter' : 'Select size'}
-              onChange={diameter => setForm(f => ({ ...f, diameter, sdr: '', productForm: '', length: '', color: '', stripe: '' }))}
+              onChange={diameter => setForm(f => ({ ...f, diameter }))}
             />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SDR / Thickness</label>
-            <SearchableSelect value={form.sdr} options={availableSdrs} disabled={!form.diameter} ariaLabel="SDR / Thickness" placeholder="Search SDR / Thickness..." onChange={sdr => setForm(f => ({ ...f, sdr, productForm: '', length: '', color: '', stripe: '' }))} />
+            <SearchableSelect value={form.sdr} options={availableSdrs} disabled={!form.diameter} ariaLabel="SDR / Thickness" placeholder="Select SDR / Thickness" searchPlaceholder="Search SDR / Thickness..." onChange={sdr => setForm(f => ({ ...f, sdr }))} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Product Form</label>
@@ -328,11 +332,11 @@ export default function Orders() {
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
               {form.productForm === 'Coil' ? 'Coil Length' : 'Straight Pipe Length'}
             </label>
-            <SearchableSelect value={form.length} options={availableLengths} disabled={!form.productForm} required ariaLabel={form.productForm === 'Coil' ? 'Coil Length' : 'Straight Pipe Length'} placeholder={form.productForm === 'Coil' ? 'Select coil length' : 'Select straight pipe length'} onChange={length => setForm(f => ({ ...f, length, color: '', stripe: '' }))} />
+            <SearchableSelect value={form.length} options={availableLengths} disabled={!form.productForm} required ariaLabel={form.productForm === 'Coil' ? 'Coil Length' : 'Straight Pipe Length'} placeholder={form.productForm === 'Coil' ? 'Select coil length' : 'Select straight pipe length'} onChange={length => setForm(f => ({ ...f, length }))} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Color</label>
-            <SearchableSelect value={form.color} options={availableColors} disabled={!form.length} ariaLabel="Product Color" placeholder="Search product color..." onChange={color => setForm(f => ({ ...f, color, stripe: '' }))} />
+            <SearchableSelect value={form.color} options={availableColors} disabled={!form.length} ariaLabel="Product Color" placeholder="Search product color..." onChange={color => setForm(f => ({ ...f, color }))} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Stripe</label>

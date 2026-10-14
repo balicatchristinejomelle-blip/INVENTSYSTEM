@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
+.product-filter-controls { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; }
+.product-filter-field { flex: 1 1 180px; min-width: 0; max-width: 100%; }
+.product-filter-field .field-label { display: block; margin-bottom: 4px; }
+.production-group-view .mobile-record-heading { flex-wrap: wrap; }
+@media (max-width: 430px) { .product-filter-field { flex-basis: 100%; } }
+
 @theme inline {
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;

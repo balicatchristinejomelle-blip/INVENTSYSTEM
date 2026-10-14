@@ -1,4 +1,5 @@
 import { matchesRecord } from "../../components/RecordSearch"
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -88,6 +89,7 @@ export default function Settings() {
   const [search, setSearch] = useState("")
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const [feedback, setFeedback] = useState("")
 
@@ -122,6 +124,7 @@ export default function Settings() {
   const notifySaved = (message: string) => { setFeedback(message); window.setTimeout(() => setFeedback(''), 3000); };
 
   const filteredSpecs = specifications.filter((spec) =>
+    productFilters.matches(spec) &&
     matchesRecord(
       {
         ...spec,
@@ -154,7 +157,7 @@ export default function Settings() {
     return `${target.materialGrade} · 25 kg physical bags`;
   };
 
-  const filteredTargets = stockTargets.filter(target => !search.trim() || `${target.plant} ${target.inventoryType} ${targetLabel(target)} ${target.status}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const filteredTargets = stockTargets.filter(target => (!Object.values(productFilters.value).some(Boolean) || (target.inventoryType === 'Finished Pipe' && specifications.some(spec => spec.id === target.productSpecificationId && productFilters.matches(spec)))) && (!search.trim() || `${target.plant} ${target.inventoryType} ${targetLabel(target)} ${target.status}`.toLowerCase().includes(search.trim().toLowerCase())));
 
   const createSpecification = () => {
     if (!specForm.productType || !specForm.materialGrade || !specForm.size || !specForm.sdr || !specForm.productForm || !specForm.length || !specForm.color || !specForm.stripe || !specForm.pipeConstruction) return notifySaved('Complete every required Product Specification field.');
@@ -225,6 +228,7 @@ export default function Settings() {
           </button>
         ))}
       </div>
+      {(activeTab === 'Product Specifications' || activeTab === 'Stock Targets / Reorder Levels') && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
       {activeTab === "General" && (
         <div className="app-card settings-card">
           <SectionHeader title="Frontend configuration" description="These settings are local prototype values until the backend is connected." />
@@ -481,11 +485,11 @@ export default function Settings() {
         <div className="form-grid">
           <label>
             Product Type *
-            <SearchableSelect value={specForm.productType} options={HPAI_PRODUCT_MASTER.products} ariaLabel="Product Type" placeholder="Search product type..." onChange={productType => setSpecForm(value => ({ ...value, productType: productType as ProductType, materialGrade: '', size: '', sdr: '', productForm: '', length: '', color: '', stripe: '', pipeConstruction: productType ? constructionForProduct(productType) : '' }))} />
+            <SearchableSelect value={specForm.productType} options={HPAI_PRODUCT_MASTER.products} ariaLabel="Product Type" placeholder="Search product type..." onChange={productType => setSpecForm(value => ({ ...value, productType: productType as ProductType, size: productType && sizesForProduct(productType, specifications.filter(spec => spec.productType === 'Polytube').map(spec => spec.size)).includes(value.size) ? value.size : '', pipeConstruction: productType ? constructionForProduct(productType) : '' }))} />
           </label>
           <label>
             Material Grade *
-            <SearchableSelect value={specForm.materialGrade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!specForm.productType} ariaLabel="Material Grade" placeholder="Search material grade..." onChange={materialGrade => setSpecForm(value => ({ ...value, materialGrade: materialGrade as MaterialGrade, size: '', sdr: '', productForm: '', length: '' }))} />
+            <SearchableSelect value={specForm.materialGrade} options={HPAI_PRODUCT_MASTER.materialGrades} disabled={!specForm.productType} ariaLabel="Material Grade" placeholder="Search material grade..." onChange={materialGrade => setSpecForm(value => ({ ...value, materialGrade: materialGrade as MaterialGrade }))} />
           </label>
           <label>
             {sizeLabelForProduct(specForm.productType)} *
@@ -496,16 +500,16 @@ export default function Settings() {
               disabled={!specForm.productType}
               allowCustom={specForm.productType === "Polytube"}
               placeholder={specForm.productType === 'Polytube' ? 'Enter or search configured size' : 'Search size'}
-              onChange={size => setSpecForm(value => ({ ...value, size, sdr: '', productForm: '', length: '' }))}
+              onChange={size => setSpecForm(value => ({ ...value, size }))}
             />
           </label>
           <label>
             SDR / Thickness *
-            <SearchableSelect value={specForm.sdr} options={HPAI_PRODUCT_MASTER.sdrRatings} disabled={!specForm.size} ariaLabel="SDR / Thickness" placeholder="Search SDR / Thickness..." onChange={sdr => setSpecForm(value => ({ ...value, sdr, productForm: '', length: '' }))} />
+            <SearchableSelect value={specForm.sdr} options={HPAI_PRODUCT_MASTER.sdrRatings} disabled={!specForm.size} ariaLabel="SDR / Thickness" placeholder="Select SDR / Thickness" searchPlaceholder="Search SDR / Thickness..." onChange={sdr => setSpecForm(value => ({ ...value, sdr }))} />
           </label>
           <label>
             Product Form *
-            <SearchableSelect value={specForm.productForm} options={HPAI_PRODUCT_MASTER.productForms} disabled={!specForm.sdr} ariaLabel="Product Form" placeholder="Search product form..." onChange={productForm => setSpecForm(value => ({ ...value, productForm: productForm as ProductSpecification['productForm'], length: '' }))} />
+            <SearchableSelect value={specForm.productForm} options={HPAI_PRODUCT_MASTER.productForms} disabled={!specForm.sdr} ariaLabel="Product Form" placeholder="Search product form..." onChange={productForm => setSpecForm(value => ({ ...value, productForm: productForm as ProductSpecification['productForm'], length: lengthsForForm(productForm).includes(value.length) ? value.length : '' }))} />
           </label>
           <label>
             Length / Coil Length *
@@ -513,7 +517,7 @@ export default function Settings() {
           </label>
           <label>
             Color *
-            <SearchableSelect value={specForm.color} options={HPAI_PRODUCT_MASTER.pipeColors} disabled={!specForm.length} ariaLabel="Product Color" placeholder="Search product color..." onChange={color => setSpecForm(value => ({ ...value, color, stripe: '' }))} />
+            <SearchableSelect value={specForm.color} options={HPAI_PRODUCT_MASTER.pipeColors} disabled={!specForm.length} ariaLabel="Product Color" placeholder="Search product color..." onChange={color => setSpecForm(value => ({ ...value, color }))} />
           </label>
           <label>
             Stripe *

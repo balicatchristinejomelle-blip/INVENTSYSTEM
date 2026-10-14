@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
+import { matchesRecord } from '../../components/RecordSearch';
+import { productFilterRecord } from '../../productFilters';
 import { formatProductionTime, useApp } from '../../store';
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import Pagination, { pageRecords } from '../../components/Pagination';
@@ -6,18 +9,22 @@ import Pagination, { pageRecords } from '../../components/Pagination';
 const tabs = ['My Attendance', 'My Production', 'My Turnovers', 'My Barcode Activity', 'My Quality Records', 'My Recycling Activity'] as const;
 
 export default function ProductionHistory() {
-  const { currentUser, attendance, transactions, turnovers, rejectedMaterials, recyclingBatches, productionOrders } = useApp();
+  const app = useApp();
+  const { currentUser, attendance, transactions, turnovers, rejectedMaterials, recyclingBatches, productionOrders } = app;
   const [tab, setTab] = useState<typeof tabs[number]>('My Attendance');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const productFilters = useProductFilters(() => setPage(1));
+  const productTab = tab !== 'My Attendance';
   const period = usePeriod();
   const query = search.trim().toLowerCase();
   const mine = useMemo(() => transactions.filter(item =>
     item.employeeId === currentUser?.employeeId
+    && (!productTab || productFilters.matches(item))
     && dateInPeriod(item.date, period.range)
-    && (!query || JSON.stringify(item).toLowerCase().includes(query))
-  ), [transactions, currentUser, search, period.range]);
-  const matchesSearch = (item: unknown) => !query || JSON.stringify(item).toLowerCase().includes(query);
+    && matchesRecord(productFilterRecord(item, app), query)
+  ), [transactions, currentUser, search, period.range, productFilters.value, productTab]);
+  const matchesSearch = (item: unknown) => matchesRecord(productTab ? productFilterRecord(item, app) : item, query) && (!productTab || productFilters.matches(item));
   const myAttendance = attendance.filter(item => item.employeeId === currentUser?.employeeId && dateInPeriod(item.date, period.range) && matchesSearch(item));
   const myTurnovers = turnovers.filter(item => item.outgoingEmployeeId === currentUser?.employeeId && dateInPeriod(item.date, period.range) && matchesSearch(item));
   const myQuality = rejectedMaterials.filter(item => item.employee === currentUser?.name && dateInPeriod(item.date, period.range) && matchesSearch(item));
@@ -32,6 +39,7 @@ export default function ProductionHistory() {
   return <div className="page-stack">
     <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search PO, MO, product, barcode, employee, shift..." compact />
     <div className="tab-strip">{tabs.map(item => <button key={item} className={tab === item ? 'tab-active' : ''} onClick={() => { setTab(item); setPage(1); }}>{item}</button>)}</div>
+    {productTab && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
     <div className="app-card table-scroll"><table className="app-table"><thead><tr>
       {tab === 'My Attendance' && <><th>Date</th><th>Shift</th><th>Clock In</th><th>Clock Out</th><th>Status</th></>}
       {tab === 'My Production' && <><th>Date</th><th>Shift</th><th>PO</th><th>Product / Action</th><th>Quantity</th><th>Status</th></>}

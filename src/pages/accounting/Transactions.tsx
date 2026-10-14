@@ -1,4 +1,6 @@
 import { matchesRecord } from "../../components/RecordSearch"
+import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
+import { productFilterRecord } from '../../productFilters';
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -24,7 +26,8 @@ function categoryOf(item: { materialCategory?: Category; item: string; transacti
 }
 
 export default function Transactions() {
-  const { transactions, navigate } = useApp()
+  const app = useApp();
+  const { transactions, navigate } = app;
 
   const [category, setCategory] = useState<Category>("All")
 
@@ -35,16 +38,18 @@ export default function Transactions() {
   const [search, setSearch] = useState("")
 
   const [page, setPage] = useState(1)
+  const productFilters = useProductFilters(() => setPage(1));
 
   const types = useMemo(() => ['All', ...Array.from(new Set(transactions.map(item => item.transactionType)))], [transactions]);
 
   const visible = transactions.filter(
     (item) =>
       (category === 'All' || categoryOf(item) === category)
+    && (category !== 'Finished Pipe' || productFilters.matches(item))
     && (type === 'All' || item.transactionType === type)
     && (!date || item.date === date) &&
       ([item.barcode, item.reference, item.poRef, item.productType, item.item, item.batch, item.employee].some(value => (value || '').toLowerCase().includes(search.trim().toLowerCase())) ||
-        matchesRecord(item, search)),
+        matchesRecord(categoryOf(item) === 'Finished Pipe' ? productFilterRecord(item, app) : item, search)),
   )
 
   const summary = useMemo(() => {
@@ -111,6 +116,7 @@ export default function Transactions() {
       <div className="alert-info stock-card-note">
         <strong>Internal movement:</strong> Raw Pellet → Production WIP is Stock Out in the raw scope and Stock In in WIP; company-wide net change remains zero.</div>
       <CategoryTabs items={CATEGORIES} value={category} onChange={value => { setCategory(value); setPage(1); }} label="Inventory transaction category" />
+      {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
       <div className="toolbar">
         <input className="app-input" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
         <SearchableDropdown
