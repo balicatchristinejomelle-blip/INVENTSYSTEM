@@ -1,8 +1,11 @@
 import type { FinishedGood, PelletInventory, CustomerOrder, ManufacturingOrder, ProductionOrder, RRRecord, MaterialRequest, Transfer, RecyclingBatch } from './types';
 import { printableKey, printState, metadataFor, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
 import { customerOrderDocument, manufacturingOrderDocument, productionOrderDocument, receivingReportDocument, materialRequestDocument, transferDocument, recyclingDocument } from './documentPrint';
+import { pipeSearchRecord, readPipeSpecifications } from './finishedPipeRelations';
+import type { Customer } from './types';
 
 export interface PrintableSource {
+  customers?: Customer[];
   pellets: PelletInventory[]; finishedGoods: FinishedGood[]; orders: CustomerOrder[];
   manufacturingOrders: ManufacturingOrder[]; productionOrders: ProductionOrder[]; rrRecords: RRRecord[];
   materialRequests: MaterialRequest[]; transfers: Transfer[]; recyclingBatches: RecyclingBatch[];
@@ -47,5 +50,7 @@ export function withPrintSearch<T extends { id: string }>(source: PrintableSourc
   const record = printableRecords(source).find(item => item.recordId === businessRecord.id);
   if (!record) return businessRecord;
   const latestRequest = source.reprintRequests?.find(request => request.printable.key === record.key);
-  return { ...businessRecord, ...metadataFor(source, record), printStatus: printState(source, record), reprintStatus: latestRequest?.status };
+  const pipe = source.finishedGoods.find(item => item.id === businessRecord.id);
+  const enriched = pipe ? pipeSearchRecord(pipe, { ...source, customers: source.customers || [], specifications: readPipeSpecifications() }) : businessRecord;
+  return { ...businessRecord, ...enriched, ...metadataFor(source, record), printStatus: printState(source, record), reprintStatus: latestRequest?.status };
 }

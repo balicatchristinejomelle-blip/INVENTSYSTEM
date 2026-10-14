@@ -15,6 +15,7 @@ import Pagination, { pageRecords } from "./Pagination"
 import { matchesRecord, searchableText } from "./RecordSearch"
 import { canViewRequest, metadataFor, printState } from '../reprintWorkflow';
 import { printableRecords } from '../printableRecords';
+import { pipeSearchRecord } from '../finishedPipeRelations';
 
 export interface SearchResult {
   id: string
@@ -355,6 +356,10 @@ export function buildUniversalIndex(
   )
   const printables = printableRecords(app);
   for (const result of results) {
+    if (result.group === 'FINISHED PIPES') {
+      const pipe = app.finishedGoods.find(item => item.id === result.id);
+      if (pipe) result.record = pipeSearchRecord(pipe, { ...app, specifications: configuration.specifications || [] });
+    }
     const record = printables.find(item => item.recordId === result.id && (item.reference === result.title || item.value === result.title));
     if (record) result.record = { ...result.record, printStatus: printState(app, record), ...metadataFor(app, record) };
   }

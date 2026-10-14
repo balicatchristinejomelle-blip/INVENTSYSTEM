@@ -1,4 +1,6 @@
 import SearchableDropdown from "../../components/SearchableDropdown"
+import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import { resolveFinishedPipe } from '../../finishedPipeRelations';
 
 import React, { useEffect, useRef, useState } from "react"
 
@@ -47,11 +49,12 @@ type LastScan = {
 };
 
 export default function BarcodeScanner() {
+  const app = useApp();
   const {
     pellets, finishedGoods, activeProductionOrder, transfers, orders, transactions,
     loadPellets, updateFinishedGoodStorage, receivePellet, relocatePhysicalItem, releaseFinishedGood,
     currentUser, currentShift, barcodeResetVersion, barcodeRegistry, navigate,
-  } = useApp();
+  } = app;
 
   const [mode, setMode] = useState<ScannerMode>('Load Pellets');
 
@@ -74,6 +77,10 @@ export default function BarcodeScanner() {
   const [storagePurpose, setStoragePurpose] = useState<'General Inventory' | 'Customer Order' | ''>('');
 
   const [storageOrderId, setStorageOrderId] = useState("")
+  const pipeOrigin = result?.category === 'Finished Pipe' ? resolveFinishedPipe(result.record, app) : undefined;
+  useEffect(() => {
+    if (pipeOrigin?.source === 'Manufacturing Order') { setStoragePurpose('Customer Order'); setStorageOrderId(pipeOrigin.order?.id || ''); }
+  }, [result?.barcode, pipeOrigin?.source, pipeOrigin?.order?.id]);
 
   const [relocating, setRelocating] = useState(false)
 
@@ -740,6 +747,7 @@ export default function BarcodeScanner() {
             <Info label="Current Location" value={result.record.currentLocation || 'Not Yet Assigned'} />
             <Info label="Status" value={result.record.status} />
           </div>
+          <FinishedPipeDetails pipe={result.record} compact />
           {mode === "Store Finished Pipes" ? (
             <>
               {result.record.locationStatus === "Stored" && !relocating ? (
@@ -751,7 +759,7 @@ export default function BarcodeScanner() {
                   {!relocating && <div className="mt-3">
               <div className="section-title">Where should this pipe go?</div>
               <div className="action-row">
-                <button className={storagePurpose === 'General Inventory' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('General Inventory'); setStorageOrderId(''); setSection(''); }}>General Inventory</button>
+                <button disabled={pipeOrigin?.source === 'Manufacturing Order'} className={storagePurpose === 'General Inventory' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('General Inventory'); setStorageOrderId(''); setSection(''); }}>General Inventory</button>
                 <button className={storagePurpose === 'Customer Order' ? 'btn-primary' : 'btn-secondary'} onClick={() => { setStoragePurpose('Customer Order'); setSection(''); }}>Customer Order</button>
               </div>
             </div>}
@@ -762,7 +770,7 @@ export default function BarcodeScanner() {
                         className="app-select" value={storageOrderId} onChange={e => setStorageOrderId(e.target.value)}
                       >
                         <option value="">Select Customer Order</option>
-                        {orders.filter(order => order.status !== 'Released' && order.status !== 'Completed').map((order) => (
+                        {orders.filter(order => (pipeOrigin?.source !== 'Manufacturing Order' || order.id === pipeOrigin.order?.id) && order.status !== 'Released' && order.status !== 'Completed').map((order) => (
                             <option key={order.id} value={order.id}>
                               {order.orderNo} · {order.customerName}
                             </option>

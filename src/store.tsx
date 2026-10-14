@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { requestReprint, reviewReprint, completePrint, validatePrint, canViewRequest, printAuditRole, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
 import { seedReprintSamples } from './reprintSamples';
+import { hydrateFinishedPipe, hydratePipeRelationships, resolveFinishedPipe } from './finishedPipeRelations';
 import type {
   User, Role, Theme, Notification, MaterialRequest, Transfer, RRRecord,
   Customer, CustomerOrder, ManufacturingOrder, ProductionOrder,
@@ -663,6 +664,24 @@ const createInitialState = (): AppState => ({
   totalRejectedKg: 42,
 });
 
+// One additive sample was explicitly requested. Never replace existing physical records.
+export function addReplenishmentSample<T extends AppState>(state: T): T {
+  if (state.productionOrders.some(po => po.id === 'hpai-replenishment-sample-po-v1')) return state;
+  if (state.finishedGoods.some(pipe => pipe.id === 'hpai-replenishment-sample-pipe-v1' || (pipe.qualityStatus === 'Pass' && resolveFinishedPipe(pipe, state).source === 'Stock Replenishment'))) return state;
+  const example = state.finishedGoods.find(pipe => pipe.qualityStatus === 'Pass');
+  if (!example) return state;
+  const now = new Date();
+  const year = now.getFullYear();
+  const next = Math.max(0, ...state.productionOrders.filter(po => po.poNo.startsWith(`PO-${year}-`)).map(po => Number(po.poNo.split('-').pop()) || 0)) + 1;
+  const poNo = `PO-${year}-${String(next).padStart(4, '0')}`;
+  const batchSequence = Math.max(0, ...[...state.finishedGoods, ...state.rejectedMaterials].map(item => Number(item.batch.split('-').pop()) || 0)) + 1;
+  const batch = `BATCH-${year}-${String(batchSequence).padStart(4, '0')}`;
+  const po: ProductionOrder = { id: 'hpai-replenishment-sample-po-v1', poNo, moRef: 'STOCK REPLENISHMENT', source: 'Stock Replenishment', originGroup: `REPLENISH-${year}-${String(next).padStart(4, '0')}`, product: example.product, grade: example.grade, diameter: example.diameter, sdr: example.sdr, length: example.length, color: example.color, stripe: example.stripe, construction: example.construction, productForm: example.productForm, targetQty: 1, completedQty: 1, pelletType: 'Virgin', requiredKg: 0, loadedKg: 0, productionLine: 'Line 1', priority: 'Normal', requiredDate: now.toISOString().slice(0, 10), status: 'Completed', replenishmentReason: 'One localhost relationship sample — not a live transaction' };
+  const [generated] = makePermanentFinishedPipes(1, { product: po.product, grade: po.grade, diameter: po.diameter, sdr: po.sdr, length: po.length, color: po.color, stripe: po.stripe, construction: po.construction, productForm: po.productForm, batch, poRef: poNo, productionDate: po.requiredDate, shift: 'Day', storageLocation: 'Section A', status: 'Available' }, state.barcodeRegistry, state.finishedGoods);
+  const pipe: FinishedGood = { ...generated, id: 'hpai-replenishment-sample-pipe-v1', source: 'Stock Replenishment', productionOrderId: po.id, originGroup: po.originGroup, inventoryPurpose: 'General Inventory', status: 'Available', reservationStatus: 'Available', storageStatus: 'Stored', locationStatus: 'Stored', currentLocation: 'Section A', availableQty: 1, qualityStatus: 'Pass', isTestData: true, storedBy: 'Localhost Sample', storedAt: now.toISOString(), locationHistory: [{ from: 'Production Area / Awaiting Storage', to: 'Section A', action: 'Stored', employee: 'Localhost Sample', employeeId: 'LOCALHOST-SAMPLE', dateTime: now.toISOString(), reason: 'Explicitly requested replenishment relationship sample' }] };
+  return { ...state, productionOrders: [...state.productionOrders, po], finishedGoods: [...state.finishedGoods, pipe], barcodeRegistry: [...state.barcodeRegistry, ...registryEntriesForFinishedGoods([pipe], now.toISOString())] };
+}
+
 const restoreAppState = (): AppState => {
   const initial = createInitialState();
   try {
@@ -871,7 +890,7 @@ export const formatProductionTime = (value?: string) => {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(restoreAppState);
+  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(addReplenishmentSample(restoreAppState())));
   const stateRef = useRef(state);
   stateRef.current = state;
   const printTickets = useRef(new Map<string, { keys: string[]; approvalId?: string; employeeId: string; release?: () => void }>());
@@ -1048,6 +1067,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Keep the application usable when persistent browser storage is unavailable.
     }
   }, [state]);
+
+  useEffect(() => { setState(current => hydratePipeRelationships(addReplenishmentSample(current))); }, []);
 
   const setTheme = useCallback((t: Theme) => {
     setState(s => ({ ...s, theme: t }));
@@ -1977,7 +1998,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             lastUpdated: `${date} ${time}`,
           };
         }),
-        finishedGoods: [...allocatedFinishedGoods, ...s.finishedGoods],
+        finishedGoods: [...allocatedFinishedGoods.map(pipe => hydrateFinishedPipe(pipe, s)), ...s.finishedGoods],
         orders: sourceOrder ? s.orders.map(item => item.id === sourceOrder.id ? {
           ...item,
           reservedQuantity: Math.min(item.quantity, (item.reservedQuantity || 0) + passedQty),
@@ -2384,6 +2405,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let stored = false;
     setState(s => {
       const fg = s.finishedGoods.find(item => item.id === fgId);
+      const origin = fg ? resolveFinishedPipe(fg, s) : undefined;
       const order = purpose === 'Customer Order'
         ? s.orders.find(item => item.id === (orderId || fg?.reservedForOrderId))
         : undefined;
@@ -2393,6 +2415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (
         !fg || s.currentUser?.role !== 'production' || fg.locationStatus === 'Stored' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
         || (purpose === 'General Inventory' && !generalLocation)
+        || (origin?.source === 'Manufacturing Order' && (purpose !== 'Customer Order' || !origin.order || origin.order.id !== order?.id))
         || (purpose === 'Customer Order' && (!order || !orderLocation))
         || (!!fg.reservedForOrderId && !alreadyReservedForOrder)
         || (purpose === 'Customer Order' && !alreadyReservedForOrder && !!order && (order.reservedQuantity || 0) + (order.releasedQuantity || 0) >= order.quantity)
@@ -2490,6 +2513,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: `po${Date.now()}`,
         poNo: poNumber,
         moRef: mo.moNo,
+        source: 'Manufacturing Order',
+        originGroup: mo.moNo,
         product: mo.product,
         diameter: mo.diameter,
         length: mo.length,
@@ -2568,6 +2593,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         moRef: 'STOCK REPLENISHMENT',
         source: 'Stock Replenishment',
         replenishmentReason: input.reason.trim(),
+        originGroup: `REPLENISH-${now.getFullYear()}-${String(next).padStart(4, '0')}`,
         product: spec.productType,
         diameter: spec.size,
         length: specificationLength(spec),

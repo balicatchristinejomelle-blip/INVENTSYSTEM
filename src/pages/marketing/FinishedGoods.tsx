@@ -1,3 +1,5 @@
+import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -21,7 +23,8 @@ import { MATERIAL_GRADES, PIPE_PRODUCT_TYPES, normalizedProductType, type PipePr
 type ViewMode = "By Batch" | "Individual Pipes"
 
 export default function MarketingFG() {
-  const { finishedGoods, productionOrders } = useApp()
+  const app = useApp();
+  const { finishedGoods, productionOrders } = app;
 
   const [productType, setProductType] = useState<'All' | PipeProductType>('All');
 
@@ -52,9 +55,9 @@ export default function MarketingFG() {
     && (grade === 'All' || item.grade === grade)
     && (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && item.status === status) &&
           ([item.barcode, item.fgId, item.poRef, item.moRef || '', item.batch, item.product, item.grade, item.reservedForOrderRef || ''].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-            matchesRecord(item, search)),
+            matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)),
       ),
-    [finishedGoods, grade, productType, search, status],
+    [finishedGoods, grade, productType, search, status, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
@@ -349,26 +352,8 @@ export default function MarketingFG() {
       {selected && (
         <Modal open title={`Finished Pipe — ${selected.fgId}`} onClose={() => setSelected(null)} width="620px">
           <div className="page-stack">
-            <DetailSection title="Identification">
-              <Info label="Pipe ID" value={selected.fgId} />
-              <Info label="Barcode" value={selected.barcode} />
-              <Info label="Batch" value={selected.batch} />
-            </DetailSection>
-            <DetailSection title="Product Specification">
-              <Info label="Product" value={normalizedProductType(selected.product)} />
-              <Info label="Grade" value={selected.grade} />
-              <Info label="Size / SDR-Thickness / Length" value={`${selected.diameter} · ${selected.sdr} · ${selected.length}`} />
-              <Info label="Color / Stripe" value={`${selected.color} · ${selected.stripe}`} />
-            </DetailSection>
-            <DetailSection title="Production & Inventory">
-              <Info label="PO / MO" value={`${selected.poRef} / ${moFor(selected)}`} />
-              <Info label="Production Date" value={selected.productionDate} />
-              <Info label="Inventory Status" value={selected.releaseStatus === 'Released' ? 'Shipped Out' : selected.status} />
-              <Info label="Current Location" value={selected.currentLocation || 'Not Yet Assigned'} />
-            </DetailSection>
+            <FinishedPipeDetails pipe={selected} />
             <DetailSection title="Customer / Shipment">
-              <Info label="Customer Order" value={selected.reservedForOrderRef || '—'} />
-              <Info label="Buyer" value={selected.buyer || "—"} />
               <Info label="Released At" value={selected.releasedAt ? new Date(selected.releasedAt).toLocaleString('en-PH') : 'Not released'} />
               <Info label="Shipment Reference" value={selected.shipmentReference || selected.releaseReference || '—'} />
             </DetailSection>

@@ -1,3 +1,5 @@
+import FinishedPipeDetails from '../../components/FinishedPipeDetails';
+import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
 import RecordList from "../../components/RecordList"
 
 import { matchesRecord } from "../../components/RecordSearch"
@@ -135,9 +137,9 @@ export default function PMFinishedGoods() {
     && (size === 'All' || f.diameter === size)
     && (location === 'All' || f.currentLocation === location) &&
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
-            matchesRecord({ ...f, printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
+            matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, location, productType, search, size, status, app.printMetadata, app.reprintRequests],
+    [finishedGoods, grade, location, productType, search, size, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
@@ -598,17 +600,7 @@ export default function PMFinishedGoods() {
             recordId={selected.id}
             recordLabel={selected.fgId}
           />
-            <div className="app-card detail-card">
-              <div className="section-title">System Record Details · Not Printed</div>
-              <div className="responsive-grid">
-                {Object.entries({ Product: selected.product, Diameter: selected.diameter, Length: selected.length, 'SDR / Thickness': selected.sdr, Grade: selected.grade, Color: selected.color, Stripe: selected.stripe, Construction: selected.construction, Form: selected.productForm, 'Unit Weight': selected.unitWeightKg ? `${selected.unitWeightKg} kg` : '—', Batch: selected.batch, 'Production Order': selected.poRef, 'Manufacturing Order': selected.moRef || '—', 'Production Date': selected.productionDate, Shift: selected.shift, 'Quality Status': selected.qualityStatus || 'Pending', 'Inventory Purpose': selected.inventoryPurpose || 'Unassigned', 'Inventory Status': selected.status, 'Current Location': selected.currentLocation || 'Not Yet Assigned', 'Customer Order': selected.reservedForOrderRef || '—', Buyer: selected.buyer || '—', 'Release Status': selected.releaseStatus, Available: selected.availableQty, Reserved: selected.reservedQty }).map(([label, value]) => (
-                  <div key={label}>
-                    <div className="field-label">{label}</div>
-                    <div className="field-value">{value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <FinishedPipeDetails pipe={selected} onOpenBatch={() => { setSelectedId(null); setSelectedBatchId(selected.batch); setBatchPipePage(1); }} />
             {rejecting && (
               <div className="app-card detail-card">
                 <div className="section-title">Quality Rejection</div>
