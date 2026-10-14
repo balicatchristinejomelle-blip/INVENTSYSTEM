@@ -110,10 +110,12 @@ export default function PMProductionOrders() {
 
   return (
     <div>
-      <div className="record-filter-bar">
+      <div className="filter-panel product-filter-panel mb-4">
         <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); setMoPage(1); setPoPage(1); }} placeholder="Search PO, source, MO, product, grade, size, SDR / Thickness, priority, date, or status" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
-        <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>
+        <div className="product-view-actions">
+          <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>
+        </div>
       </div>
       {/* MO Review */}
       {manufacturingOrders.filter(m => m.status === 'New').length > 0 && (
