@@ -1,10 +1,11 @@
 import type { FinishedGood, ManufacturingOrder, ProductionOrder, StorageLocation, Transaction } from './types';
+import { SAMPLE_LOCATIONS, normalizeLocationMaster } from './locationMaster';
 
 export type StoragePurpose = 'Inventory Storage' | 'Temporary Storage';
 export type PipeInventoryBucket = 'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Ship Out' | 'Awaiting Storage' | 'Quality Pending' | 'Rejected' | 'Shipped';
 export const STORAGE_PURPOSES: readonly StoragePurpose[] = ['Inventory Storage', 'Temporary Storage'];
 export const STORAGE_LOCATION_TYPES: readonly StorageLocation['locationType'][] = ['Production Area', 'Finished Goods Inventory', 'Temporary Finished Goods', 'Ready for Ship Out', 'Raw Material Area', 'WIP', 'Rejected Materials', 'Recycling', 'Finished Goods Area', 'Staging Area'];
-export const DEFAULT_STORAGE_LOCATIONS: readonly StorageLocation[] = [
+const LEGACY_STORAGE_LOCATIONS: readonly StorageLocation[] = [
   { id: 'loc-a', name: 'Section A', plant: 'Branch Plant', locationType: 'Finished Goods Area', description: 'General pipe storage', status: 'Active' },
   { id: 'loc-b', name: 'Section B', plant: 'Branch Plant', locationType: 'Finished Goods Area', description: 'Large-diameter pipe storage', status: 'Active' },
   { id: 'loc-c', name: 'Section C', plant: 'Branch Plant', locationType: 'Raw Material Area', description: 'Pellet and raw-material staging', status: 'Active' },
@@ -14,10 +15,11 @@ export const DEFAULT_STORAGE_LOCATIONS: readonly StorageLocation[] = [
   { id: 'loc-reserved', name: 'Reserved Order Area', plant: 'Branch Plant', locationType: 'Temporary Finished Goods', status: 'Active' },
   { id: 'loc-ship', name: 'Ready for Ship-Out Area', plant: 'Branch Plant', locationType: 'Ready for Ship Out', status: 'Active' },
 ];
+export const DEFAULT_STORAGE_LOCATIONS = SAMPLE_LOCATIONS;
 export function readStorageLocations(): StorageLocation[] {
   try {
     const saved = window.localStorage.getItem('hpai:storage-locations-v1');
-    if (saved) { const parsed: unknown = JSON.parse(saved); if (Array.isArray(parsed)) return parsed.filter((location): location is StorageLocation => !!location && typeof location === 'object' && typeof location.name === 'string' && typeof location.locationType === 'string'); }
+    if (saved) return normalizeLocationMaster(JSON.parse(saved));
   } catch { /* Use existing default locations when no readable master is available. */ }
   return DEFAULT_STORAGE_LOCATIONS.map(location => ({ ...location }));
 }
@@ -42,7 +44,7 @@ export function hasConfirmedPipeStorage(pipe: FinishedGood, purpose: StoragePurp
   if (!purpose || pipe.storageStatus !== 'Stored' || !['Stored', 'Quality Pending'].includes(pipe.locationStatus)) return false;
   if (pipe.locationStatus === 'Quality Pending' && !pipe.storedAt) return false;
   const name = pipe.currentLocation || pipe.storageLocation;
-  const location = storageLocationFor(name, [...readStorageLocations(), ...DEFAULT_STORAGE_LOCATIONS]);
+  const location = storageLocationFor(name, [...readStorageLocations(), ...LEGACY_STORAGE_LOCATIONS]);
   if (location) return purpose === 'Inventory Storage' ? inventoryType(location) || (!!pipe.reservedForOrderId && ['Ready for Ship Out', 'Temporary Finished Goods'].includes(location.locationType)) : ['Temporary Finished Goods', 'Ready for Ship Out', 'Staging Area'].includes(location.locationType);
   // Unknown historical locations/IDs/history are retained, but compatibility must be configured before availability is granted.
   return false;

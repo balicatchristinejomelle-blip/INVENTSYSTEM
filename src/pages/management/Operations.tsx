@@ -1,4 +1,8 @@
 import { withPrintSearch } from '../../printableRecords';
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
+import { matchesLocation, inventoryLocationLabel, locationQuantity } from '../../locationMaster';
+import { matchesInventoryColor } from '../../productFilters';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
@@ -44,6 +48,8 @@ export default function Operations() {
   const [productionView, setProductionView] = useState<ProductionView>('Active / Ready');
 
   const [search, setSearch] = useState("")
+  const [materialLocation, setMaterialLocation] = useState('All');
+  const [materialColor, setMaterialColor] = useState('');
 
   const [page, setPage] = useState(1)
   const productFilters = useProductFilters(() => setPage(1));
@@ -57,6 +63,7 @@ export default function Operations() {
   const selectedPellets = pellets.filter(
     (item) =>
       dateInPeriod(item.receivedDate, period.range) &&
+      matchesLocation(item, materialLocation) && matchesInventoryColor(item.color, materialColor) &&
       matchesRecord(item, query) &&
       item.type === (materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled') &&
       (grade === "All" || item.grade === grade) &&
@@ -99,6 +106,7 @@ export default function Operations() {
   const selectedColorants = colorants.filter(
     (item) =>
       dateInPeriod(item.lastUpdated, period.range) &&
+      matchesLocation(item, materialLocation) && matchesInventoryColor(item.color, materialColor) &&
       matchesRecord(item, query),
   )
 
@@ -109,7 +117,7 @@ export default function Operations() {
   return (
     <div>
       <div className="page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade /> : undefined} />
+        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade includeColor includeLocation /> : undefined} />
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
@@ -124,6 +132,7 @@ export default function Operations() {
       </div>
 
       {tab === 'reprints' && <ReprintApprovals search={search} />}
+      {tab === 'orders' && <LegacyBarcodeNotice query={search} pipes={finishedGoods} />}
 
       {tab === "inventory" && (
         <div className="page-stack">
@@ -166,6 +175,7 @@ export default function Operations() {
             </div>
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
+          <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); setPage(1); }} onLocationChange={value => { setMaterialLocation(value); setPage(1); }} />
           {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} />}
           {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" />}
           <div className="app-card" style={{ overflow: "hidden" }}>
@@ -177,6 +187,7 @@ export default function Operations() {
                     <th>Color</th>
                     <th>Usage Type</th>
                     <th>Available kg</th>
+                    <th>Location</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -189,8 +200,9 @@ export default function Operations() {
                         {item.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}
                       </td>
                       <td className="font-mono">
-                        {item.availableKg.toFixed(3)}
+                        {locationQuantity(item, materialLocation).toFixed(3)}
                       </td>
+                      <td>{inventoryLocationLabel(item)}</td>
                       <td>
                         <StatusBadge status={item.status} />
                       </td>
@@ -208,6 +220,7 @@ export default function Operations() {
                     <th>Color</th>
                     <th>Available kg</th>
                     <th>Received Date</th>
+                    <th>Location</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -227,6 +240,7 @@ export default function Operations() {
                         {p.availableKg.toFixed(1)} kg
                       </td>
                       <td style={{ fontSize: 12 }}>{p.receivedDate}</td>
+                      <td>{inventoryLocationLabel(p)}</td>
                     </tr>
                   ))}
                 </tbody>

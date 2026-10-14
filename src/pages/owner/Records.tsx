@@ -1,3 +1,7 @@
+import { inventoryLocationLabel, matchesLocation, locationQuantity } from '../../locationMaster';
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import { matchesInventoryColor } from '../../productFilters';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import { withPrintSearch } from '../../printableRecords';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
@@ -55,6 +59,7 @@ type RecordRow = {
   location?: string
   searchText?: string
   specification?: unknown
+  material?: { color: string; availableKg: number; currentLocation?: string; locationBalances?: Record<string, number> }
 }
 
 export default function OwnerRecords() {
@@ -76,6 +81,7 @@ export default function OwnerRecords() {
   const [grade, setGrade] = useState("All Grades")
 
   const [location, setLocation] = useState("All Locations")
+  const [color, setColor] = useState('');
 
   const [search, setSearch] = useState("")
 
@@ -93,7 +99,7 @@ export default function OwnerRecords() {
         quantity: `${item.weightKg} kg`,
         status: item.status,
         grade: item.grade,
-        location: item.destination,
+        location: item.receivingLocation || item.destination,
       })),
 
       ...app.materialRequests.map((item) => ({
@@ -162,6 +168,7 @@ export default function OwnerRecords() {
 
     const inventory: RecordRow[] = [
       ...app.pellets.map((item) => ({
+        material: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.receivedDate,
@@ -175,6 +182,7 @@ export default function OwnerRecords() {
       })),
 
       ...app.colorants.map((item) => ({
+        material: item,
         searchText: searchableText(item),
         id: item.id,
         date: item.lastUpdated.slice(0, 10),
@@ -183,7 +191,7 @@ export default function OwnerRecords() {
         detail: `${item.name} · ${item.usageType === 'BASE_COLORANT' ? 'Base' : 'Stripe'}`,
         quantity: `${item.availableKg} kg`,
         status: item.status,
-        location: "Colorant Storage",
+        location: inventoryLocationLabel(item),
       })),
 
       ...app.finishedGoods.map((item) => ({
@@ -283,10 +291,11 @@ export default function OwnerRecords() {
     .filter(
       (item) =>
         dateInPeriod(item.date, period.range)
-    && (!productArea || !Object.values(productFilters.value).some(Boolean) || (!!item.specification && productFilters.matches(item.specification)))
+    && (!productArea || !Object.values(productFilters.value).some(Boolean) || (!!(item.specification || item.material) && productFilters.matches(item.specification || item.material)))
     && (status === 'All Statuses' || item.status === status)
     && (grade === 'All Grades' || item.grade === grade)
-    && (location === 'All Locations' || item.location === location) &&
+    && (productArea || !item.material || matchesInventoryColor(item.material.color, color))
+    && (location === 'All Locations' || location === 'All' || (item.material ? matchesLocation(item.material, location) : item.location === location)) &&
         matchesRecord(withPrintSearch(app, item), search),
     )
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -295,7 +304,6 @@ export default function OwnerRecords() {
 
   const grades = MATERIAL_GRADES
 
-  const locations = Array.from(new Set(sourceRows.map(item => item.location).filter(Boolean))).sort() as string[];
 
   const inventoryArea = area === "Inventory & Finished Goods"
 
@@ -341,6 +349,7 @@ export default function OwnerRecords() {
     setStatus('All Statuses');
     setGrade('All Grades');
     setLocation('All Locations');
+    setColor('');
   };
 
   return (
@@ -356,7 +365,8 @@ export default function OwnerRecords() {
       <div className="button-group"><button className="btn-secondary" onClick={() => setMonitorReprints(value => !value)}>{monitorReprints ? 'Hide Reprint History' : 'Reprint Requests & History'}</button></div>
       {monitorReprints && <ReprintApprovals monitor search={search} />}
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
-      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade /> : undefined} />
+      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation /> : undefined} />
+      {productArea && <LegacyBarcodeNotice query={search} pipes={app.finishedGoods} />}
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
       <div className="filter-panel">
         <div className="filter-row">
@@ -378,17 +388,8 @@ export default function OwnerRecords() {
               ))}
             </SearchableDropdown>
           )}
-          {inventoryArea && (
-            <SearchableDropdown
-              className="app-select" value={location} onChange={event => { setLocation(event.target.value); setPage(1); }}
-            >
-              <option>All Locations</option>
-              {locations.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </SearchableDropdown>
-          )}
         </div>
+        {inventoryArea && !productArea && <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
       </div>
       <div className="app-card table-scroll">
         <div className="table-title">
@@ -402,6 +403,7 @@ export default function OwnerRecords() {
               <th>Record Type</th>
               <th>Details</th>
               <th>Quantity / Activity</th>
+              <th>Location</th>
               <th>Status</th>
               <th data-actions>Actions</th>
             </tr>
@@ -413,7 +415,8 @@ export default function OwnerRecords() {
                 <td className="font-mono">{item.reference}</td>
                 <td>{item.module}</td>
                 <td>{item.detail}</td>
-                <td>{item.quantity}</td>
+                <td>{item.material && item.module === 'Colorant' ? `${locationQuantity(item.material, productArea ? productFilters.value.location || 'All' : location).toFixed(3)} kg` : item.quantity}</td>
+                <td>{item.location || '—'}</td>
                 <td>
                   <StatusBadge status={item.status} />
                 </td>

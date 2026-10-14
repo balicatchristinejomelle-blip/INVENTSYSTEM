@@ -1,5 +1,8 @@
 import { finishedGoodsSummary, finishedPipeInventory, generalStockStatus } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
+import LocationStockBreakdown from '../../components/LocationStockBreakdown';
+import { matchesLocation } from '../../locationMaster';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
 import { batchOriginTrace } from '../../productionGroups';
@@ -69,7 +72,6 @@ export default function PMFinishedGoods() {
   const [grade, setGrade] = useState("All")
 
   const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
-  const [location, setLocation] = useState("All")
 
   const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Batch' | 'Individual Pipes'>('By Batch');
 
@@ -118,10 +120,8 @@ export default function PMFinishedGoods() {
   const selected = finishedGoods.find(item => item.id === selectedId);
 
 
-  const productEligible = useMemo(() => finishedGoods.filter(item => productType === 'All' || normalizedProductType(item.product) === productType), [finishedGoods, productType]);
 
 
-  const locationOptions = useMemo(() => Array.from(new Set(productEligible.map(item => item.currentLocation))).filter(Boolean).sort(), [productEligible]);
 
   const filtered = useMemo(
     () =>
@@ -134,17 +134,17 @@ export default function PMFinishedGoods() {
     && matchesDestination(f, status)
     && (grade === 'All' || f.grade === grade)
     && productFilters.matches(f)
-    && (location === 'All' || f.currentLocation === location) &&
+    &&
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, location, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
 
   const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch))
+    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
     .reduce((groups, item) => {
       const existing = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       existing.pipes.push(item);
@@ -204,7 +204,7 @@ export default function PMFinishedGoods() {
 
   const visibleStockTargetRows = stockTargetRows.filter(
     ({ spec, openPO, stockStatus }) =>
-      productFilters.matches(spec) && (productType === 'All' || spec.productType === productType) && (grade === 'All' || spec.materialGrade === grade) &&
+      productFilters.matches(spec, { location: '' }) && (productType === 'All' || spec.productType === productType) && (grade === 'All' || spec.materialGrade === grade) &&
       (targetStockFilter === 'All' || stockStatus === targetStockFilter) &&
       ([spec.productType, spec.materialGrade, spec.size, spec.sdr, specificationLength(spec), spec.color, spec.stripe, openPO?.poNo || '', stockStatus].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(spec, search)),
@@ -217,7 +217,7 @@ export default function PMFinishedGoods() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); setLocation('All'); setPurpose('All'); setStatus('All Statuses'); resetPage();
+    setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); setPurpose('All'); setStatus('All Statuses'); resetPage();
   };
 
   const printAllUnprinted = () => {
@@ -241,7 +241,7 @@ export default function PMFinishedGoods() {
       </div>
       <div className="filter-panel product-filter-panel">
           <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
           <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
           <SearchableDropdown
@@ -249,18 +249,14 @@ export default function PMFinishedGoods() {
           >
             {DESTINATIONS.map(item => <option key={item}>{item}</option>)}
           </SearchableDropdown>
-          <SearchableDropdown
-            className="app-select" aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); resetPage(); }}
-          >
-            <option value="All">All Locations</option>
-            {locationOptions.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
         </div>}
       </div>
-        <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
+        <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
+      <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
         <div className="product-view-actions">
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
       </div>
+      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={finishedGoods.filter(pipe => productFilters.matches(pipe, { product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }) && matchesRecord(pipeSearchRecord(pipe, app), search))} />}
       {viewMode === 'Stock Levels' && (
         <div className="low-stock-panel">
           <div className="section-title">Finished Pipe Stock Targets</div>

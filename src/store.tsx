@@ -3,6 +3,9 @@ import { requestReprint, reviewReprint, completePrint, validatePrint, canViewReq
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
 import { seedReprintSamples } from './reprintSamples';
 import { hydrateFinishedPipe, hydratePipeRelationships, resolveFinishedPipe } from './finishedPipeRelations';
+import { allocateFinishedPipeBarcodes, migrateFinishedPipeBarcodes } from './finishedPipeBarcodes';
+import { activeLocationCodes, consumeLocationBalances, migrateSampleLocations } from './locationMaster';
+import { readStorageLocations } from './finishedGoodsInventory';
 import { finishedPipeInventory, validStorageLocation, storageLocationFor, compatibleStorageLocations, finishedGoodsSummary } from './finishedGoodsInventory';
 import type {
   User, Role, Theme, Notification, MaterialRequest, Transfer, RRRecord,
@@ -273,12 +276,14 @@ const makePermanentFinishedPipes = (
   data: Parameters<typeof makeFinishedPipes>[1],
   registry: BarcodeRegistryRecord[],
   physicalRecords: FinishedGood[],
+  serialFloor = 0,
 ) => {
   const year = Number(data.productionDate.slice(0, 4)) || new Date().getFullYear();
   const permanentlyUsed = new Set([
     ...registry.map(item => normalizeBarcodeValue(item.barcode)),
-    ...physicalRecords.map(item => normalizeBarcodeValue(item.barcode)),
+    ...physicalRecords.map(item => normalizeBarcodeValue(item.fgId)),
   ]);
+  const physicalBarcodes = allocateFinishedPipeBarcodes(count, data, [...registry.map(row => row.barcode), ...physicalRecords.map(pipe => pipe.barcode)], serialFloor);
   let parentSequence = nextAnnualSequence(permanentlyUsed, 'PIPE', year);
   while (true) {
     const parent = `PIPE-${year}-${String(parentSequence).padStart(4, '0')}`;
@@ -288,7 +293,7 @@ const makePermanentFinishedPipes = (
         ...item,
         id: `${parent}-pipe-${String(index + 1).padStart(3, '0')}`,
         fgId: candidates[index],
-        barcode: candidates[index],
+        ...physicalBarcodes[index],
       }));
     }
     parentSequence += 1;
@@ -510,6 +515,7 @@ export const calculateProductionMaterialPlan = (
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
 interface AppState extends PrintWorkflowState {
+  finishedPipeSerialHighWater?: number;
   theme: Theme;
   currentUser: User | null;
   currentPage: string;
@@ -583,6 +589,7 @@ interface AppContextValue extends AppState {
   addCustomer: (customer: Omit<Customer, 'id'>) => void;
   createCustomerOrder: (order: Omit<CustomerOrder, 'id' | 'orderNo' | 'orderDate' | 'status' | 'moRef' | 'availableStock' | 'reservedQuantity' | 'releasedQuantity'>) => { success: boolean; orderNo?: string; moNo?: string; reserved: number; shortage: number; error?: string };
   createReceivingReport: (data: {
+    storageLocation: string;
     pelletType: 'Virgin' | 'Recycled';
     grade: string;
     color: string;
@@ -609,8 +616,8 @@ interface AppContextValue extends AppState {
     priority: ProductionOrder['priority'];
     reason: string;
   }) => { success: boolean; poNo?: string; error?: string };
-  receivePellet: (pelletId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
-  confirmTransferReceipt: (transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string) => { success: boolean; error?: string };
+  receivePellet: (pelletId: string, scannerMeta?: { shift: string; scannerMode: string }, storageLocation?: string) => boolean;
+  confirmTransferReceipt: (transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string, storageLocation?: string) => { success: boolean; error?: string };
   relocatePhysicalItem: (category: 'Pellet' | 'Finished Pipe', itemId: string, location: string, reason: string) => boolean;
   reserveFinishedGoods: (orderId: string, quantity: number) => { success: boolean; error?: string };
   rejectFinishedGood: (fgId: string, weightKg: number, reason: string) => { success: boolean; error?: string };
@@ -676,8 +683,8 @@ export function addReplenishmentSample<T extends AppState>(state: T): T {
   const batchSequence = Math.max(0, ...[...state.finishedGoods, ...state.rejectedMaterials].map(item => Number(item.batch.split('-').pop()) || 0)) + 1;
   const batch = `BATCH-${year}-${String(batchSequence).padStart(4, '0')}`;
   const po: ProductionOrder = { id: 'hpai-replenishment-sample-po-v1', poNo, moRef: 'STOCK REPLENISHMENT', source: 'Stock Replenishment', originGroup: `REPLENISH-${year}-${String(next).padStart(4, '0')}`, product: example.product, grade: example.grade, diameter: example.diameter, sdr: example.sdr, length: example.length, color: example.color, stripe: example.stripe, construction: example.construction, productForm: example.productForm, targetQty: 1, completedQty: 1, pelletType: 'Virgin', requiredKg: 0, loadedKg: 0, productionLine: 'Line 1', priority: 'Normal', requiredDate: now.toISOString().slice(0, 10), status: 'Completed', replenishmentReason: 'One localhost relationship sample — not a live transaction' };
-  const [generated] = makePermanentFinishedPipes(1, { product: po.product, grade: po.grade, diameter: po.diameter, sdr: po.sdr, length: po.length, color: po.color, stripe: po.stripe, construction: po.construction, productForm: po.productForm, batch, poRef: poNo, productionDate: po.requiredDate, shift: 'Day', storageLocation: 'Section A', status: 'Available' }, state.barcodeRegistry, state.finishedGoods);
-  const pipe: FinishedGood = { ...generated, id: 'hpai-replenishment-sample-pipe-v1', source: 'Stock Replenishment', productionOrderId: po.id, originGroup: po.originGroup, inventoryPurpose: 'General Inventory', status: 'Available', reservationStatus: 'Available', storageStatus: 'Stored', locationStatus: 'Stored', currentLocation: 'Section A', availableQty: 1, qualityStatus: 'Pass', isTestData: true, storedBy: 'Localhost Sample', storedAt: now.toISOString(), locationHistory: [{ from: 'Production Area / Awaiting Storage', to: 'Section A', action: 'Stored', employee: 'Localhost Sample', employeeId: 'LOCALHOST-SAMPLE', dateTime: now.toISOString(), reason: 'Explicitly requested replenishment relationship sample' }] };
+  const [generated] = makePermanentFinishedPipes(1, { product: po.product, grade: po.grade, diameter: po.diameter, sdr: po.sdr, length: po.length, color: po.color, stripe: po.stripe, construction: po.construction, productForm: po.productForm, batch, poRef: poNo, productionDate: po.requiredDate, shift: 'Day', storageLocation: 'A', status: 'Available' }, state.barcodeRegistry, state.finishedGoods, state.finishedPipeSerialHighWater || 0);
+  const pipe: FinishedGood = { ...generated, id: 'hpai-replenishment-sample-pipe-v1', source: 'Stock Replenishment', productionOrderId: po.id, originGroup: po.originGroup, inventoryPurpose: 'General Inventory', status: 'Available', reservationStatus: 'Available', storageStatus: 'Stored', locationStatus: 'Stored', currentLocation: 'A', availableQty: 1, qualityStatus: 'Pass', isTestData: true, storedBy: 'Localhost Sample', storedAt: now.toISOString(), locationHistory: [{ from: 'Production Area / Awaiting Storage', to: 'A', action: 'Stored', employee: 'Localhost Sample', employeeId: 'LOCALHOST-SAMPLE', dateTime: now.toISOString(), reason: 'Explicitly requested replenishment relationship sample' }] };
   return { ...state, productionOrders: [...state.productionOrders, po], finishedGoods: [...state.finishedGoods, pipe], barcodeRegistry: [...state.barcodeRegistry, ...registryEntriesForFinishedGoods([pipe], now.toISOString())] };
 }
 
@@ -889,7 +896,7 @@ export const formatProductionTime = (value?: string) => {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(addReplenishmentSample(restoreAppState())));
+  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(migrateFinishedPipeBarcodes(addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(restoreAppState()))))));
   const stateRef = useRef(state);
   stateRef.current = state;
   const printTickets = useRef(new Map<string, { keys: string[]; approvalId?: string; employeeId: string; release?: () => void }>());
@@ -1067,7 +1074,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
-  useEffect(() => { setState(current => hydratePipeRelationships(addReplenishmentSample(current))); }, []);
+  useEffect(() => { setState(current => hydratePipeRelationships(migrateFinishedPipeBarcodes(addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(current)))))); }, []);
 
   const setTheme = useCallback((t: Theme) => {
     setState(s => ({ ...s, theme: t }));
@@ -1537,6 +1544,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const createReceivingReport = useCallback((data: {
+    storageLocation: string;
     pelletType: 'Virgin' | 'Recycled';
     grade: string;
     color: string;
@@ -1548,6 +1556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }) => {
     setState(s => {
       const numberOfBags = Math.max(0, Math.floor(data.numberOfBags));
+      if (!activeLocationCodes(readStorageLocations()).includes(data.storageLocation as never)) return s;
       if (!numberOfBags || !isActiveMaterialGrade(normalizeMaterialGrade(data.grade))) return s;
       const year = String(new Date().getFullYear());
       const currentYearNumbers = s.rrRecords
@@ -1573,6 +1582,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supplier: data.supplier,
         referenceNo: data.referenceNo,
         destination: data.destination,
+        receivingLocation: data.storageLocation,
         status: 'Completed',
         remarks: data.remarks,
       };
@@ -1583,12 +1593,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         color: data.color,
         receivedDate: today,
         rrRef: rrNumber,
-      }, s.barcodeRegistry, s.pellets);
+      }, s.barcodeRegistry, s.pellets, { available: true, storageLocation: data.storageLocation });
       return {
         ...s,
         rrRecords: [rr, ...s.rrRecords],
         pellets: [...bags, ...s.pellets],
         barcodeRegistry: [...registryEntriesForPellets(bags), ...s.barcodeRegistry],
+        transactions: [...bags.map((bag, index) => ({ id: `tx-rr-${rr.id}-${index}`, txId: `TX-${rrNumber}-${index}`, date: today, time: new Date().toTimeString().slice(0, 5), employee: s.currentUser?.name || '', employeeId: s.currentUser?.employeeId || '', role: s.currentUser?.role || 'accounting', transactionType: 'Pellets Received', materialCategory: bag.type === 'Virgin' ? 'Virgin Pellet' as const : 'Recycled Pellet' as const, item: `${bag.type} Pellets ${bag.grade}`, batch: bag.batchNo, barcode: bag.barcode, qtyBefore: 0, qtyChanged: 25, qtyAfter: 25, source: data.supplier, destination: data.storageLocation, reference: rrNumber, status: 'Received' })), ...s.transactions],
       };
     });
   }, []);
@@ -1835,7 +1846,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         productForm: po.productForm, batch, poRef: po.poNo, moRef: po.source === 'Stock Replenishment' ? undefined : po.moRef,
         productionDate: date, shift: s.currentShift,
         storageLocation: '', status: 'Available',
-      }, s.barcodeRegistry, s.finishedGoods).map(item => ({
+      }, s.barcodeRegistry, s.finishedGoods, s.finishedPipeSerialHighWater || 0).map(item => ({
         ...item,
         qualityStatus: 'Pass' as const,
         isTestData: loadedBags.some(bag => bag.isTestData) || colorantRequirements.some(entry => entry.colorant.isTestData),
@@ -1996,10 +2007,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ...item,
             availableKg,
             status: availableKg <= MASS_TOLERANCE_KG ? 'Out of Stock' as const : availableKg < 5 ? 'Low Stock' as const : 'Available' as const,
+            locationBalances: consumeLocationBalances(item.locationBalances, requirement.quantity),
             lastUpdated: `${date} ${time}`,
           };
         }),
         finishedGoods: [...allocatedFinishedGoods.map(pipe => hydrateFinishedPipe(pipe, s)), ...s.finishedGoods],
+        finishedPipeSerialHighWater: Math.max(s.finishedPipeSerialHighWater || 0, ...allocatedFinishedGoods.map(pipe => Number(pipe.serialNumber?.slice(2)) || 0)),
         orders: sourceOrder ? s.orders.map(item => item.id === sourceOrder.id ? {
           ...item,
           reservedQuantity: Math.min(item.quantity, (item.reservedQuantity || 0) + passedQty),
@@ -2222,6 +2235,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         colorants: s.colorants.map(item => item.id === colorant.id ? {
           ...item,
           availableKg: remainingKg,
+          locationBalances: consumeLocationBalances(item.locationBalances, quantityKg),
           status: remainingKg <= 0 ? 'Out of Stock' as const : remainingKg < 5 ? 'Low Stock' as const : 'Available' as const,
           lastUpdated: `${inventoryTransaction.date} ${inventoryTransaction.time}`,
         } : item),
@@ -2633,14 +2647,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
-  const receivePellet = useCallback((pelletId: string, scannerMeta?: { shift: string; scannerMode: string }) => {
+  const receivePellet = useCallback((pelletId: string, scannerMeta?: { shift: string; scannerMode: string }, storageLocation?: string) => {
     let received = false;
     setState(s => {
       if (s.currentUser?.role !== 'production') return s;
+      if (!storageLocation || !activeLocationCodes(readStorageLocations()).includes(storageLocation as never)) return s;
       const pellet = s.pellets.find(item => item.id === pelletId);
       if (!pellet || (pellet.currentLocation && !['Awaiting Receipt', 'Awaiting Storage'].includes(pellet.locationStatus))) return s;
       const transfer = s.transfers.find(item => item.batchNo === pellet.batchNo && item.status === 'In Transit');
-      const destination = pellet.type === 'Virgin' ? 'Virgin Pellet Storage' : 'Recycled Pellet Storage';
+      const destination = storageLocation;
       const action = pellet.type === 'Virgin' ? 'Received' as const : 'Stored' as const;
       received = true;
       const now = new Date();
@@ -2718,9 +2733,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return received;
   }, []);
 
-  const confirmTransferReceipt = useCallback((transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string) => {
+  const confirmTransferReceipt = useCallback((transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string, storageLocation?: string) => {
     let result: { success: boolean; error?: string } = { success: false, error: 'Transfer receipt could not be saved.' };
     setState(s => {
+      if (!storageLocation || !activeLocationCodes(readStorageLocations()).includes(storageLocation as never)) { result.error = 'Storage Location is required.'; return s; }
       const transfer = s.transfers.find(item => item.id === transferId);
       const isColorant = !!transfer && transferCategory(transfer) === 'Colorant';
       const sentQuantity = transfer?.sentQuantity ?? (isColorant ? transfer?.weightKg : transfer?.numberOfBags) ?? 0;
@@ -2745,6 +2761,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         colorants: colorant && discrepancyQuantity === 0 ? s.colorants.map(item => item.id === colorant.id ? {
           ...item,
           availableKg: roundKg(item.availableKg + receivedQuantity),
+          currentLocation: item.currentLocation && item.currentLocation !== storageLocation ? 'Multiple Locations' : storageLocation,
+          locationBalances: { ...(item.locationBalances || (item.currentLocation ? { [item.currentLocation]: item.availableKg } : { Unassigned: item.availableKg })), [storageLocation]: (item.locationBalances?.[storageLocation] || (item.currentLocation === storageLocation ? item.availableKg : 0)) + receivedQuantity },
           status: 'Available' as const,
           lastUpdated: now.toISOString().slice(0, 16).replace('T', ' '),
           sourceReference: transfer.refNo,
@@ -2765,14 +2783,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           qtyChanged: receivedQuantity,
           qtyAfter: roundKg(colorant.availableKg + receivedQuantity),
           source: transfer.source,
-          destination: transfer.destination,
+          destination: storageLocation,
           reference: transfer.refNo,
           status: 'Received',
-        }, ...s.transactions] : s.transactions,
+        }, ...s.transactions] : !isColorant && discrepancyQuantity === 0 ? [...s.pellets.filter(bag => bag.batchNo === transfer.batchNo && bag.inventoryStatus === 'Pending Receipt').map((bag, index) => ({ id: `tx-transfer-receipt-${now.getTime()}-${index}`, txId: `TX-TR-${now.getTime()}-${index}`, date: now.toISOString().slice(0, 10), time: now.toTimeString().slice(0, 5), employee: s.currentUser!.name, employeeId: s.currentUser!.employeeId, role: s.currentUser!.role, transactionType: 'Pellets Received', materialCategory: bag.type === 'Virgin' ? 'Virgin Pellet' as const : 'Recycled Pellet' as const, item: `${bag.type} Pellets ${bag.grade}`, batch: bag.batchNo, barcode: bag.barcode, qtyBefore: bag.availableKg, qtyChanged: 25, qtyAfter: 25, source: bag.currentLocation, destination: storageLocation, reference: transfer.refNo, status: 'Received' })), ...s.transactions] : s.transactions,
+        pellets: !isColorant && discrepancyQuantity === 0 ? s.pellets.map(bag => bag.batchNo === transfer.batchNo && bag.inventoryStatus === 'Pending Receipt' ? { ...bag, availableKg: 25, inventoryStatus: 'Available' as const, currentLocation: storageLocation, locationStatus: 'Stored' as const, receivedBy: s.currentUser!.name, receivedAt: now.toISOString(), storedBy: s.currentUser!.name, storedAt: now.toISOString(), locationHistory: [...bag.locationHistory, { from: bag.currentLocation, to: storageLocation, action: 'Received' as const, employee: s.currentUser!.name, employeeId: s.currentUser!.employeeId, dateTime: now.toISOString() }] } : bag) : s.pellets,
         transfers: s.transfers.map(item => item.id === transferId ? {
           ...item,
           sentQuantity,
           receivedQuantity,
+          receivingLocation: storageLocation,
           discrepancyQuantity,
           status: discrepancyQuantity > 0 ? 'Receiving Discrepancy' as const : 'Received' as const,
           receivedBy: s.currentUser!.name,
@@ -2797,7 +2817,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => {
       if (!s.currentUser || !reason.trim()) return s;
       const now = new Date();
-      if (category === 'Pellet' && !['Virgin Pellet Storage', 'Recycled Pellet Storage'].some(value => location === value || location.startsWith(`${value} / `))) return s;
+      if (category === 'Pellet' && !activeLocationCodes(readStorageLocations()).includes(location as never)) return s;
       const pellet = category === 'Pellet' ? s.pellets.find(item => item.id === itemId) : undefined;
       const fg = category === 'Finished Pipe' ? s.finishedGoods.find(item => item.id === itemId) : undefined;
       const inventory = fg ? finishedPipeInventory(fg, s) : undefined;
@@ -2806,7 +2826,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const compatible = inventory && (validStorageLocation(location, inventory.purpose) || (inventory.allocated && (ready || validStorageLocation(location, 'Temporary Storage'))));
       if (
         (!pellet && !fg)
-        || (pellet && (location !== `${pellet.type} Pellet Storage` || ['Fully Consumed', 'Loaded', 'Partially Consumed'].includes(pellet.inventoryStatus)))
+        || (pellet && (pellet.locationStatus !== 'Stored' || ['Fully Consumed', 'Loaded', 'Partially Consumed'].includes(pellet.inventoryStatus)))
         || (fg && (s.currentUser.role !== 'plantmanager' || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass' || !compatible || !inventory || ['Awaiting Storage', 'Quality Pending'].includes(inventory.bucket)))
       ) return s;
       const currentLocation = pellet?.currentLocation || fg?.currentLocation || 'Not Yet Assigned';

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { restoreBarcodeLocationFile, restoreBarcodeLocationCallback, restoreBarcodeOutput } from './barcode-location-baseline.mjs';
 import ts from 'typescript';
 
 export const STORAGE_BASELINE = '76747c5';
@@ -16,10 +17,10 @@ export function namedDeclarations(source) {
 }
 /** Old tests still protect everything outside the six explicitly reviewed storage callbacks. New storage tests execute those callbacks. */
 export function restoreStorageCallback(name, source) {
-  return REVIEWED_STORAGE_CALLBACKS.includes(name) ? namedDeclarations(storageBaselineFile('src/store.tsx')).get(name).text : source;
+  return REVIEWED_STORAGE_CALLBACKS.includes(name) ? namedDeclarations(storageBaselineFile('src/store.tsx')).get(name).text : restoreBarcodeLocationCallback(name, source);
 }
 export function restorePreStorageStore(source) {
-  source = source.replace(/\r/g, '');
+  source = restoreBarcodeLocationFile('src/store.tsx', source);
   const current = namedDeclarations(source);
   for (const name of REVIEWED_STORAGE_CALLBACKS) source = source.replace(current.get(name).text, restoreStorageCallback(name, current.get(name).text));
   source = source.replace(`  const ${current.get('markFinishedGoodLoaded').declaration};\n\n`, '');
@@ -28,13 +29,16 @@ export function restorePreStorageStore(source) {
   return source;
 }
 export function restorePreStorageTypes(source) {
+  source = restoreBarcodeLocationFile('src/types.ts', source);
   return source.replace(/\r/g, '').replace(" | 'Finished Goods Inventory' | 'Temporary Finished Goods' | 'Ready for Ship Out' | 'WIP' | 'Rejected Materials' | 'Recycling'", '').replace("  fulfillmentStatus?: 'Allocated' | 'Ready for Ship Out' | 'Loaded' | 'Shipped';\n", '').replace('  finishedGoodsQuantity?: number;\n', '');
 }
 export function restorePreStorageStyles(source) {
+  source = restoreBarcodeLocationFile('src/index.css', source);
   return source.replace(/\r/g, '').replace(/\/\* Compact centered operational content;[\s\S]*?(?=\/\* Owner plant cards)/, '');
 }
 /** Material/recipe arithmetic in recordOutput remains byte-for-byte unchanged after these exact FG-only deltas. */
 export function restoreStorageOutput(source) {
+  source = restoreBarcodeOutput(source);
   return source.replace("const sourceMo = po.source === 'Stock Replenishment' ? undefined : s.manufacturingOrders.find", 'const sourceMo = s.manufacturingOrders.find')
     .replace("moRef: po.source === 'Stock Replenishment' ? undefined : po.moRef,", 'moRef: po.moRef,')
     .replace("        status: 'Awaiting Storage' as const,", "        status: 'Reserved' as const,")

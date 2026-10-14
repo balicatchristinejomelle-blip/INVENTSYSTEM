@@ -1,4 +1,5 @@
 import { withPrintSearch } from '../../printableRecords';
+import LocationSelect from '../../components/LocationSelect';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import RecordRows from "../../components/RecordRows"
 
@@ -45,6 +46,7 @@ export default function RRRecords() {
     referenceNo: '',
     destination: 'Branch Plant Warehouse',
     remarks: '',
+    storageLocation: '',
   });
 
   const [formError, setFormError] = useState("")
@@ -69,6 +71,7 @@ export default function RRRecords() {
   )
 
   const submitRR = () => {
+    if (!form.storageLocation) { setFormError('Storage Location is required.'); return; }
     const numberOfBags = Number(form.numberOfBags);
     if (!Number.isInteger(numberOfBags) || numberOfBags < 1 || !form.supplier.trim() || !form.referenceNo.trim()) {
       setFormError('Enter a whole number of bags, supplier, and reference number.');
@@ -143,7 +146,7 @@ export default function RRRecords() {
           )}
           <div className="app-card" style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {[['RR Number', viewRR.rrNumber], ['Date', viewRR.date], ['Material', viewRR.material], ['Pellet Type', viewRR.pelletType], ['Grade', viewRR.grade], ['Color', viewRR.color], ['Batch/Lot No.', viewRR.batchNo], ['Number of Bags', viewRR.numberOfBags || viewRR.weightKg / 25], ['Weight per Bag', `${viewRR.weightPerBagKg || 25} kg`], ['Total Weight', `${viewRR.weightKg} kg`], ['Supplier/Vendor', viewRR.supplier], ['Reference No.', viewRR.referenceNo], ['Destination', viewRR.destination], ['Status', null]].map(([label, value]) => (
+              {[['RR Number', viewRR.rrNumber], ['Date', viewRR.date], ['Material', viewRR.material], ['Pellet Type', viewRR.pelletType], ['Grade', viewRR.grade], ['Color', viewRR.color], ['Batch/Lot No.', viewRR.batchNo], ['Number of Bags', viewRR.numberOfBags || viewRR.weightKg / 25], ['Weight per Bag', `${viewRR.weightPerBagKg || 25} kg`], ['Total Weight', `${viewRR.weightKg} kg`], ['Supplier/Vendor', viewRR.supplier], ['Reference No.', viewRR.referenceNo], ['Destination', viewRR.destination], ['Storage Location', viewRR.receivingLocation || 'Not Yet Assigned'], ['Status', null]].map(([label, value]) => (
                 <div key={label}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
                     {label}
@@ -196,6 +199,7 @@ export default function RRRecords() {
               <th>Weight</th>
               <th>Supplier</th>
               <th>Destination</th>
+              <th>Storage Location</th>
               <th>Status</th>
               <th data-actions>Actions</th>
             </tr>
@@ -218,6 +222,7 @@ export default function RRRecords() {
                 </td>
                 <td style={{ fontSize: 12 }}>{rr.supplier}</td>
                 <td style={{ fontSize: 12 }}>{rr.destination}</td>
+                <td>{rr.receivingLocation || 'Not Yet Assigned'}</td>
                 <td>
                   <StatusBadge status={rr.status} size="sm" />
                 </td>
@@ -246,6 +251,7 @@ export default function RRRecords() {
             <div>Each bag is fixed at 25 kg. Saving this RR creates one inventory record and one permanent Code 128 barcode per bag.</div>
           </div>
           <div className="form-grid">
+            <LocationSelect value={form.storageLocation} onChange={storageLocation => setForm(value => ({ ...value, storageLocation }))} />
             <label>
               Pellet Type
               <SearchableDropdown

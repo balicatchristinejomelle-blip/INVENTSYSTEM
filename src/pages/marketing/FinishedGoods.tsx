@@ -1,5 +1,8 @@
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
+import LocationStockBreakdown from '../../components/LocationStockBreakdown';
+import { matchesLocation } from '../../locationMaster';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
 import { batchOriginTrace } from '../../productionGroups';
@@ -71,7 +74,7 @@ export default function MarketingFG() {
   const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
 
   const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch))
+    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
     .reduce((groups, item) => {
       const group = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       group.pipes.push(item);
@@ -122,7 +125,7 @@ export default function MarketingFG() {
       </div>
       <div className="filter-panel product-filter-panel">
         <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} />
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
         {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
@@ -133,6 +136,8 @@ export default function MarketingFG() {
           <option>Shipped Out / Released</option>
         </SearchableDropdown></div>}
       </div>
+      <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
+      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={selectedGroup} />}
       <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
 
       {viewMode === 'Stock Levels' ? <div className="app-card detail-card"><div className="section-title">Stock Levels</div><p className="helper-text">The availability cards above show matching physical stock. Replenishment configuration remains with Plant Manager.</p>{!selectedGroup.length && <div className="empty-state">No matching records. Available = 0.</div>}</div> : viewMode === "By Batch" ? (

@@ -2,6 +2,9 @@ import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import { matchesLocation, locationQuantity, inventoryLocationLabel } from '../../locationMaster';
+import { matchesInventoryColor } from '../../productFilters';
 import React, { useState } from "react"
 
 import { isSupportedMaterialGrade, normalizeMaterialGrade, useApp } from '../../store';
@@ -239,6 +242,8 @@ export default function Pellets() {
 
   const [lifecycle, setLifecycle] = useState<'Available' | 'Open / WIP' | 'Fully Consumed'>('Available');
 
+  const [location, setLocation] = useState('All');
+  const [color, setColor] = useState('');
   const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
 
   const [search, setSearch] = useState("")
@@ -257,6 +262,7 @@ export default function Pellets() {
       : lifecycle === 'Open / WIP'
         ? ['Loaded', 'Partially Consumed'].includes(pellet.inventoryStatus)
         : pellet.inventoryStatus === 'Fully Consumed')
+    && matchesLocation(pellet, location) && matchesInventoryColor(pellet.color, color)
     && (grade === 'All' || pellet.grade === grade)
     && dateInPeriod(pellet.receivedDate, period.range) &&
       ([pellet.barcode, pellet.batchNo, pellet.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
@@ -265,7 +271,7 @@ export default function Pellets() {
 
   const filteredColorants = colorants.filter(
     (colorant) =>
-      (colorantType === 'All' || colorant.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT'))
+      matchesLocation(colorant, location) && matchesInventoryColor(colorant.color, color) && (colorantType === 'All' || colorant.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT'))
     && dateInPeriod(colorant.lastUpdated, period.range) &&
       ([colorant.colorantId, colorant.name, colorant.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(colorant, search)),
@@ -357,16 +363,7 @@ export default function Pellets() {
         <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setPage(1); }} label="Production material category" />
         {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); setPage(1); }} label="Pellet lifecycle destination" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); setPage(1); }} label="Colorant usage type" />}
-        <div className="toolbar">
-          {category !== "Colorants" && (
-            <SearchableDropdown
-              className="app-select" value={grade} onChange={event => setGrade(event.target.value)}
-            >
-              <option value="All">All Material Grades</option>
-              {MATERIAL_GRADES.map(item => <option key={item}>{item}</option>)}
-            </SearchableDropdown>
-          )}
-        </div>
+        <MaterialLocationFilters grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
       </div>
 
       {!activePO && (
@@ -394,6 +391,7 @@ export default function Pellets() {
                   <th>Color</th>
                   <th>Usage Type</th>
                   <th>Available kg</th>
+                  <th>Location</th>
                   <th>Current PO Usage</th>
                   <th>Status</th>
                 </tr>
@@ -409,8 +407,9 @@ export default function Pellets() {
                       {colorant.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}
                     </td>
                     <td className="font-mono">
-                      {colorant.availableKg.toFixed(3)}
+                      {locationQuantity(colorant, location).toFixed(3)}
                     </td>
+                    <td>{inventoryLocationLabel(colorant)}</td>
                     <td className="font-mono">
                       {colorantUsed(colorant.id).toFixed(3)} kg
                     </td>
@@ -429,6 +428,7 @@ export default function Pellets() {
                 <th>Type</th>
                 <th>Grade</th>
                 <th>Color</th>
+                <th>Location</th>
                 <th style={{ textAlign: 'right' }}>Available (kg)</th>
                 <th>Barcode</th>
                 <th>Received Date</th>
@@ -469,6 +469,7 @@ export default function Pellets() {
                     </td>
                       <td style={{ fontSize: 13 }}>{pellet.grade}</td>
                       <td style={{ fontSize: 13 }}>{pellet.color}</td>
+                      <td>{inventoryLocationLabel(pellet)}</td>
                       <td style={{ textAlign: 'right' }}>
                       <span
                         className="font-mono"

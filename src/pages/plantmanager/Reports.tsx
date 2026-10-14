@@ -6,6 +6,10 @@ import SearchableDropdown from "../../components/SearchableDropdown"
 
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
+import { inventoryLocationLabel, matchesLocation, locationQuantity } from '../../locationMaster';
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import { matchesInventoryColor } from '../../productFilters';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import React, { useMemo, useState } from "react"
 import FinishedGoodsMetrics from '../../components/FinishedGoodsMetrics';
 
@@ -104,7 +108,8 @@ export default function PlantManagerReports() {
   const [finishedStatus, setFinishedStatus] =
     useState<FinishedStatus>("All Statuses")
 
-  const [finishedLocation, setFinishedLocation] = useState("All")
+  const [materialLocation, setMaterialLocation] = useState('All');
+  const [materialColor, setMaterialColor] = useState('');
 
   const resetPage = () => setPage(1)
 
@@ -194,9 +199,9 @@ export default function PlantManagerReports() {
 
         status: item.status,
 
-        location: "Not Tracked",
+        location: inventoryLocationLabel(item),
 
-        balance: `${item.availableKg.toFixed(3)} kg`,
+        balance: `${locationQuantity(item, materialLocation).toFixed(3)} kg`,
 
         searchable: `${item.colorantId} ${item.name} ${item.color} ${item.status}`,
       }))
@@ -251,10 +256,11 @@ export default function PlantManagerReports() {
         : []
 
     return [...bags, ...loose]
-  }, [colorants, materialCategory, pellets, recyclingBatches])
+  }, [colorants, materialCategory, pellets, recyclingBatches, materialLocation])
 
   const filteredMaterials = materialRecords.filter(
     (item) =>
+      ((() => { const original = pellets.find(row => row.id === item.id) || colorants.find(row => row.id === item.id); return original ? matchesLocation(original, materialLocation) && matchesInventoryColor(original.color, materialColor) : materialLocation === 'All' && !materialColor; })()) &&
       (materialCategory === "Colorants" ||
         grade === "All" ||
         item.grade === grade) &&
@@ -280,11 +286,6 @@ export default function PlantManagerReports() {
   )
 
 
-  const finishedLocationOptions = Array.from(
-    new Set(finishedProductEligible.map((item) => item.currentLocation)),
-  )
-    .filter(Boolean)
-    .sort()
 
   const filteredFinished = finishedProductEligible.filter((item) => {
     if (purpose !== 'All' && finishedPipeInventory(item).purpose !== purpose) return false;
@@ -306,8 +307,6 @@ export default function PlantManagerReports() {
       statusMatches &&
       (finishedGrade === "All" || item.grade === finishedGrade) &&
       productFilters.matches(item, { product: '', grade: '' }) &&
-      (finishedLocation === "All" ||
-        item.currentLocation === finishedLocation) &&
       ([
         item.barcode,
         item.fgId,
@@ -399,7 +398,7 @@ export default function PlantManagerReports() {
         onChange={changeReport}
         label="Report type"
       />
-      {report === 'Recycling' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
+      {report === 'Recycling' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
 
       {report === "Material Inventory" && (
         <>
@@ -494,6 +493,7 @@ export default function PlantManagerReports() {
               }}
               placeholder="Search barcode, bag, batch, grade, location, or colorant"
             />
+            <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">{materialCategory} Detail</div>
@@ -534,6 +534,7 @@ export default function PlantManagerReports() {
 
       {report === "Finished Goods" && (
         <>
+          <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
           <div className="kpi-grid">
             {[
               ["Matching Pipes", filteredFinished.length],
@@ -563,7 +564,7 @@ export default function PlantManagerReports() {
           <div className="filter-panel product-filter-panel">
             <FinishedGoodsMetrics pipes={filteredFinished} />
             <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, product, grade, size, origin group, PO, or customer order" />
-            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeLength />
+            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeColor includeLocation includeLength />
             <div className="product-operational-filters">
               <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
               <SearchableDropdown
@@ -583,19 +584,6 @@ export default function PlantManagerReports() {
                   "Ready for Ship Out",
                   "Released / Shipped Out",
                 ] as const).map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </SearchableDropdown>
-              <SearchableDropdown
-                className="app-select"
-                value={finishedLocation}
-                onChange={(event) => {
-                  setFinishedLocation(event.target.value)
-                  resetPage()
-                }}
-              >
-                <option value="All">All Locations</option>
-                {finishedLocationOptions.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </SearchableDropdown>
@@ -686,7 +674,7 @@ export default function PlantManagerReports() {
               }}
               placeholder="Search production order, product, grade, line, or status"
             />
-            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeLength />
+            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeColor includeLocation includeLength />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">Production Order Detail</div>

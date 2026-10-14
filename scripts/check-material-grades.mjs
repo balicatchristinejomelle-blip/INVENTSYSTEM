@@ -15,6 +15,7 @@ const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
 try {
   const master = await server.ssrLoadModule('/src/productMaster.ts');
   const inventory = await server.ssrLoadModule('/src/finishedGoodsInventory.ts');
+  const locations = await server.ssrLoadModule('/src/locationMaster.ts');
   const categories = await server.ssrLoadModule('/src/inventoryCategories.ts');
   const store = await server.ssrLoadModule('/src/store.tsx');
   const { filterSelectOptions } = await server.ssrLoadModule('/src/components/SearchableSelect.tsx');
@@ -75,13 +76,13 @@ try {
   const helpers = new Function('isSupportedMaterialGrade', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade);
   function simulate(name, role, input) {
     let current = structuredClone({ ...baseline, currentUser: store.USERS.find(user => user.role === role), finishedGoods: [], materialRequests: [], productionOrders: [], transfers: [] });
-    const dependencies = { useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
+    const dependencies = { ...inventory, ...locations, useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
     const action = new Function(...Object.keys(dependencies), `${transpile(`const action = ${initializers.get(name)};`)}; return action;`)(...Object.values(dependencies));
     const before = structuredClone(current); const result = action(input); return { result, before, state: current };
   }
   const actions = [
     ['createCustomerOrder', 'marketing', grade => ({ ...baseline.orders[0], grade, quantity: 1 })],
-    ['createReceivingReport', 'accounting', grade => ({ grade, numberOfBags: 1, pelletType: 'Virgin', color: 'Black (BK)', supplier: 'Fixture', referenceNo: 'Fixture', destination: 'Branch Plant' })],
+    ['createReceivingReport', 'accounting', grade => ({ grade, numberOfBags: 1, pelletType: 'Virgin', color: 'Black (BK)', supplier: 'Fixture', referenceNo: 'Fixture', destination: 'Branch Plant', storageLocation: 'B' })],
     ['addMaterialRequest', 'plantmanager', grade => ({ ...baseline.materialRequests[0], grade, refNo: 'MR-FIXTURE', materialCategory: 'Virgin Pellet' })],
     ['createStockReplenishmentPO', 'plantmanager', grade => ({ specification: { ...spec, materialGrade: grade }, targetQty: 1, requiredDate: '2026-10-20', productionLine: 'Line 1', priority: 'Normal', reason: 'Fixture' })],
   ];

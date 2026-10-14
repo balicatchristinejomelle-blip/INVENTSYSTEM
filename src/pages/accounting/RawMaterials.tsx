@@ -1,5 +1,8 @@
 import { matchesRecord } from "../../components/RecordSearch"
 
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import { matchesLocation, locationQuantity, inventoryLocationLabel } from '../../locationMaster';
+import { matchesInventoryColor } from '../../productFilters';
 import React, { useState } from "react"
 
 import { useApp } from "../../store"
@@ -18,6 +21,8 @@ export default function RawMaterials() {
   const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
 
   const [grade, setGrade] = useState("All")
+  const [location, setLocation] = useState('All');
+  const [color, setColor] = useState('');
 
   const [search, setSearch] = useState("")
 
@@ -37,6 +42,7 @@ export default function RawMaterials() {
       : lifecycle === 'Open / WIP'
         ? ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus)
         : item.inventoryStatus === 'Fully Consumed')
+    && matchesLocation(item, location) && matchesInventoryColor(item.color, color)
     && (grade === 'All' || item.grade === grade) &&
       ([item.barcode, item.batchNo, item.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(item, search)),
@@ -44,7 +50,7 @@ export default function RawMaterials() {
 
   const filteredColorants = colorants.filter(
     (item) =>
-      (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
+      matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
       ([item.colorantId, item.name, item.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(item, search)),
   )
@@ -63,6 +69,7 @@ export default function RawMaterials() {
       {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={v => { setLifecycle(v); setPage(1); }} label="Pellet lifecycle destination" />}
       {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={v => { setColorantType(v); setPage(1); }} label="Colorant usage type" />}
       <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
+      <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
     </div>
       <div className="app-card table-scroll">
         {category === "Colorants" ? (
@@ -76,7 +83,7 @@ export default function RawMaterials() {
                   <th>Available kg</th>
                   <th>Used kg</th>
                   <th>Status</th>
-                  <th>Last Updated</th>
+                  <th>Location</th><th>Last Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,17 +96,17 @@ export default function RawMaterials() {
                     <td>
                       {item.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}
                     </td>
-                    <td className="font-mono">{item.availableKg.toFixed(3)}</td>
+                    <td className="font-mono">{locationQuantity(item, location).toFixed(3)}</td>
                     <td className="font-mono">{used(item.id).toFixed(3)}</td>
                     <td>
                       <StatusBadge status={item.status} />
                     </td>
-                    <td>{item.lastUpdated}</td>
+                    <td>{inventoryLocationLabel(item)}</td><td>{item.lastUpdated}</td>
                   </tr>
                 ))}
                 {!filteredColorants.length && (
                   <tr>
-                    <td colSpan={7} className="empty-state">No records match the selected search or filters.</td>
+                    <td colSpan={8} className="empty-state">No records match the selected search or filters.</td>
                   </tr>
                 )}
               </tbody>

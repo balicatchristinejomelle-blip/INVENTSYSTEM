@@ -1,4 +1,6 @@
 import SearchableDropdown from "../../components/SearchableDropdown"
+import LocationSelect from '../../components/LocationSelect';
+import { findFinishedPipeBarcode } from '../../finishedPipeBarcodes';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import { resolveFinishedPipe } from '../../finishedPipeRelations';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
@@ -70,6 +72,8 @@ export default function BarcodeScanner() {
   const [result, setResult] = useState<ScanResult | null>(null);
 
   const [error, setError] = useState("")
+  const [storageLocation, setStorageLocation] = useState('');
+  const [legacyPipe, setLegacyPipe] = useState<FinishedGood | null>(null);
 
   const pipeOrigin = result?.category === 'Finished Pipe' ? resolveFinishedPipe(result.record, app) : undefined;
   const [sessionItems, setSessionItems] = useState<Record<string, SessionScan[]>>({});
@@ -127,6 +131,8 @@ export default function BarcodeScanner() {
     processedRef.current.clear();
     initialLoadedRef.current.clear();
     setSessionItems({});
+    setLegacyPipe(null);
+    setStorageLocation('');
     setLastScan(null);
     setCompletion('');
     setResult(null);
@@ -166,6 +172,10 @@ export default function BarcodeScanner() {
     setCompletion("")
     setLastScan(null)
 
+    const lookup = findFinishedPipeBarcode(clean, finishedGoods);
+    if (lookup?.ambiguous) { setResult(null); setScannerStatus('AMBIGUOUS BARCODE'); setError('More than one record matches. No inventory action is allowed.'); return; }
+    if (lookup?.legacy && lookup.pipe) { setResult(null); setLegacyPipe(lookup.pipe); setScannerStatus('LEGACY BARCODE'); setError(lookup.message || 'Legacy barcode is obsolete.'); return; }
+    setLegacyPipe(null);
     const registryRecord = barcodeRegistry.find(item => normalizeBarcodeValue(item.barcode) === clean);
 
     if (!registryRecord) {
@@ -418,11 +428,12 @@ export default function BarcodeScanner() {
 
 
   const confirmReceive = () => {
+    if (!storageLocation) { setError('Storage Location is required.'); return; }
     if (!result || result.category !== 'Pellet' || !('availableKg' in result.record)) return;
     const duplicate = processedRef.current.get(duplicateKey(result.record.barcode));
     if (duplicate) return showDuplicate(duplicate);
     const transfer = transfers.find(item => item.batchNo === result.record.batchNo && item.status === 'In Transit');
-    const destination = result.record.type === 'Virgin' ? 'Virgin Pellet Storage' : 'Recycled Pellet Storage';
+    const destination = storageLocation;
     const now = new Date();
     const item: SessionScan = {
       barcode: result.record.barcode,
@@ -443,7 +454,7 @@ export default function BarcodeScanner() {
       scannerMode,
       location: destination,
     };
-    if (!receivePellet(result.record.id, { shift: currentShift, scannerMode })) {
+    if (!receivePellet(result.record.id, { shift: currentShift, scannerMode }, storageLocation)) {
       return setError('This item has already been received or stored. Use Relocate Item for an authorized location change.');
     }
     processedRef.current.set(duplicateKey(item.barcode), item);
@@ -526,7 +537,7 @@ export default function BarcodeScanner() {
           </div>
         </div>
         <SearchableDropdown
-          className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
+          className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setLegacyPipe(null); setStorageLocation(''); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
         >
           <option>Receive Pellets</option>
           <option>Load Pellets</option>
@@ -580,6 +591,7 @@ export default function BarcodeScanner() {
       <div className="helper-text">Use the complete value printed below the physical barcode label.</div>
     </section>}
       {error && <div className="alert-error">{error}</div>}
+      {legacyPipe && <FinishedPipeDetails pipe={legacyPipe} readOnly />}
       {result?.category === "Pellet" && (
         <div className="app-card detail-card">
           <div className="result-heading">
@@ -615,9 +627,7 @@ export default function BarcodeScanner() {
               <div className="confirm-panel">
                 <div>
                   <span className="field-label">Destination Location</span>
-                  <strong>
-                    {result.record.type === 'Virgin' ? 'Virgin Pellet Storage' : 'Recycled Pellet Storage'}
-                  </strong>
+                  <LocationSelect value={storageLocation} onChange={setStorageLocation} />
                 </div>
               </div>
             )

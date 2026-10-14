@@ -5,6 +5,7 @@ import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useEffect, useMemo, useState } from "react"
 import { DEFAULT_STORAGE_LOCATIONS, STORAGE_LOCATION_TYPES, finishedGoodsSummary } from '../../finishedGoodsInventory';
+import { normalizeLocationMaster } from '../../locationMaster';
 
 import { useApp } from "../../store"
 
@@ -81,7 +82,7 @@ export default function Settings() {
   const [stockTargets, setStockTargets] = usePersistentState<StockTarget[]>('hpai:stock-targets-v1', [], stored =>
     Array.isArray(stored) ? stored.map(item => ({ ...item, inventoryType: item.inventoryType || 'Finished Pipe' })) as StockTarget[] : []);
 
-  const [locations, setLocations] = usePersistentState<StorageLocation[]>('hpai:storage-locations-v1', INITIAL_LOCATIONS);
+  const [locations, setLocations] = usePersistentState<StorageLocation[]>('hpai:storage-locations-v1', INITIAL_LOCATIONS, normalizeLocationMaster);
 
   const [search, setSearch] = useState("")
 

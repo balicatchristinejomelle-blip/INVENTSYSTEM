@@ -4,6 +4,10 @@ import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
+import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import LocationSelect from '../../components/LocationSelect';
+import { matchesLocation, locationQuantity, inventoryLocationLabel } from '../../locationMaster';
+import { matchesInventoryColor } from '../../productFilters';
 import React, { useMemo, useState } from "react"
 
 import { useApp } from "../../store"
@@ -42,6 +46,7 @@ export default function PelletInventory() {
   const [search, setSearch] = useState("")
 
   const [location, setLocation] = useState("All")
+  const [color, setColor] = useState('');
 
   const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
 
@@ -50,6 +55,9 @@ export default function PelletInventory() {
   const [page, setPage] = useState(1)
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [moveLocation, setMoveLocation] = useState('');
+  const [moveReason, setMoveReason] = useState('');
+  const [moveError, setMoveError] = useState('');
 
   const selected = pellets.find(item => item.id === selectedId);
 
@@ -64,14 +72,14 @@ export default function PelletInventory() {
         ? ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus)
         : item.inventoryStatus === 'Fully Consumed'))
     && (grade === 'All' || item.grade === grade)
-    && (location === 'All' || item.currentLocation === location) &&
+    && matchesLocation(item, location) && matchesInventoryColor(item.color, color) &&
       ([item.barcode, item.batchNo, item.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord({ ...item, printStatus: printRecord(item.id) ? printState(app, printRecord(item.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(item.id)?.key)?.status }, search)),
   )
 
   const visibleColorants = colorants.filter(
     (item) =>
-      (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
+      matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
       ([item.colorantId, item.name, item.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(item, search)),
   )
@@ -208,16 +216,9 @@ export default function PelletInventory() {
         {category === 'Recycled Pellets' && <CategoryTabs items={['All', 'Complete 25 kg Bags', 'Loose Recycled Pellet'] as const} value={recycledView} onChange={value => { setRecycledView(value); resetPage(); }} label="Recycled pellet form" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); resetPage(); }} label="Colorant usage type" />}
         {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" />}
-        <div className="toolbar">
+        <div className="filter-panel">
           <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
-          {category !== "Colorants" && (
-            <SearchableDropdown
-              className="app-select" value={location} onChange={event => { setLocation(event.target.value); resetPage(); }}
-            >
-              <option value="All">All Locations</option>
-              {Array.from(new Set(pellets.filter(item => item.type === pelletType).map(item => item.currentLocation))).filter(Boolean).map(item => <option key={item}>{item}</option>)}
-            </SearchableDropdown>
-          )}
+          <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); resetPage(); }} onLocationChange={value => { setLocation(value); resetPage(); }} />
         </div>
       </div>
 
@@ -240,7 +241,7 @@ export default function PelletInventory() {
                 <th>Available kg</th>
                 <th>Used kg</th>
                 <th>Status</th>
-                <th>Source</th>
+                <th>Location</th><th>Source</th>
               </tr>
             </thead>
             <tbody>
@@ -253,14 +254,14 @@ export default function PelletInventory() {
                   <td>
                     {item.usageType === 'BASE_COLORANT' ? 'Base Colorant' : 'Stripe Colorant'}
                   </td>
-                  <td className="font-mono">{item.availableKg.toFixed(3)}</td>
+                  <td className="font-mono">{locationQuantity(item, location).toFixed(3)}</td>
                   <td className="font-mono">
                     {colorantUsed(item.id).toFixed(3)}
                   </td>
                   <td>
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="font-mono">{item.sourceReference || "—"}</td>
+                  <td>{inventoryLocationLabel(item)}</td><td className="font-mono">{item.sourceReference || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -308,7 +309,7 @@ export default function PelletInventory() {
                   <td>{item.currentLocation || "Not Yet Assigned"}</td>
                   <td>{printRecord(item.id) ? `${printState(app, printRecord(item.id)!).replace(/_/g, ' ')} / ${metadataFor(app, printRecord(item.id)!).printCount}` : 'Not printable'}</td>
                   <td>
-                    <button className="btn-secondary btn-compact" onClick={() => setSelectedId(item.id)}>View</button>
+                    <button className="btn-secondary btn-compact" onClick={() => { setSelectedId(item.id); setMoveLocation(''); setMoveReason(''); setMoveError(''); }}>View</button>
                   </td>
                 </tr>
               ))}
@@ -341,6 +342,14 @@ export default function PelletInventory() {
                 ))}
               </div>
             </div>
+            {app.currentUser?.role === 'plantmanager' && selected.locationStatus === 'Stored' && !['Loaded', 'Partially Consumed', 'Fully Consumed'].includes(selected.inventoryStatus) && <div className="app-card detail-card page-stack">
+              <div className="section-title">Internal Location Movement</div>
+              <LocationSelect value={moveLocation} onChange={setMoveLocation} />
+              <input className="app-input" aria-label="Movement reason" value={moveReason} onChange={event => setMoveReason(event.target.value)} placeholder="Movement reason" />
+              {moveError && <div className="alert-warning">{moveError}</div>}
+              <button className="btn-secondary" onClick={() => { if (!moveLocation) { setMoveError('Storage Location is required.'); return; } if (!moveReason.trim()) { setMoveError('Movement reason is required.'); return; } if (!app.relocatePhysicalItem('Pellet', selected.id, moveLocation, moveReason)) { setMoveError('Movement could not be saved.'); return; } setMoveError(''); setMoveLocation(''); setMoveReason(''); }}>Confirm Internal Movement (quantity unchanged)</button>
+            </div>}
+            {!!selected.locationHistory?.length && <div className="app-card detail-card"><div className="section-title">Location History</div>{selected.locationHistory.map((movement, index) => <div key={index} className="helper-text">{movement.from} → {movement.to} · {movement.action} · {movement.dateTime} · {movement.employee}</div>)}</div>}
           </div>
         </Modal>
       )}

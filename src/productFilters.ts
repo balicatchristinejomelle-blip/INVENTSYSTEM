@@ -1,9 +1,11 @@
 import { HPAI_PRODUCT_MASTER, normalizeProductType, sizesForProduct, specificationKey, specificationKeyFromRecord } from './productMaster';
 import { pipeSearchRecord, type PipeRelationships } from './finishedPipeRelations';
 import type { FinishedGood, ProductSpecification } from './types';
+import { matchesLocation } from './locationMaster';
 
-export interface ProductFilter { size: string; sdr: string; product: string; grade: string; length: string }
-export const emptyProductFilter: ProductFilter = { size: '', sdr: '', product: '', grade: '', length: '' };
+export interface ProductFilter { size: string; sdr: string; product: string; grade: string; length: string; color?: string; location?: string }
+export const emptyProductFilter: ProductFilter = { size: '', sdr: '', product: '', grade: '', length: '', color: '', location: '' };
+export const matchesInventoryColor = (value: unknown, color: string | undefined) => !color || String(value || '').replace(/\s+\([^)]*\)$/, '').toLowerCase() === color.replace(/\s+\([^)]*\)$/, '').toLowerCase();
 /** Options come from the master, never the records being filtered. */
 export function productFilterSizes(product: string, specifications: readonly ProductSpecification[] = []) {
   const polytube = specifications.filter(spec => spec.productType === 'Polytube' && spec.active).map(spec => spec.size);
@@ -15,7 +17,7 @@ export function productFilterRecord(record: unknown, data: PipeRelationships & {
   if (!record || typeof record !== 'object') return {};
   const value = record as Record<string, unknown>;
   if ('fgId' in value) return pipeSearchRecord(record as FinishedGood, data);
-  const pipe = data.finishedGoods?.find(pipe => pipe.id === value.id || (!!value.barcode && pipe.barcode === value.barcode));
+  const pipe = data.finishedGoods?.find(pipe => pipe.id === value.id || (!!value.barcode && (pipe.barcode === value.barcode || pipe.barcodeMigrations?.some(migration => migration.oldBarcode === value.barcode))));
   if (pipe) return { ...pipeSearchRecord(pipe, data), ...value };
   const reference = value.poRef || value.sourcePO || value.reference;
   const po = data.productionOrders.find(po => po.poNo === reference || po.id === value.poId);
@@ -32,5 +34,7 @@ export function matchesProductFilter(record: unknown, filter: ProductFilter, dat
     && (!filter.grade || (value.materialGrade || value.grade) === filter.grade)
     && (!filter.size || (value.size || value.diameter) === filter.size)
     && (!filter.sdr || value.sdr === filter.sdr)
-    && (!filter.length || (value.length || value.straightLength || value.coilLength) === filter.length);
+    && (!filter.length || (value.length || value.straightLength || value.coilLength) === filter.length)
+    && matchesInventoryColor(value.color, filter.color)
+    && matchesLocation(value, filter.location === 'All Locations' ? '' : filter.location || '');
 }

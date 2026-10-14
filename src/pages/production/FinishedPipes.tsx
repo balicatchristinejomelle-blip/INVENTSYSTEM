@@ -1,5 +1,6 @@
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
+import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { pipeSearchRecord, readPipeSpecifications } from '../../finishedPipeRelations';
@@ -159,9 +160,10 @@ export default function FinishedPipes() {
       </div>
 
       <div className="app-card detail-card page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<><ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} /><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); setPage(1); }} /></>} />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<><ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation /><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); setPage(1); }} /></>} />
       </div>
 
+      <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
       {/* Filter tabs */}
       <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="report-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', padding: '0 16px' }}>
