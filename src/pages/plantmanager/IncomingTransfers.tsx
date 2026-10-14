@@ -1,4 +1,5 @@
 import DocumentPrintButton from '../../components/DocumentPrintButton';
+import LocationSelect from '../../components/LocationSelect';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -42,6 +43,7 @@ function IncomingTransfers() {
   const [discrepancyNotes, setDiscrepancyNotes] = useState("")
 
   const [receiptError, setReceiptError] = useState("")
+  const [storageLocation, setStorageLocation] = useState('');
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
@@ -58,11 +60,12 @@ function IncomingTransfers() {
   const documentTransfer = transfers.find(t => t.id === documentAction?.id);
 
   const handleAccept = () => {
+    if (!storageLocation) { setReceiptError('Storage Location is required.'); return; }
     if (confirmAcceptId) {
       const transfer = transfers.find(item => item.id === confirmAcceptId);
       const isColorant = !!transfer && transferCategory(transfer) === 'Colorant';
       const quantity = receivedQuantity === '' ? (transfer?.sentQuantity ?? (isColorant ? transfer?.weightKg : transfer?.numberOfBags) ?? 0) : Number(receivedQuantity);
-      const result = confirmTransferReceipt(confirmAcceptId, quantity, discrepancyReason || undefined, discrepancyNotes);
+      const result = confirmTransferReceipt(confirmAcceptId, quantity, discrepancyReason || undefined, discrepancyNotes, storageLocation);
       if (!result.success) {
         setReceiptError(result.error || 'Receipt could not be saved.');
         return;
@@ -73,6 +76,7 @@ function IncomingTransfers() {
       setDiscrepancyReason('');
       setDiscrepancyNotes('');
       setReceiptError('');
+      setStorageLocation('');
     }
   };
 
@@ -138,6 +142,7 @@ function IncomingTransfers() {
                 <th>Batch No.</th>
                 <th>Weight (kg)</th>
                 <th>From</th>
+                <th>Receiving Location</th>
                 <th>Status</th>
                 <th data-actions>Actions</th>
               </tr>
@@ -171,6 +176,7 @@ function IncomingTransfers() {
                           </span>
                         </td>
                         <td style={{ fontSize: 12 }}>{t.source}</td>
+                        <td>{t.receivingLocation || 'Not Yet Assigned'}</td>
                         <td>
                       <StatusBadge status={effectiveStatus} size="sm" />
                     </td>
@@ -215,6 +221,7 @@ function IncomingTransfers() {
               ['Color', detail.color],
               ['Batch No.', detail.batchNo],
               ['Source', detail.source],
+              ['Receiving Location', detail.receivingLocation || 'Not Yet Assigned'],
               ['Destination', detail.destination],
               ['Request Ref', detail.requestRef || '—'],
             ] as [string, string][]).map(([label, value]) => (
@@ -293,6 +300,7 @@ function IncomingTransfers() {
                 received. A quantity below Sent creates a Receiving Discrepancy.
               </div>
               <div className="form-grid mb-3">
+                <LocationSelect value={storageLocation} onChange={setStorageLocation} />
                 <label>
                   Received{" "}
                   {transferCategory(detail) === 'Colorant' ? 'Quantity (kg)' : 'Bags'}

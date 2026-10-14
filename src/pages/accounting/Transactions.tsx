@@ -121,7 +121,7 @@ export default function Transactions() {
       <CategoryTabs items={CATEGORIES} value={category} onChange={value => { setCategory(value); setPage(1); }} label="Inventory transaction category" />
       <div className="toolbar">
         <input className={`app-input${category === 'Finished Pipe' ? ' record-search' : ''}`} type="search" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
-        {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
+        {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation />}
         <SearchableDropdown
           className="app-select" aria-label="Transaction type" value={type} onChange={event => { setType(event.target.value); setPage(1); }}
         >

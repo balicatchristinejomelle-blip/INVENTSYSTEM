@@ -34,7 +34,7 @@ export function matchesRecord(record: unknown, query: string) {
 
 type App = ReturnType<typeof useApp>
 export type RecordCollection = {
-  [Key in keyof App]: App[Key] extends readonly unknown[] ? Key : never
+  [Key in keyof App]-?: App[Key] extends readonly unknown[] ? Key : never
 }[keyof App]
 const SearchContext = createContext<{
   query: string
@@ -53,7 +53,7 @@ export function useSearchableApp(): App {
       key,
       (app[key] as readonly unknown[]).filter((record) =>
         matchesRecord(record && typeof record === 'object' && 'id' in record ? withPrintSearch(app, record as { id: string }) : record, query)
-          && (!productFilter || !['orders', 'manufacturingOrders', 'productionOrders', 'finishedGoods', 'rejectedMaterials', 'transactions', 'turnovers'].includes(key) || matchesProductFilter(record, productFilter, app)),
+          && (!productFilter || !['orders', 'manufacturingOrders', 'productionOrders', 'finishedGoods', 'pellets', 'colorants', 'rejectedMaterials', 'transactions', 'turnovers'].includes(key) || matchesProductFilter(record, productFilter, app)),
       ),
     ]),
   )
@@ -90,7 +90,7 @@ export function withRecordSearch(
               placeholder="Search reference, name, specification, barcode, location, date, or status..."
             />
           </div>
-          {productControls && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeLength />}
+          {productControls && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
           <Page />
         </div>
       </SearchContext.Provider>

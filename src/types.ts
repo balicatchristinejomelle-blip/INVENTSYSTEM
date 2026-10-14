@@ -66,6 +66,7 @@ export interface StockTarget {
 }
 
 export interface StorageLocation {
+  code?: string;
   id: string;
   name: string;
   plant: Exclude<Plant, 'Company Wide'>;
@@ -117,6 +118,7 @@ export interface MaterialRequest {
 }
 
 export interface Transfer {
+  receivingLocation?: string;
   id: string;
   refNo: string;
   date: string;
@@ -146,6 +148,7 @@ export interface Transfer {
 }
 
 export interface RRRecord {
+  receivingLocation?: string;
   id: string;
   rrNumber: string;
   date: string;
@@ -298,6 +301,9 @@ export interface PelletInventory {
 }
 
 export interface FinishedGood {
+  serialNumber?: string;
+  barcodeMigrations?: Array<{ oldBarcode: string; newBarcode: string; migratedAt: string; migrationReason: 'Finished Pipe barcode format migration' }>;
+  legacyLabelObsolete?: boolean;
   fulfillmentStatus?: 'Allocated' | 'Ready for Ship Out' | 'Loaded' | 'Shipped';
   source?: ProductionOrder['source'];
   productionOrderId?: string;
@@ -548,6 +554,8 @@ export interface Transaction {
 }
 
 export interface ColorantInventory {
+  currentLocation?: string;
+  locationBalances?: Record<string, number>;
   id: string;
   colorantId: string;
   name: string;
