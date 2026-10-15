@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -17,13 +19,13 @@ type Shift = "Day" | "Night"
 export default function Employees() {
   const { employees, attendance, assignEmployeeShift } = useApp();
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("management/Employees:search", "")
 
-  const [shiftFilter, setShiftFilter] = useState<'All' | Shift>('All');
+  const [shiftFilter, setShiftFilter] = useViewState<'All' | Shift>("management/Employees:shiftFilter", 'All');
 
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('Active');
+  const [statusFilter, setStatusFilter] = useViewState<'All' | 'Active' | 'Inactive'>("management/Employees:statusFilter", 'Active');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("management/Employees:page", 1)
 
   const [pending, setPending] = useState<{ id: string; shift: Shift } | null>(null);
 
@@ -113,7 +115,7 @@ export default function Employees() {
               <th data-actions>New Shift</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(productionEmployees, page).map((employee) => {
               const activeAttendance = activeAttendanceFor(employee.employeeId);
 
@@ -164,7 +166,7 @@ export default function Employees() {
                 </tr>
               )
             })}
-          </tbody>
+          </TableBody>
         </table>
         {!productionEmployees.length && (
           <div className="empty-state empty-state-action">

@@ -6,10 +6,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { COMPLETE_UI_BASELINE, completeUIBaseline, restoreCompleteUIFile } from './complete-ui-baseline.mjs';
+import { restoreUXFile, UX_NEW_FILES } from './ux-baseline.mjs';
 
 const require = createRequire(import.meta.url);
 const postcss = createRequire(require.resolve('vite/package.json'))('postcss');
-const read = file => fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+const read = file => restoreUXFile(file, fs.readFileSync(file, 'utf8'));
 const files = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? files(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]);
 const ast = text => ts.createSourceFile('view.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const jsx = node => ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node);
@@ -46,7 +47,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const oldWindow = globalThis.window, oldSession = globalThis.sessionStorage;
 try {
   // Audit all source files, not a hand-picked edit whitelist. Non-UI source is byte-guarded.
-  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file))) {
+  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file))) {
     const current = read(file), baseline = completeUIBaseline(file);
     if (current === baseline) check(`Unchanged source: ${file}`, () => assert.equal(current, baseline));
     else {

@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -36,13 +38,13 @@ export default function AuditLogs() {
 
   const [type, setType] = useState("All")
 
-  const [employeeRole, setEmployeeRole] = useState("All")
+  const [employeeRole, setEmployeeRole] = useViewState("management/AuditLogs:employeeRole", "All")
 
-  const [action, setAction] = useState("All")
+  const [action, setAction] = useViewState("management/AuditLogs:action", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("management/AuditLogs:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("management/AuditLogs:page", 1)
 
   const period = usePeriod("month")
 
@@ -158,7 +160,7 @@ export default function AuditLogs() {
               <th className="narrative-cell">Before / After</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((log) => (
               <tr key={log.id}>
                 <td className="font-mono">
@@ -184,7 +186,7 @@ export default function AuditLogs() {
                 </td>
               </tr>
             ))}
-          </tbody>
+          </TableBody>
         </table>
         {!filtered.length && <div className="empty-state">NO AUDIT RECORDS MATCH THE SELECTED FILTERS</div>}
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />

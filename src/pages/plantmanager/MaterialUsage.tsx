@@ -1,3 +1,5 @@
+import RecordReference from '../../components/RecordReference';
+import { TableBody } from '../../components/UXFeedback';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -53,7 +55,7 @@ function MaterialUsage() {
         />
         <div className="app-card production-output-card" style={{ padding: "12px 14px" }}>
           <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            Production Output — {mainPO?.poNo}
+            Production Output — <RecordReference value={mainPO?.poNo} />
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', marginBottom: 8 }}>
             <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-primary)' }}>
@@ -95,7 +97,7 @@ function MaterialUsage() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {
                   <RecordRows
                     records={periodTransactions}
@@ -129,7 +131,7 @@ function MaterialUsage() {
                     )}
                   />
                 }
-              </tbody>
+              </TableBody>
             </table>
           )}
         </div>
@@ -185,7 +187,7 @@ function MaterialUsage() {
                 <div key={po.id} style={{ padding: '12px 14px', background: 'var(--app-bg)', borderRadius: 6, border: '1px solid var(--card-border)' }}>
                   <div className="flex justify-between items-center" style={{ marginBottom: 6 }}>
                     <span className="font-mono" style={{ fontSize: 12, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                      {po.poNo}
+                      <RecordReference value={po.poNo} />
                     </span>
                     <StatusBadge status={po.status} size="sm" />
                   </div>

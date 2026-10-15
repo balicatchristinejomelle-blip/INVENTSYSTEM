@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import LocationSelect from '../../components/LocationSelect';
 import RecordRows from "../../components/RecordRows"
@@ -28,9 +30,9 @@ type FilterTab = 'All' | 'Preparing' | 'In Transit' | 'Receiving Discrepancy' | 
 function IncomingTransfers() {
   const { transfers, confirmTransferReceipt } = useSearchableApp()
 
-  const [tab, setTab] = useState<FilterTab>("All")
+  const [tab, setTab] = useViewState<FilterTab>("plantmanager/IncomingTransfers:tab", "All")
 
-  const [category, setCategory] = useState<'All' | MaterialRequestCategory>('All');
+  const [category, setCategory] = useViewState<'All' | MaterialRequestCategory>("plantmanager/IncomingTransfers:category", 'All');
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -147,7 +149,7 @@ function IncomingTransfers() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {
                 <RecordRows
                   records={filtered}
@@ -204,7 +206,7 @@ function IncomingTransfers() {
                   }}
                 />
               }
-            </tbody>
+            </TableBody>
           </table>
         )}
       </div>

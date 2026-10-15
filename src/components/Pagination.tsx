@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 
 export const PAGE_SIZE = 10
 
@@ -16,6 +16,7 @@ export default function Pagination({ page, totalRecords, onPageChange, noun = 'r
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
 
   const safePage = Math.max(1, Math.min(page, totalPages))
+  useEffect(() => { if (page !== safePage) onPageChange(safePage); }, [page, safePage, onPageChange]);
 
   const firstRecord = totalRecords ? (safePage - 1) * PAGE_SIZE + 1 : 0;
 
@@ -26,7 +27,7 @@ export default function Pagination({ page, totalRecords, onPageChange, noun = 'r
       <div className="pagination-count">
         Showing {firstRecord}–{lastRecord} of {totalRecords} {noun}
       </div>
-      <div className="pagination-controls">
+      {totalPages > 1 && <div className="pagination-controls">
         <button className="btn-secondary btn-compact" disabled={safePage === 1} onClick={() => onPageChange(safePage - 1)}>
           <span className="desktop-pagination-label">Previous</span>
           <span className="mobile-pagination-label">Prev</span>
@@ -37,7 +38,7 @@ export default function Pagination({ page, totalRecords, onPageChange, noun = 'r
           <span className="mobile-pagination-label">/</span> {totalPages}
         </strong>
         <button className="btn-secondary btn-compact" disabled={safePage === totalPages} onClick={() => onPageChange(safePage + 1)}>Next</button>
-      </div>
+      </div>}
     </div>
   )
 }

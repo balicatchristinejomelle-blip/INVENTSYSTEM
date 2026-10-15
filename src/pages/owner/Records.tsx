@@ -1,3 +1,6 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import RecordReference from '../../components/RecordReference';
 import { inventoryLocationLabel, matchesLocation, locationQuantity } from '../../locationMaster';
 import MaterialLocationFilters from '../../components/MaterialLocationFilters';
 import { matchesInventoryColor } from '../../productFilters';
@@ -68,22 +71,22 @@ export default function OwnerRecords() {
 
   const period = usePeriod("month")
 
-  const [area, setArea] = useState<Area>("Company Records")
+  const [area, setArea] = useViewState<Area>("owner/Records:area", "Company Records", AREAS)
 
-  const [section, setSection] = useState<string>('All Documents');
+  const [section, setSection] = useViewState<string>("owner/Records:section", 'All Documents', SECTIONS[area]);
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("owner/Records:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
   const productArea = !['RR / Requests / Transfers', 'Pellet Inventory', 'Colorants', 'Inventory Transactions'].includes(section);
 
-  const [status, setStatus] = useState("All Statuses")
+  const [status, setStatus] = useViewState("owner/Records:status", "All Statuses")
 
-  const [grade, setGrade] = useState("All Grades")
+  const [grade, setGrade] = useViewState("owner/Records:grade", "All Grades")
 
-  const [location, setLocation] = useState("All Locations")
-  const [color, setColor] = useState('');
+  const [location, setLocation] = useViewState("owner/Records:location", "All Locations")
+  const [color, setColor] = useViewState("owner/Records:color", '');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("owner/Records:search", "")
 
   const [documentAction, setDocumentAction] = useState<{ module: string; id: string; autoPrint: boolean } | null>(null);
 
@@ -408,11 +411,11 @@ export default function OwnerRecords() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(rows, page).map((item) => (
               <tr key={`${item.module}-${item.id}`}>
                 <td>{item.date}</td>
-                <td className="font-mono">{item.reference}</td>
+                <td className="font-mono"><RecordReference value={item.reference} /></td>
                 <td>{item.module}</td>
                 <td>{item.detail}</td>
                 <td>{item.material && item.module === 'Colorant' ? `${locationQuantity(item.material, productArea ? productFilters.value.location || 'All' : location).toFixed(3)} kg` : item.quantity}</td>
@@ -430,7 +433,7 @@ export default function OwnerRecords() {
                 </td>
               </tr>
             ))}
-          </tbody>
+          </TableBody>
         </table>
         {!rows.length && <div className="empty-state">No authorized records match the selected date and filters.</div>}
         <Pagination page={page} totalRecords={rows.length} onPageChange={setPage} />

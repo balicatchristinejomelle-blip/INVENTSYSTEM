@@ -1,3 +1,7 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { LastUpdated } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import MaterialLocationFilters from '../../components/MaterialLocationFilters';
@@ -18,19 +22,19 @@ import { MATERIAL_CATEGORIES, MATERIAL_GRADES, materialGradeFilterLabel, type Ma
 export default function RawMaterials() {
   const { pellets, colorants, materialUsageTransactions } = useApp();
 
-  const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
+  const [category, setCategory] = useViewState<MaterialCategoryTab>("accounting/RawMaterials:category", 'Virgin Pellets');
 
-  const [grade, setGrade] = useState("All")
-  const [location, setLocation] = useState('All');
-  const [color, setColor] = useState('');
+  const [grade, setGrade] = useViewState("accounting/RawMaterials:grade", "All")
+  const [location, setLocation] = useViewState("accounting/RawMaterials:location", 'All');
+  const [color, setColor] = useViewState("accounting/RawMaterials:color", '');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("accounting/RawMaterials:search", "")
 
-  const [lifecycle, setLifecycle] = useState<'Available' | 'Open / WIP' | 'Fully Consumed'>('Available');
+  const [lifecycle, setLifecycle] = useViewState<'Available' | 'Open / WIP' | 'Fully Consumed'>("accounting/RawMaterials:lifecycle", 'Available');
 
   const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/RawMaterials:page", 1)
 
   const pelletType = category === 'Virgin Pellets' ? 'Virgin' : 'Recycled';
 
@@ -59,6 +63,7 @@ export default function RawMaterials() {
 
   return (
     <div className="page-stack">
+      <LastUpdated records={[...pellets, ...colorants]} />
       <div>
         <div className="section-title">Raw Materials</div>
         <div className="helper-text">Pellet physical bags and colorant kg balances are presented in distinct inventories.</div>
@@ -86,7 +91,7 @@ export default function RawMaterials() {
                   <th>Location</th><th>Last Updated</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredColorants, page).map((item) => (
                   <tr key={item.id}>
                     <td className="font-mono">{item.colorantId}</td>
@@ -109,7 +114,7 @@ export default function RawMaterials() {
                     <td colSpan={8} className="empty-state">No records match the selected search or filters.</td>
                   </tr>
                 )}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={page} totalRecords={filteredColorants.length} onPageChange={setPage} />
           </>
@@ -129,11 +134,11 @@ export default function RawMaterials() {
                   <th>Transfer</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredPellets, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.barcode}</td>
-                    <td className="font-mono">{item.batchNo}</td>
+                    <td className="font-mono"><RecordReference value={item.barcode} /></td>
+                    <td className="font-mono"><RecordReference value={item.batchNo} /></td>
                     <td>{item.grade}</td>
                     <td className="font-mono">
                       {item.availableKg.toFixed(3)} kg
@@ -152,7 +157,7 @@ export default function RawMaterials() {
                     <td colSpan={9} className="empty-state">No records match the selected search or filters.</td>
                   </tr>
                 )}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={page} totalRecords={filteredPellets.length} onPageChange={setPage} />
           </>

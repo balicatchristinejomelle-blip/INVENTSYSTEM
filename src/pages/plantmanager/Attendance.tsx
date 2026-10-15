@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -46,11 +48,11 @@ type Tab = typeof TABS[number]
 function PMAttendance() {
   const { attendance, productionOrders } = useSearchableApp()
 
-  const [dateFilter, setDateFilter] = useState("")
+  const [dateFilter, setDateFilter] = useViewState("plantmanager/Attendance:dateFilter", "")
 
   const period = usePeriod("week")
 
-  const [activeTab, setActiveTab] = useState<Tab>("All")
+  const [activeTab, setActiveTab] = useViewState<Tab>("plantmanager/Attendance:activeTab", "All")
 
   const [viewRec, setViewRec] = useState<ShiftAttendance | null>(null);
 
@@ -164,7 +166,7 @@ function PMAttendance() {
               <th data-actions>View</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '24px 0' }}>
@@ -223,7 +225,7 @@ function PMAttendance() {
                 )}
               />
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 

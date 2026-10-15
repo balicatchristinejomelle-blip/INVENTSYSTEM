@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -77,7 +79,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 function PMShiftTurnover() {
   const { turnovers } = useSearchableApp()
 
-  const [activeTab, setActiveTab] = useState<Tab>("All")
+  const [activeTab, setActiveTab] = useViewState<Tab>("plantmanager/ShiftTurnover:activeTab", "All")
 
   const [viewRec, setViewRec] = useState<ShiftTurnover | null>(null);
 
@@ -157,7 +159,7 @@ function PMShiftTurnover() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '24px 0' }}>
@@ -229,7 +231,7 @@ function PMShiftTurnover() {
                 )}
               />
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 

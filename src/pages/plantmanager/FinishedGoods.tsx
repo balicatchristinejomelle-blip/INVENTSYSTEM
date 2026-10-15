@@ -1,3 +1,9 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { ActiveFilters, LastUpdated } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import { finishedGoodsSummary, finishedPipeInventory, generalStockStatus } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
@@ -64,19 +70,19 @@ export default function PMFinishedGoods() {
   const printable = printableRecords(app);
   const printRecord = (id: string) => printable.find(record => record.kind === 'Barcode' && record.recordType === 'Finished Pipe' && record.recordId === id);
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("plantmanager/FinishedGoods:search", "")
 
-  const [status, setStatus] = useState<Destination>('All Statuses');
+  const [status, setStatus] = useViewState<Destination>("plantmanager/FinishedGoods:status", 'All Statuses');
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("plantmanager/FinishedGoods:productType", 'All');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("plantmanager/FinishedGoods:grade", "All")
 
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("plantmanager/FinishedGoods:purpose", 'All');
 
-  const [viewMode, setViewMode] = useState<'Stock Levels' | 'By Batch' | 'Individual Pipes'>('By Batch');
+  const [viewMode, setViewMode] = useViewState<'Stock Levels' | 'By Batch' | 'Individual Pipes'>("plantmanager/FinishedGoods:viewMode", 'By Batch');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("plantmanager/FinishedGoods:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -101,7 +107,7 @@ export default function PMFinishedGoods() {
 
   const [creatingReplenishment, setCreatingReplenishment] = useState(false);
 
-  const [targetStockFilter, setTargetStockFilter] = useState<'All' | 'Normal' | 'Low Stock' | 'Out of Stock' | 'Replenishment In Progress'>('All');
+  const [targetStockFilter, setTargetStockFilter] = useViewState<'All' | 'Normal' | 'Low Stock' | 'Out of Stock' | 'Replenishment In Progress'>("plantmanager/FinishedGoods:targetStockFilter", 'All');
 
   useEffect(() => {
     const requestedId = window.sessionStorage.getItem('hpai:finished-pipe-view-v1');
@@ -232,6 +238,8 @@ export default function PMFinishedGoods() {
 
   return (
     <div className="page-stack">
+      <LastUpdated records={finishedGoods} />
+      <ActiveFilters items={[["Search", search], ["Status", status], ["Storage Purpose", purpose]]} clearLabel="Clear list filters" onClear={clearFilters} />
       <MetricCards inventory label="Finished Goods inventory summary" items={[
         ['Available', available], ['Reserved', reserved], ['Temporary Storage', inventory.temporary],
         ['Ready for Ship Out', inventory.ready], ['On Hand', total],
@@ -268,6 +276,7 @@ export default function PMFinishedGoods() {
           <CategoryTabs items={['All', 'Normal', 'Low Stock', 'Out of Stock', 'Replenishment In Progress'] as const} value={targetStockFilter} onChange={value => { setTargetStockFilter(value); resetPage(); }} label="Finished pipe stock target state" />
           {
             <RecordList
+              emptyMessage={false}
               records={visibleStockTargetRows}
               query={search + targetStockFilter}
               render={({ target, spec, onHand, openPO, stockStatus }) => (
@@ -323,16 +332,16 @@ export default function PMFinishedGoods() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentBatches.map((group) => {
                   const summary = batchSummary(group)
                   const trace = batchOriginTrace(group.pipes, { ...app, specifications: readPipeSpecifications() });
 
                   return (
                     <tr key={group.item.batch}>
-                      <td className="font-mono">{group.item.batch}<br /><small>{trace.groupType} · {trace.originGroup}</small></td>
+                      <td className="font-mono"><RecordReference value={group.item.batch} /><br /><small>{trace.groupType} · <RecordReference value={trace.originGroup} /></small></td>
                       <td>
-                        <span className="font-mono">{group.item.poRef}</span>
+                        <span className="font-mono"><RecordReference value={group.item.poRef} /></span>
                         <br />
                         <small>{manufacturingOrderFor(group.item)}</small>
                       </td>
@@ -363,7 +372,7 @@ export default function PMFinishedGoods() {
                     </tr>
                   )
                 })}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={page} totalRecords={batches.length} onPageChange={setPage} noun="batches" />
           </>
@@ -384,10 +393,10 @@ export default function PMFinishedGoods() {
                   <th data-actions>Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentRecords.map((f) => (
                   <tr key={f.id}>
-                    <td className="font-mono">{f.barcode}</td>
+                    <td className="font-mono"><RecordReference value={f.barcode} /></td>
                     <td>{f.product}</td>
                     <td>
                       {f.grade} · {f.diameter} · {f.sdr} · {f.length}
@@ -397,7 +406,7 @@ export default function PMFinishedGoods() {
                       <StatusBadge status={f.releaseStatus === 'Released' ? 'Shipped Out' : f.status}/>
                     </td>
                     <td>{f.currentLocation || "Not Yet Assigned"}</td>
-                    <td className="font-mono">{f.poRef}</td>
+                    <td className="font-mono"><RecordReference value={f.poRef} /></td>
                     <td className="font-mono">
                       {f.reservedForOrderRef || "—"}
                     </td>
@@ -407,7 +416,7 @@ export default function PMFinishedGoods() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} noun="pipes" />
           </>
@@ -427,7 +436,7 @@ export default function PMFinishedGoods() {
             return (
               <article className="app-card mobile-record-card" key={group.item.batch}>
                 <div className="mobile-record-heading">
-                  <strong className="font-mono">{group.item.batch}</strong>
+                  <strong className="font-mono"><RecordReference value={group.item.batch} /></strong>
                   <StatusBadge status={summary.status} />
                 </div>
                 <div className="mobile-record-grid">
@@ -445,7 +454,7 @@ export default function PMFinishedGoods() {
           currentRecords.map((pipe) => (
             <article className="app-card mobile-record-card" key={pipe.id}>
               <div className="mobile-record-heading">
-                <strong className="font-mono">{pipe.barcode}</strong>
+                <strong className="font-mono"><RecordReference value={pipe.barcode} /></strong>
                 <StatusBadge status={pipe.releaseStatus === 'Released' ? 'Shipped Out' : pipe.status} />
               </div>
               <div className="mobile-record-grid">
@@ -486,7 +495,7 @@ export default function PMFinishedGoods() {
                   {pageRecords([...selectedBatch.pipes].sort((a, b) => a.barcode.localeCompare(b.barcode, undefined, { numeric: true })), batchPipePage).map((pipe) => (
                     <article className="app-card mobile-record-card" key={pipe.id}>
                       <div className="mobile-record-heading">
-                        <strong className="font-mono">{pipe.barcode}</strong>
+                        <strong className="font-mono"><RecordReference value={pipe.barcode} /></strong>
                         <StatusBadge status={pipe.releaseStatus === 'Released' ? 'Shipped Out' : pipe.status} />
                       </div>
                       <div className="mobile-record-grid">
@@ -519,10 +528,10 @@ export default function PMFinishedGoods() {
                         <th data-actions>Action</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <TableBody>
                       {pageRecords([...selectedBatch.pipes].sort((a, b) => a.barcode.localeCompare(b.barcode, undefined, { numeric: true })), batchPipePage).map((pipe) => (
                         <tr key={pipe.id}>
-                          <td className="font-mono">{pipe.barcode}</td>
+                          <td className="font-mono"><RecordReference value={pipe.barcode} /></td>
                           <td>
                             {normalizedProductType(pipe.product)} · {pipe.grade}
                           </td>
@@ -538,7 +547,7 @@ export default function PMFinishedGoods() {
                               : "—"}
                           </td>
                           <td>
-                            <span className="font-mono">{pipe.poRef}</span>
+                            <span className="font-mono"><RecordReference value={pipe.poRef} /></span>
                             <br />
                             <small>{manufacturingOrderFor(pipe)}</small>
                           </td>
@@ -573,7 +582,7 @@ export default function PMFinishedGoods() {
                           </td>
                         </tr>
                       ))}
-                    </tbody>
+                    </TableBody>
                   </table>
                   <Pagination page={batchPipePage} totalRecords={selectedBatch.pipes.length} onPageChange={setBatchPipePage} noun="pipes" />
                 </div>
@@ -582,7 +591,7 @@ export default function PMFinishedGoods() {
           )
         })()}
       {selected && (
-        <Modal open title={`Finished Goods — ${selected.fgId}`} onClose={() => setSelectedId(null)} width="620px">
+        <Modal dirty={rejecting && !!(rejectWeight || rejectReason)} open title={`Finished Goods — ${selected.fgId}`} onClose={() => setSelectedId(null)} width="620px">
           <div className="page-stack">
             <div className="alert-success">
           <strong>Barcode Assigned Automatically</strong>
@@ -615,12 +624,12 @@ export default function PMFinishedGoods() {
                 <div className="helper-text">Rejecting this barcode immediately removes it from available, reservation, storage, and release eligibility without changing total completed output.</div>
                 {qualityError && <div className="alert-error mt-3">{qualityError}</div>}
                 <div className="form-actions mt-3">
-                  <button className="btn-secondary" onClick={() => setRejecting(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={() => {
+                  <DismissButton className="btn-secondary" onClick={() => setRejecting(false)}>Cancel</DismissButton>
+                  <ActionButton className="btn-danger" confirmMessage={Number(rejectWeight) > 0 && rejectReason ? `Reject ${selected.barcode}? This removes the pipe from good-stock eligibility through the existing rejection workflow.` : undefined} onClick={() => {
             const result = rejectFinishedGood(selected.id, Number(rejectWeight), rejectReason);
             if (!result.success) return setQualityError(result.error || 'Quality rejection could not be saved.');
             setRejecting(false); setRejectWeight(''); setRejectReason(''); setQualityError('');
-          }}>Confirm Quality Reject</button>
+          }}>Confirm Quality Reject</ActionButton>
                 </div>
               </div>
             )}
@@ -662,7 +671,7 @@ export default function PMFinishedGoods() {
           if (!spec) return null
 
           return (
-            <Modal open title="Create Production Order · Stock Replenishment" onClose={() => !creatingReplenishment && setReplenishmentTarget(null)} width="680px">
+            <Modal draft={replenishmentForm} open title="Create Production Order · Stock Replenishment" onClose={() => !creatingReplenishment && setReplenishmentTarget(null)} width="680px">
               <div className="page-stack">
                 <div className="alert-warning">
                   <strong>Source: Stock Replenishment</strong>
@@ -721,14 +730,14 @@ export default function PMFinishedGoods() {
                   </div>
                 )}
                 <div className="form-actions">
-                  <button className="btn-secondary" disabled={creatingReplenishment} onClick={() => setReplenishmentTarget(null)}>Back</button>
-                  <button className="btn-primary" disabled={creatingReplenishment || !replenishmentForm.reason.trim() || Number(replenishmentForm.targetQty) <= 0 || !replenishmentForm.requiredDate} onClick={() => {
+                  <DismissButton className="btn-secondary" disabled={creatingReplenishment} onClick={() => setReplenishmentTarget(null)}>Back</DismissButton>
+                  <ActionButton className="btn-primary" disabled={creatingReplenishment || !replenishmentForm.reason.trim() || Number(replenishmentForm.targetQty) <= 0 || !replenishmentForm.requiredDate} onClick={() => {
           setCreatingReplenishment(true);
           const result = createStockReplenishmentPO({ specification: spec, targetQty: Number(replenishmentForm.targetQty), requiredDate: replenishmentForm.requiredDate, productionLine: replenishmentForm.productionLine, priority: replenishmentForm.priority, reason: replenishmentForm.reason });
           setCreatingReplenishment(false);
           if (!result.success) return setReplenishmentFeedback(result.error || 'Unable to create Production Order.');
           setReplenishmentFeedback(''); setReplenishmentTarget(null);
-        }}>Confirm & Create PO</button>
+        }}>Confirm & Create PO</ActionButton>
                 </div>
               </div>
             </Modal>

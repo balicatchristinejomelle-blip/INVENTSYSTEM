@@ -1,3 +1,6 @@
+import { TableBody } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import { matchesRecord } from "../../components/RecordSearch"
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 
@@ -279,7 +282,7 @@ export default function Settings() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredSpecs, page).map((spec) => (
                   <tr key={spec.id}>
                     <td>{spec.productType}</td>
@@ -316,7 +319,7 @@ export default function Settings() {
                     </td>
                   </tr>
                 )}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <Pagination page={page} totalRecords={filteredSpecs.length} onPageChange={setPage} noun="specifications" />
@@ -343,7 +346,7 @@ export default function Settings() {
                   <th>Stock State</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredTargets, page).map((target) => {
                   const current = currentForTarget(target)
                   const state = current === 0 ? 'OUT OF STOCK' : current <= target.minimumStock ? 'LOW STOCK' : 'NORMAL';
@@ -381,7 +384,7 @@ export default function Settings() {
                     </td>
                   </tr>
                 )}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <Pagination page={page} totalRecords={filteredTargets.length} onPageChange={setPage} noun="stock targets" />
@@ -406,7 +409,7 @@ export default function Settings() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredLocations, page).map((location) => (
                   <tr key={location.id}>
                     <td>{location.name}</td>
@@ -426,7 +429,7 @@ export default function Settings() {
                     <td colSpan={6} className="empty-state">NO MATCHING RECORDS</td>
                   </tr>
                 )}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <Pagination page={page} totalRecords={filteredLocations.length} onPageChange={setPage} noun="locations" />
@@ -483,7 +486,7 @@ export default function Settings() {
         </div>
       )}
 
-      <Modal open={showSpecForm} onClose={() => setShowSpecForm(false)} title="Add Product Specification" width="720px">
+      <Modal draft={specForm} open={showSpecForm} onClose={() => setShowSpecForm(false)} title="Add Product Specification" width="720px">
         <div className="form-grid">
           <label>
             Product Type *
@@ -535,12 +538,12 @@ export default function Settings() {
           </label>
         </div>
         <div className="form-actions">
-          <button className="btn-secondary" onClick={() => setShowSpecForm(false)}>Back</button>
-          <button className="btn-primary" onClick={createSpecification}>Create Specification</button>
+          <DismissButton className="btn-secondary" onClick={() => setShowSpecForm(false)}>Back</DismissButton>
+          <ActionButton className="btn-primary" onClick={createSpecification}>Create Specification</ActionButton>
         </div>
       </Modal>
 
-      <Modal open={showTargetForm} onClose={() => setShowTargetForm(false)} title="Add Stock Target" width="680px">
+      <Modal draft={targetForm} open={showTargetForm} onClose={() => setShowTargetForm(false)} title="Add Stock Target" width="680px">
         <div className="form-grid">
           <label>
             Plant *
@@ -618,12 +621,12 @@ export default function Settings() {
         </div>
         <p className="helper-text">OUT OF STOCK means Current Available is 0. LOW STOCK means Current Available is at or below Minimum Stock. Pellet values are kg and requests convert to whole 25 kg bags.</p>
         <div className="form-actions">
-          <button className="btn-secondary" onClick={() => setShowTargetForm(false)}>Back</button>
-          <button className="btn-primary" onClick={createTarget}>Create Stock Target</button>
+          <DismissButton className="btn-secondary" onClick={() => setShowTargetForm(false)}>Back</DismissButton>
+          <ActionButton className="btn-primary" onClick={createTarget}>Create Stock Target</ActionButton>
         </div>
       </Modal>
 
-      <Modal open={showLocationForm} onClose={() => setShowLocationForm(false)} title="Add Storage Location">
+      <Modal draft={locationForm} open={showLocationForm} onClose={() => setShowLocationForm(false)} title="Add Storage Location">
         <div className="form-grid">
           <label>
             Location Name *
@@ -652,8 +655,8 @@ export default function Settings() {
           </label>
         </div>
         <div className="form-actions">
-          <button className="btn-secondary" onClick={() => setShowLocationForm(false)}>Back</button>
-          <button className="btn-primary" onClick={createLocation}>Create Location</button>
+          <DismissButton className="btn-secondary" onClick={() => setShowLocationForm(false)}>Back</DismissButton>
+          <ActionButton className="btn-primary" onClick={createLocation}>Create Location</ActionButton>
         </div>
       </Modal>
       <Modal open={deactivate !== null} onClose={() => { setDeactivate(null); setReason(''); }} title={`Deactivate ${deactivate?.kind === 'spec' ? 'Product Specification' : 'Storage Location'}?`}>
@@ -664,8 +667,8 @@ export default function Settings() {
           <textarea className="app-input" value={reason} onChange={event => setReason(event.target.value)} placeholder="Enter the reason for deactivation" />
         </label>
         <div className="form-actions">
-          <button className="btn-secondary" onClick={() => { setDeactivate(null); setReason(''); }}>Back</button>
-          <button className="btn-danger" disabled={!reason.trim()} onClick={confirmDeactivate}>Confirm Deactivation</button>
+          <DismissButton className="btn-secondary" onClick={() => { setDeactivate(null); setReason(''); }}>Back</DismissButton>
+          <ActionButton className="btn-danger" disabled={!reason.trim()} onClick={confirmDeactivate}>Confirm Deactivation</ActionButton>
         </div>
       </Modal>
     </div>

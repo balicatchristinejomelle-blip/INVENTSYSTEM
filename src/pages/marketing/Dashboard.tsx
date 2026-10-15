@@ -1,3 +1,5 @@
+import RecordReference from '../../components/RecordReference';
+import { TableBody } from '../../components/UXFeedback';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -77,11 +79,11 @@ function MarketingDashboard() {
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {orders.slice(0, 5).map((o) => (
                 <tr key={o.id} className="table-row-hover" onClick={() => navigate('mkt-orders')}>
                   <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                    {o.orderNo}
+                    <RecordReference value={o.orderNo} />
                   </td>
                   <td style={{ fontSize: 12 }}>{o.customerName}</td>
                   <td style={{ fontSize: 12 }}>{o.product}</td>
@@ -97,7 +99,7 @@ function MarketingDashboard() {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
         </div>
       </section>

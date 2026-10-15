@@ -1,3 +1,8 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import {
   withRecordSearch,
@@ -28,9 +33,9 @@ function Transfers() {
 
   const [viewId, setViewId] = useState<string | null>(null)
 
-  const [filter, setFilter] = useState("All")
+  const [filter, setFilter] = useViewState("accounting/Transfers:filter", "All")
 
-  const [category, setCategory] = useState<'All' | MaterialRequestCategory>('All');
+  const [category, setCategory] = useViewState<'All' | MaterialRequestCategory>("accounting/Transfers:category", 'All');
 
   const [showCreate, setShowCreate] = useState(false)
 
@@ -38,7 +43,7 @@ function Transfers() {
 
   const [message, setMessage] = useState("")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/Transfers:page", 1)
 
   useSearchPaginationReset(setPage)
 
@@ -62,7 +67,7 @@ function Transfers() {
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: false })}>View Document</button>
           <DocumentPrintButton className="btn-primary" recordId={viewTransfer.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: viewTransfer.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700 }}>
-            Transfer — {viewTransfer.refNo}
+            Transfer — <RecordReference value={viewTransfer.refNo} />
           </h2>
         </div>
         <DocumentViewer open={!!documentAction} document={documentTransfer ? transferDocument(documentTransfer) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
@@ -136,11 +141,11 @@ function Transfers() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((t) => (
               <tr key={t.id} className="table-row-hover" onClick={() => setViewId(t.id)}>
                 <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                  {t.refNo}
+                  <RecordReference value={t.refNo} />
                 </td>
                 <td style={{ fontSize: 12 }}>{t.date}</td>
                 <td>{transferCategory(t)}</td>
@@ -148,7 +153,7 @@ function Transfers() {
                   {transferCategory(t) === 'Colorant' ? `${t.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe' : 'Base'} · ${t.color}` : t.grade}
                 </td>
                 <td className="font-mono" style={{ fontSize: 11 }}>
-                  {t.batchNo}
+                  <RecordReference value={t.batchNo} />
                 </td>
                 <td className="font-mono" style={{ fontSize: 12, fontWeight: 600 }}>
                   {t.weightKg} kg
@@ -170,12 +175,12 @@ function Transfers() {
                 <td colSpan={9} className="empty-state">No records match the selected filters.</td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
       {showCreate && (
-        <Modal open title="Create Transfer" onClose={() => setShowCreate(false)}>
+        <Modal draft={requestId} open title="Create Transfer" onClose={() => setShowCreate(false)}>
           <div className="page-stack">
             <div className="alert-info">Approved pellet requests create individual 25 kg bag records. Approved colorant requests transfer a shared kg quantity without pellet barcodes.</div>
             <label>
@@ -186,7 +191,7 @@ function Transfers() {
                 <option value="">Select approved request</option>
                 {materialRequests.filter(request => request.status === 'Approved').map((request) => (
                     <option key={request.id} value={request.id}>
-                      {request.refNo} · {requestCategory(request)} ·{" "}
+                      <RecordReference value={request.refNo} /> · {requestCategory(request)} ·{" "}
                       {request.requestedKg} kg
                     </option>
                   ))}
@@ -198,11 +203,11 @@ function Transfers() {
               </div>
             )}
             <div className="form-actions">
-              <button className="btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="btn-primary" disabled={!requestId} onClick={() => {
+              <DismissButton className="btn-secondary" onClick={() => setShowCreate(false)}>Cancel</DismissButton>
+              <ActionButton className="btn-primary" disabled={!requestId} onClick={() => {
             const result = createTransfer(requestId);
             setMessage(result ? `Created or opened ${result}. The same transfer is visible to Plant Manager and Production.` : 'Transfer could not be created. Verify that the request is approved.');
-          }}>Confirm</button>
+          }}>Confirm</ActionButton>
             </div>
           </div>
         </Modal>

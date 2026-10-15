@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
@@ -82,31 +85,31 @@ export default function PlantManagerReports() {
 
   const period = usePeriod("month")
 
-  const [report, setReport] = useState<Report>("Material Inventory")
+  const [report, setReport] = useViewState<Report>("plantmanager/Reports:report", "Material Inventory")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("plantmanager/Reports:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("plantmanager/Reports:search", "")
 
   const [materialCategory, setMaterialCategory] =
     useState<MaterialCategoryTab>("Virgin Pellets")
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("plantmanager/Reports:grade", "All")
 
   const [lifecycle, setLifecycle] = useState<Lifecycle>("All")
 
   const [recycledForm, setRecycledForm] =
     useState<"All" | "Complete 25 kg Bags" | "Loose Recycled Pellet">("All")
 
-  const [productType, setProductType] = useState<"All" | PipeProductType>("All")
+  const [productType, setProductType] = useViewState<"All" | PipeProductType>("plantmanager/Reports:productType", "All")
 
-  const [finishedGrade, setFinishedGrade] = useState("All")
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
+  const [finishedGrade, setFinishedGrade] = useViewState("plantmanager/Reports:finishedGrade", "All")
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("plantmanager/Reports:purpose", 'All');
 
 
   const [finishedStatus, setFinishedStatus] =
-    useState<FinishedStatus>("All Statuses")
+    useViewState<FinishedStatus>("plantmanager/Reports:finishedStatus", "All Statuses")
 
   const [materialLocation, setMaterialLocation] = useState('All');
   const [materialColor, setMaterialColor] = useState('');
@@ -508,7 +511,7 @@ export default function PlantManagerReports() {
                   <th>Available</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredMaterials, page).map((item) => (
                   <tr key={item.id}>
                     <td className="font-mono">{item.reference}</td>
@@ -521,7 +524,7 @@ export default function PlantManagerReports() {
                     <td className="font-mono">{item.balance}</td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination
               page={page}
@@ -608,10 +611,10 @@ export default function PlantManagerReports() {
                   <th>Customer Order</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredFinished, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.barcode}</td>
+                    <td className="font-mono"><RecordReference value={item.barcode} /></td>
                     <td>{normalizedProductType(item.product)}</td>
                     <td>{item.grade}</td>
                     <td>
@@ -627,13 +630,13 @@ export default function PlantManagerReports() {
                       />
                     </td>
                     <td>{item.currentLocation}</td>
-                    <td className="font-mono">{item.poRef}</td>
+                    <td className="font-mono"><RecordReference value={item.poRef} /></td>
                     <td className="font-mono">
                       {item.reservedForOrderRef || "—"}
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination
               page={page}
@@ -694,11 +697,11 @@ export default function PlantManagerReports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredProduction, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.poNo}</td>
-                    <td className="font-mono">{item.moRef}</td>
+                    <td className="font-mono"><RecordReference value={item.poNo} /></td>
+                    <td className="font-mono"><RecordReference value={item.moRef} /></td>
                     <td>{normalizedProductType(item.product)}</td>
                     <td>
                       {item.grade} · {item.diameter}
@@ -712,7 +715,7 @@ export default function PlantManagerReports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination
               page={page}
@@ -764,7 +767,7 @@ export default function PlantManagerReports() {
                   <th>Date / Time</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredUsage, page).map((item) => (
                   <tr key={item.id}>
                     <td className="font-mono">{item.transactionId}</td>
@@ -776,7 +779,7 @@ export default function PlantManagerReports() {
                     <td>{new Date(item.dateTime).toLocaleString("en-PH")}</td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination
               page={page}
@@ -825,10 +828,10 @@ export default function PlantManagerReports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredRecycling, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.batchNo}</td>
+                    <td className="font-mono"><RecordReference value={item.batchNo} /></td>
                     <td className="font-mono">{item.sourcePO || "—"}</td>
                     <td>{item.product || "—"}</td>
                     <td>{item.originalKg.toFixed(3)}</td>
@@ -839,7 +842,7 @@ export default function PlantManagerReports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination
               page={page}

@@ -66,12 +66,30 @@ interface Props {
   size?: 'sm' | 'md';
 }
 
+export const statusPresentation = (status: string) => {
+  const key = status.trim().toLowerCase();
+  const aliases: Record<string, [string, string]> = {
+    'ready for release': ['Ready for Ship Out', 'badge-green'], 'ready for ship out': ['Ready for Ship Out', 'badge-green'],
+    'temporary storage': ['Temporary Storage', 'badge-amber'], 'reserved': ['Reserved', 'badge-amber'],
+    'awaiting storage': ['Awaiting Storage', 'badge-amber'], 'quality pending': ['Quality Pending', 'badge-amber'],
+    'quality pass': ['Quality Pass', 'badge-green'],
+    'shipped out': ['Shipped', 'badge-purple'], 'shipped': ['Shipped', 'badge-purple'],
+    'available': ['Available', 'badge-green'],
+    'released / shipped out': ['Shipped', 'badge-purple'], 'shipped out / released': ['Shipped', 'badge-purple'],
+    'low stock': ['Low Stock', 'badge-red'], 'out of stock': ['Out of Stock', 'badge-red'],
+    'replenishment in progress': ['Replenishment In Progress', 'badge-blue'],
+  };
+  const match = aliases[key];
+  return { label: match?.[0] || status, className: match?.[1] || BADGE_MAP[status] || Object.entries(BADGE_MAP).find(([name]) => name.toLowerCase() === key)?.[1] || 'badge-gray' };
+};
+
 export default function StatusBadge({ status, size = 'md' }: Props) {
-  const cls = BADGE_MAP[status] || 'badge-gray';
+  const display = statusPresentation(status);
+  const cls = display.className;
   const px = size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]';
   return (
-    <span className={`${cls} ${px} rounded font-medium inline-block`}>
-      {status}
+    <span className={`${cls} ${px} rounded font-medium inline-block`} title={display.label !== status ? `System status: ${status}` : undefined}>
+      {display.label}
     </span>
   );
 }

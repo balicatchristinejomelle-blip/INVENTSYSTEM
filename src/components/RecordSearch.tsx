@@ -3,6 +3,8 @@ import { useApp } from "../store"
 import { withPrintSearch } from '../printableRecords';
 import ProductFilters, { useProductFilters } from './ProductFilters';
 import { emptyProductFilter, matchesProductFilter, type ProductFilter } from '../productFilters';
+import { useViewState, useFilterChangeEffect } from '../uiViewState';
+import { ActiveFilters } from './UXFeedback';
 
 export const normalizeQuery = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim()
@@ -64,7 +66,7 @@ export function useSearchPaginationReset(
   ...resetters: Array<(page: number) => void>
 ) {
   const { query, productFilter } = useContext(SearchContext)
-  useEffect(() => {
+  useFilterChangeEffect(() => {
     resetters.forEach((reset) => reset(1))
   }, [query, productFilter])
 }
@@ -75,8 +77,8 @@ export function withRecordSearch(
   productControls = false,
 ) {
   return function SearchableRecordPage() {
-    const [query, setQuery] = useState("")
-    const productFilters = useProductFilters();
+    const [query, setQuery] = useViewState('page-search', "")
+    const productFilters = useProductFilters(undefined, 'page-product-filters');
     return (
       <SearchContext.Provider value={{ query, collections, productFilter: productControls && Object.keys(emptyProductFilter).some(key => productFilters.value[key as keyof ProductFilter]) ? productFilters.value : undefined }}>
         <div className={`page-stack${productControls ? ' product-filter-page' : ''}`}>
@@ -90,6 +92,7 @@ export function withRecordSearch(
               placeholder="Search reference, name, specification, barcode, location, date, or status..."
             />
           </div>
+          <ActiveFilters items={[["Search", query]]} onClear={() => setQuery('')} clearLabel="Clear search" />
           {productControls && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
           <Page />
         </div>

@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -19,7 +22,7 @@ function MOTracking() {
 
   const [viewId, setViewId] = useState<string | null>(null)
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("marketing/MOTracking:page", 1)
 
   useSearchPaginationReset(setPage)
 
@@ -50,14 +53,14 @@ function MOTracking() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(manufacturingOrders, page).map((mo) => (
               <tr key={mo.id} className="table-row-hover" onClick={() => setViewId(mo.id)}>
                 <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                  {mo.moNo}
+                  <RecordReference value={mo.moNo} />
                 </td>
                 <td style={{ fontSize: 11, color: "var(--accent-blue)" }}>
-                  {mo.orderRef}
+                  <RecordReference value={mo.orderRef} />
                 </td>
                 <td style={{ fontSize: 12 }}>{mo.product}</td>
                 <td style={{ fontSize: 12 }}>
@@ -79,7 +82,7 @@ function MOTracking() {
                 </td>
               </tr>
             ))}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={manufacturingOrders.length} onPageChange={setPage} />
       </div>

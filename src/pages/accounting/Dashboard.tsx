@@ -1,3 +1,4 @@
+import { TableBody } from '../../components/UXFeedback';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -106,7 +107,7 @@ function AccountingDashboard() {
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {transactions.slice(0, 5).map((tx) => (
                 <tr key={tx.id} className="table-row-hover">
                   <td className="font-mono" style={{ fontSize: 11 }}>
@@ -127,7 +128,7 @@ function AccountingDashboard() {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
         </div>
       </section>

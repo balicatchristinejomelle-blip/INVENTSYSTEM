@@ -1,3 +1,9 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { useCreatedRecordNotice } from '../../components/UXFeedback';
+import ActionButton from '../../components/ActionButton';
+import { DismissButton } from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productionOriginGroup } from '../../finishedPipeRelations';
@@ -36,6 +42,7 @@ import type { MaterialGrade, ProductSpecification, ProductType, ProductionOrder 
 export default function PMProductionOrders() {
   const app = useApp();
   const { productionOrders, manufacturingOrders, pellets, orders, materialRequests, createProductionOrder, createStockReplenishmentPO, navigate } = app;
+  const creationNotice = useCreatedRecordNotice(productionOrders, record => record.poNo);
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -43,11 +50,11 @@ export default function PMProductionOrders() {
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("plantmanager/ProductionOrders:search", "")
 
-  const [moPage, setMoPage] = useState(1)
+  const [moPage, setMoPage] = useViewState("plantmanager/ProductionOrders:moPage", 1)
 
-  const [poPage, setPoPage] = useState(1)
+  const [poPage, setPoPage] = useViewState("plantmanager/ProductionOrders:poPage", 1)
   const productFilters = useProductFilters(() => { setMoPage(1); setPoPage(1); });
 
   const [showReplenishment, setShowReplenishment] = useState(false);
@@ -110,6 +117,7 @@ export default function PMProductionOrders() {
 
   return (
     <div>
+      {creationNotice.message && <div className="alert-success" role="status">{creationNotice.message}</div>}
       <div className="filter-panel product-filter-panel mb-4">
         <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); setMoPage(1); setPoPage(1); }} placeholder="Search PO, source, MO, product, grade, size, SDR / Thickness, priority, date, or status" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
@@ -142,14 +150,14 @@ export default function PMProductionOrders() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {pageRecords(filteredMOs, moPage).map((mo) => {
                 const existingPO = productionOrders.find(order => order.moRef === mo.moNo);
 
                 return (
                   <tr key={mo.id} className="table-row-hover">
                     <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                      {mo.moNo}
+                      <RecordReference value={mo.moNo} />
                     </td>
                     <td style={{ fontSize: 12 }}>
                       {mo.product} {mo.diameter}
@@ -169,14 +177,14 @@ export default function PMProductionOrders() {
                     </td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="button-group">
-                        {mo.status === 'New' && !existingPO && <button className="btn-primary btn-compact" onClick={() => createProductionOrder(mo.id)}>Create Production Order</button>}
+                        {mo.status === 'New' && !existingPO && <ActionButton className="btn-primary btn-compact" onStart={creationNotice.begin} onClick={() => createProductionOrder(mo.id)}>Create Production Order</ActionButton>}
                         <button className="btn-secondary btn-compact" onClick={() => setShowMO(mo.id)}>View MO</button>
                       </div>
                     </td>
                   </tr>
                 )
               })}
-            </tbody>
+            </TableBody>
           </table>
           <Pagination page={moPage} totalRecords={filteredMOs.length} onPageChange={setMoPage} noun="manufacturing orders" />
         </div>
@@ -200,17 +208,17 @@ export default function PMProductionOrders() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {pageRecords(filteredPOs, poPage).map((po) => {
                 const pct = po.targetQty > 0 ? Math.round(po.completedQty / po.targetQty * 100) : 0;
 
                 return (
                   <tr key={po.id} className="table-row-hover" onClick={() => setViewId(po.id)}>
                     <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                      {po.poNo}
+                      <RecordReference value={po.poNo} />
                     </td>
                     <td style={{ fontSize: 11, color: "var(--accent-blue)" }}>
-                      {po.moRef}
+                      <RecordReference value={po.moRef} />
                     </td>
                     <td style={{ fontSize: 12 }}>
                       {po.product} {po.diameter}
@@ -242,7 +250,7 @@ export default function PMProductionOrders() {
                   </tr>
                 )
               })}
-            </tbody>
+            </TableBody>
           </table>
           <Pagination page={poPage} totalRecords={filteredPOs.length} onPageChange={setPoPage} noun="production orders" />
         </div>
@@ -309,7 +317,7 @@ export default function PMProductionOrders() {
           </div>
         </Modal>
       )}
-      <Modal open={showReplenishment} title="Create Production Order · Stock Replenishment" onClose={() => setShowReplenishment(false)} width="760px">
+      <Modal draft={replenishment} open={showReplenishment} title="Create Production Order · Stock Replenishment" onClose={() => setShowReplenishment(false)} width="760px">
         <div className="page-stack">
           <div className="alert-info">
             <strong>Production Source: Stock Replenishment</strong>
@@ -383,8 +391,8 @@ export default function PMProductionOrders() {
           </div>
           {replenishmentError && <div className="alert-error">{replenishmentError}</div>}
           <div className="form-actions">
-            <button className="btn-secondary" onClick={() => setShowReplenishment(false)}>Cancel</button>
-            <button className="btn-primary" onClick={submitReplenishment}>Create Stock Replenishment PO</button>
+            <DismissButton className="btn-secondary" onClick={() => setShowReplenishment(false)}>Cancel</DismissButton>
+            <ActionButton className="btn-primary" onStart={creationNotice.begin} onClick={submitReplenishment}>Create Stock Replenishment PO</ActionButton>
           </div>
         </div>
       </Modal>

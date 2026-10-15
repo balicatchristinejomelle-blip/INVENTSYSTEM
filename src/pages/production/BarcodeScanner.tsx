@@ -1,3 +1,5 @@
+import RecordReference from '../../components/RecordReference';
+import ActionButton from '../../components/ActionButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
 import LocationSelect from '../../components/LocationSelect';
 import { findFinishedPipeBarcode } from '../../finishedPipeBarcodes';
@@ -83,6 +85,7 @@ export default function BarcodeScanner() {
   const [completion, setCompletion] = useState("")
 
   const manualInputRef = useRef<HTMLInputElement>(null)
+  const hardwareCaptureRef = useRef<HTMLDivElement>(null);
 
   const scannerBufferRef = useRef("")
 
@@ -125,7 +128,11 @@ export default function BarcodeScanner() {
 
   const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode === 'Store Finished Pipes' ? 'Inspect Finished Pipe Storage' : mode;
 
-  const focusHardwareInput = () => undefined
+  const focusHardwareInput = () => {
+    window.requestAnimationFrame(() => {
+      if (!document.querySelector('[aria-modal="true"]')) hardwareCaptureRef.current?.focus({ preventScroll: true });
+    });
+  };
 
   useEffect(() => {
     processedRef.current.clear();
@@ -317,6 +324,7 @@ export default function BarcodeScanner() {
     }
     const now = Date.now();
     if (lastSubmissionRef.current.value === clean && now - lastSubmissionRef.current.time < 300) {
+      setScannerStatus('Duplicate scan ignored — review the current item.');
       focusHardwareInput();
       return;
     }
@@ -335,6 +343,7 @@ export default function BarcodeScanner() {
     const captureScannerInput = (event: KeyboardEvent) => {
       if (manualOpen || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
+      if (document.querySelector('[aria-modal="true"]')) return;
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
       const now = performance.now();
       if (event.key === 'Enter') {
@@ -523,6 +532,7 @@ export default function BarcodeScanner() {
       <div>
       <div className="section-title">Production Barcode Scanner</div>
       <div className="helper-text">Honeywell Voyager XP 1470g hardware scanning with manual entry fallback.</div>
+      <div className="helper-text">Current Shift: {currentShift} · Operator: {currentUser?.name} · {currentUser?.employeeId}</div>
     </div>
       {sessionStorage.getItem('hpai:production-output-draft') && <div className="alert-info">
       Production output entry is paused while materials are loaded.
@@ -557,7 +567,7 @@ export default function BarcodeScanner() {
           </div>
         </div>
         <div className="block-label">Scan the physical barcode using the Honeywell scanner.</div>
-        <div className="hardware-scanner-display font-mono" role="status" aria-live="polite">
+        <div ref={hardwareCaptureRef} tabIndex={0} className="hardware-scanner-display font-mono" role="status" aria-label="Hardware barcode capture. Scan a barcode followed by Enter." aria-live="polite">
         <span className="scanner-capture-indicator" aria-hidden="true" />
         <span>Ready for Honeywell scan</span>
       </div>
@@ -590,7 +600,7 @@ export default function BarcodeScanner() {
       </div>
       <div className="helper-text">Use the complete value printed below the physical barcode label.</div>
     </section>}
-      {error && <div className="alert-error">{error}</div>}
+      {error && <div className="alert-error" role="alert">{error}</div>}
       {legacyPipe && <FinishedPipeDetails pipe={legacyPipe} readOnly />}
       {result?.category === "Pellet" && (
         <div className="app-card detail-card">
@@ -628,6 +638,7 @@ export default function BarcodeScanner() {
                 <div>
                   <span className="field-label">Destination Location</span>
                   <LocationSelect value={storageLocation} onChange={setStorageLocation} />
+                  {!storageLocation && error.includes('Storage Location') && <div className="field-error" role="alert">Storage Location is required. Select the physical receiving location.</div>}
                 </div>
               </div>
             )
@@ -637,7 +648,7 @@ export default function BarcodeScanner() {
                 <span className="field-label">Physical Bag</span>
                 <strong>1 bag · 25 kg</strong>
               </div>
-              <button className="btn-primary" onClick={confirmPellet}>Confirm Pellet Load</button>
+              <ActionButton className="btn-primary" onClick={confirmPellet}>Confirm Pellet Load</ActionButton>
             </div>
           ) : (
             <div className="alert-info mt-3">
@@ -672,16 +683,16 @@ export default function BarcodeScanner() {
             <div className="alert-info mt-3">Storage Purpose: {pipeOrigin?.purpose || 'Source Not Resolved'} (read-only). Plant Manager confirms compatible physical locations in Finished Goods. Production cannot change Storage Purpose or confirm storage.</div>
           ) : (
             <div className="action-row mt-3">
-              <button className="btn-primary" disabled={finishedPipeInventory(result.record, app).bucket !== 'Ready for Ship Out'} onClick={confirmRelease}>Confirm Release</button>
+              <ActionButton className="btn-primary" confirmMessage={`Release ${result.barcode} for shipment? This records Stock Out and removes the pipe from company On Hand.`} disabled={finishedPipeInventory(result.record, app).bucket !== 'Ready for Ship Out'} onClick={confirmRelease}>Confirm Release</ActionButton>
             </div>
           )}
         </div>
       )}
       {hasBottomAction && <div className="scanner-bottom-action">
       {result?.category === 'Pellet' && mode === 'Receive Pellets' && result.record.locationStatus !== 'Stored'
-        ? <button className="btn-success" onClick={confirmReceive}>
+        ? <ActionButton className="btn-success" confirmMessage={storageLocation ? `Confirm receipt of ${result.barcode} at Location ${storageLocation}?` : undefined} onClick={confirmReceive}>
             {result.record.type === 'Virgin' ? 'Confirm Receipt' : 'Confirm Storage'}
-          </button>
+          </ActionButton>
           : <button className="btn-primary" onClick={finishSession}>
               {mode === 'Receive Pellets' ? 'Complete Receiving'
                 : mode === 'Load Pellets' ? 'Finish Pellet Loading'
@@ -700,6 +711,7 @@ export default function BarcodeScanner() {
           <div className="section-title">
             {lastScan.kind === 'duplicate' ? 'Already Processed' : 'Last Scan'}
           </div>
+          {lastScan.kind === 'duplicate' && <strong>This barcode has already been scanned.</strong>}
           <Info label="Detected Item" value={lastScan.itemType} />
           <Info label="Barcode" value={<strong className="font-mono">{lastScan.barcode}</strong>} />
           {lastScan.weight && <Info label="Weight" value={`${lastScan.weight} kg`} />}
@@ -737,7 +749,7 @@ export default function BarcodeScanner() {
               <article className="scan-item" key={`${item.barcode}-${item.time}`}>
                 <div className="scan-item-number">{index + 1}</div>
                 <div className="scan-item-body">
-                  <strong className="font-mono">{item.barcode}</strong>
+                  <strong className="font-mono"><RecordReference value={item.barcode} /></strong>
                   <span>
                     {item.title} · {item.subtitle}
                   </span>
@@ -802,7 +814,7 @@ function Info({ label, value }: { label: string ; value: React.ReactNode }) {
   return (
     <div>
       <div className="field-label">{label}</div>
-      <div className="field-value">{value}</div>
+      <div className="field-value"><RecordReference value={value} /></div>
     </div>
   )
 }

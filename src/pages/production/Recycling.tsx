@@ -1,3 +1,7 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import ActionButton from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
@@ -61,7 +65,7 @@ export default function ProductionRecycling() {
   const app = useApp();
   const { rejectedMaterials, recyclingBatches, totalRejectedKg, updateRecyclingStage, completeRecyclingBatch } = app;
 
-  const [tab, setTab] = useState<'rejected' | 'recycling'>('rejected');
+  const [tab, setTab] = useViewState<'rejected' | 'recycling'>("production/Recycling:tab", 'rejected');
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -71,9 +75,9 @@ export default function ProductionRecycling() {
 
   const [message, setMessage] = useState("")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("production/Recycling:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("production/Recycling:page", 1)
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
@@ -150,11 +154,11 @@ export default function ProductionRecycling() {
                 <th>Date</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {pageRecords(filteredRejected, page).map((record) => (
                 <tr key={record.id}>
                   <td className="font-mono">{record.rejectionId}</td>
-                  <td>{record.poRef}</td>
+                  <td><RecordReference value={record.poRef} /></td>
                   <td>{record.product}</td>
                   <td>{record.quantity}</td>
                   <td>
@@ -165,7 +169,7 @@ export default function ProductionRecycling() {
                   <td>{record.date}</td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
           {!filteredRejected.length && (
             <div className="empty-state empty-state-action">
@@ -189,10 +193,10 @@ export default function ProductionRecycling() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {pageRecords(filteredBatches, page).map((batch) => (
                 <tr key={batch.id}>
-                  <td className="font-mono">{batch.batchNo}</td>
+                  <td className="font-mono"><RecordReference value={batch.batchNo} /></td>
                   <td>{batch.sourcePO || "—"}</td>
                   <td>{batch.originalKg.toFixed(1)} kg</td>
                   <td>
@@ -208,18 +212,18 @@ export default function ProductionRecycling() {
                     <div className="button-group">
               <button className="btn-secondary btn-compact" onClick={() => { setSelectedId(batch.id); setMessage(''); }}>View</button>
               <DocumentPrintButton className="btn-secondary btn-compact" recordId={batch.id} recordType="RECYCLING RECORD" onClick={() => setDocumentAction({ id: batch.id, autoPrint: true })} />
-              {batch.status === 'Ready for Cutting' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-cutting')}>Start Cutting</button>}
-              {batch.status === 'Cutting' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'complete-cutting')}>Complete Cutting</button>}
+              {batch.status === 'Ready for Cutting' && <ActionButton className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-cutting')}>Start Cutting</ActionButton>}
+              {batch.status === 'Cutting' && <ActionButton className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'complete-cutting')}>Complete Cutting</ActionButton>}
               {batch.status === 'Weighing' && <button className="btn-primary btn-compact" onClick={() => { setSelectedId(batch.id); setWeightMode('cut'); setWeight(''); }}>Submit Weight</button>}
-              {batch.status === 'Ready for Crushing' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-crushing')}>Start Crushing</button>}
-              {batch.status === 'Crushing' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'complete-crushing')}>Complete Crushing</button>}
-              {batch.status === 'Ready for Pelletizing' && <button className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-pelletizing')}>Start Pelletizing</button>}
+              {batch.status === 'Ready for Crushing' && <ActionButton className="btn-primary btn-compact" confirmMessage={`Start crushing batch ${batch.batchNo}? Confirm that the physical material and equipment are ready.`} onClick={() => runAction(batch.id, 'start-crushing')}>Start Crushing</ActionButton>}
+              {batch.status === 'Crushing' && <ActionButton className="btn-primary btn-compact" confirmMessage={`Complete crushing batch ${batch.batchNo}? Confirm that physical crushing is finished.`} onClick={() => runAction(batch.id, 'complete-crushing')}>Complete Crushing</ActionButton>}
+              {batch.status === 'Ready for Pelletizing' && <ActionButton className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-pelletizing')}>Start Pelletizing</ActionButton>}
               {batch.status === 'Pelletizing' && <button className="btn-primary btn-compact" onClick={() => { setSelectedId(batch.id); setWeightMode('recovered'); setWeight(''); }}>Complete Pelletizing</button>}
             </div>
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
           {!filteredBatches.length && (
             <div className="empty-state empty-state-action">
@@ -256,9 +260,9 @@ export default function ProductionRecycling() {
               <DocumentPrintButton className="btn-primary" recordId={selected.id} recordType="RECYCLING RECORD" onClick={() => setDocumentAction({ id: selected.id, autoPrint: true })} />
               <button className="btn-secondary" onClick={() => { setSelectedId(null); setWeightMode(null); }}>Close</button>
               {weightMode && (
-                <button className="btn-primary" onClick={submitWeight}>
+                <ActionButton className="btn-primary" onClick={submitWeight}>
                   {weightMode === 'cut' ? 'Submit Weight' : 'Complete & Create Bags'}
-                </button>
+                </ActionButton>
               )}
             </div>
           </div>

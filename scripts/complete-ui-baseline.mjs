@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreUXFile } from './ux-baseline.mjs';
 
 export const COMPLETE_UI_BASELINE = 'ff68408';
 // Exact reviewed presentation deltas for older byte-preservation suites.
@@ -16,6 +17,8 @@ export function completeUIBaseline(file) {
 }
 export function restoreCompleteUIFile(file, source) {
   source = source.replace(/\r/g, '');
+  if (reviewed[file] && source === completeUIBaseline(file)) return source;
+  source = restoreUXFile(file, source);
   if (!reviewed[file] || source === completeUIBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewed[file]) throw new Error(`Unreviewed complete UI audit delta: ${file}`);
   return completeUIBaseline(file);

@@ -1,3 +1,5 @@
+import ActionButton from '../../components/ActionButton';
+import { DismissButton } from '../../components/ActionButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useEffect, useState } from "react"
@@ -127,7 +129,7 @@ export default function ProductionShiftTurnover() {
           <Field label="Important Instructions" value={pendingTurnover.importantInstructions || 'No special instructions.'} />
         </div>
         <div className="action-row">
-          <button className="btn-success" onClick={() => { acceptTurnover(); navigate('prod-orders'); }}>Accept & Continue</button>
+          <ActionButton className="btn-success" onClick={() => { acceptTurnover(); navigate('prod-orders'); }}>Accept & Continue</ActionButton>
         </div>
       </div>
     )
@@ -401,8 +403,8 @@ export default function ProductionShiftTurnover() {
           </div>
           <div className="alert-warning">Submit this Shift Turnover and Clock Out? The Clock Out timestamp will be captured only after confirmation.</div>
           <div className="form-actions">
-            <button className="btn-secondary" onClick={() => setConfirming(false)}>Back to Edit</button>
-            <button className="btn-primary" onClick={confirm}>Confirm Turnover & Clock Out</button>
+            <DismissButton className="btn-secondary" onClick={() => setConfirming(false)}>Back to Edit</DismissButton>
+            <ActionButton className="btn-primary" onClick={confirm}>Confirm Turnover & Clock Out</ActionButton>
           </div>
         </div>
       </Modal>

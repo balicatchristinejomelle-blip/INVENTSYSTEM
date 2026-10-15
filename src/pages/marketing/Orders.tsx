@@ -1,3 +1,8 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import ActionButton from '../../components/ActionButton';
+import { DismissButton } from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
@@ -40,11 +45,11 @@ export default function Orders() {
 
   const [viewId, setViewId] = useState<string | null>(null)
 
-  const [filter, setFilter] = useState("All")
+  const [filter, setFilter] = useViewState("marketing/Orders:filter", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("marketing/Orders:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("marketing/Orders:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const [stockCheck, setStockCheck] = useState<{ available: number; shortage: number } | null>(null);
@@ -192,11 +197,11 @@ export default function Orders() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((o) => (
               <tr key={o.id} className="table-row-hover" onClick={() => setViewId(o.id)}>
                 <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                  {o.orderNo}
+                  <RecordReference value={o.orderNo} />
                 </td>
                 <td style={{ fontSize: 11 }}>{o.orderDate}</td>
                 <td style={{ fontSize: 12 }}>{o.customerName}</td>
@@ -225,7 +230,7 @@ export default function Orders() {
                 <td colSpan={10} className="empty-state">No records match the selected filters.</td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
@@ -252,7 +257,7 @@ export default function Orders() {
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>MO Reference</div>
                 <div style={{ fontSize: 13, color: 'var(--accent-blue)', fontWeight: 500 }}>
-                  {viewOrder.moRef}
+                  <RecordReference value={viewOrder.moRef} />
                 </div>
               </div>
             )}
@@ -272,11 +277,11 @@ export default function Orders() {
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={viewOrder.id} recordType="CUSTOMER ORDER" onClick={() => setDocumentAction({ id: viewOrder.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
-            {viewOrder.status !== 'Released' && (viewOrder.reservedQuantity || 0) < viewOrder.quantity && <button className="btn-primary" onClick={() => {
+            {viewOrder.status !== 'Released' && (viewOrder.reservedQuantity || 0) < viewOrder.quantity && <ActionButton className="btn-primary" onClick={() => {
               const remaining = Math.max(0, viewOrder.quantity - (viewOrder.reservedQuantity || 0) - (viewOrder.releasedQuantity || 0));
               const result = reserveFinishedGoods(viewOrder.id, remaining);
               setReservationMessage(result.success ? `${remaining} physical item(s) reserved. Physical on-hand is unchanged until Production release scan.` : (result.error || 'Reservation failed.'));
-            }}>Reserve Available Stock</button>}
+            }}>Reserve Available Stock</ActionButton>}
           </div>
           {reservationMessage && (
             <div className={reservationMessage.includes('reserved.') ? 'alert-success mt-3' : 'alert-error mt-3'} style={{ whiteSpace: 'pre-line' }}>
@@ -293,7 +298,7 @@ export default function Orders() {
       />
 
       {/* New order modal */}
-      <Modal open={showNew} title="New Customer Order" onClose={() => { setShowNew(false); setStockCheck(null); }} width="580px">
+      <Modal draft={form} open={showNew} title="New Customer Order" onClose={() => { setShowNew(false); setStockCheck(null); }} width="580px">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Customer</label>
@@ -375,9 +380,9 @@ export default function Orders() {
         )}
 
         <div className="form-actions">
-          <button className="btn-secondary" onClick={() => { setShowNew(false); setStockCheck(null); }}>Cancel</button>
+          <DismissButton className="btn-secondary" onClick={() => { setShowNew(false); setStockCheck(null); }}>Cancel</DismissButton>
           <button className="btn-secondary" onClick={handleCheckStock}>Check Availability</button>
-          <button className="btn-primary" onClick={handleCreateOrder}>Create Order & Fulfill</button>
+          <ActionButton className="btn-primary" onClick={handleCreateOrder}>Create Order & Fulfill</ActionButton>
         </div>
       </Modal>
     </div>

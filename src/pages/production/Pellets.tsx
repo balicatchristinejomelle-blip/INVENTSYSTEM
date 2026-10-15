@@ -1,3 +1,8 @@
+import RecordReference from '../../components/RecordReference';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -57,7 +62,7 @@ function PelletDetailModal({ pellet, onClose }: DetailModalProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="app-card detail-card">
           <div className="section-title">Barcode</div>
-          <div className="field-value font-mono">{pellet.barcode}</div>
+          <div className="field-value font-mono"><RecordReference value={pellet.barcode} /></div>
           <div className="helper-text">The system assigned this barcode automatically. Production scans the label during authorized operations.</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -139,8 +144,8 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
     return (
       <Modal open onClose={handleClose} title="Load to Production" width="480px">
         <div className="alert-success" style={{ padding: '14px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-          Successfully loaded {fmt(parsedKg)} kg from batch {pellet.batchNo} to{" "}
-          {activePO.poNo}.
+          Successfully loaded {fmt(parsedKg)} kg from batch <RecordReference value={pellet.batchNo} /> to{" "}
+          <RecordReference value={activePO.poNo} />.
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={handleClose}>Done</button>
@@ -185,7 +190,7 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
         {/* Note for preferred pellet */}
         {pellet.grade === 'PE100' && pellet.color === 'Black (BK)' && (
           <div className="alert-info" style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6 }}>
-            Virgin PE100 Black (BK) is the preferred pellet for {activePO.poNo}.
+            Virgin PE100 Black (BK) is the preferred pellet for <RecordReference value={activePO.poNo} />.
           </div>
         )}
 
@@ -215,8 +220,8 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
         </div>
 
         <div className="form-actions">
-          <button className="btn-secondary" onClick={handleClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleConfirm}>Confirm Pellet Load</button>
+          <DismissButton className="btn-secondary" onClick={handleClose}>Cancel</DismissButton>
+          <ActionButton className="btn-primary" onClick={handleConfirm}>Confirm Pellet Load</ActionButton>
         </div>
       </div>
     </Modal>
@@ -236,19 +241,19 @@ export default function Pellets() {
 
   const [detailPellet, setDetailPellet] = useState<PelletInventory | null>(null);
 
-  const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
+  const [category, setCategory] = useViewState<MaterialCategoryTab>("production/Pellets:category", 'Virgin Pellets');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("production/Pellets:grade", "All")
 
-  const [lifecycle, setLifecycle] = useState<'Available' | 'Open / WIP' | 'Fully Consumed'>('Available');
+  const [lifecycle, setLifecycle] = useViewState<'Available' | 'Open / WIP' | 'Fully Consumed'>("production/Pellets:lifecycle", 'Available');
 
-  const [location, setLocation] = useState('All');
-  const [color, setColor] = useState('');
-  const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
+  const [location, setLocation] = useViewState("production/Pellets:location", 'All');
+  const [color, setColor] = useViewState("production/Pellets:color", '');
+  const [colorantType, setColorantType] = useViewState<'All' | 'Base Colorant' | 'Stripe Colorant'>("production/Pellets:colorantType", 'All');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("production/Pellets:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("production/Pellets:page", 1)
 
   const period = usePeriod()
 
@@ -291,7 +296,7 @@ export default function Pellets() {
         </div>
         {activePO && (
           <span className="badge-blue" style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
-            Active PO: {activePO.poNo}
+            Active PO: <RecordReference value={activePO.poNo} />
           </span>
         )}
       </div>
@@ -334,7 +339,7 @@ export default function Pellets() {
         <div className="app-card" style={{ padding: '14px 16px' }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Actual Pellet Usage — {activePO.poNo}
+              Actual Pellet Usage — <RecordReference value={activePO.poNo} />
             </div>
             <div className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {fmt(loaded)} kg
@@ -396,7 +401,7 @@ export default function Pellets() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredColorants, page).map((colorant) => (
                   <tr key={colorant.id}>
                     <td className="font-mono">{colorant.colorantId}</td>
@@ -418,7 +423,7 @@ export default function Pellets() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           ) : (
             <table className="app-table" style={{ width: "100%" }}>
@@ -436,7 +441,7 @@ export default function Pellets() {
                 <th data-actions>Actions</th>
               </tr>
             </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredPellets, page).map((pellet) => {
                   const lowStock = pellet.availableKg < 100
 
@@ -456,7 +461,7 @@ export default function Pellets() {
                   >
                       <td>
                       <span className="font-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-blue)' }}>
-                        {pellet.batchNo}
+                        <RecordReference value={pellet.batchNo} />
                       </span>
                     </td>
                       <td>
@@ -487,7 +492,7 @@ export default function Pellets() {
                     </td>
                       <td>
                         <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          {pellet.barcode}
+                          <RecordReference value={pellet.barcode} />
                         </span>
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -518,7 +523,7 @@ export default function Pellets() {
                     </tr>
                   )
                 })}
-              </tbody>
+              </TableBody>
             </table>
           )}
         </div>

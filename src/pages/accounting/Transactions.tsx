@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productFilterRecord } from '../../productFilters';
@@ -30,15 +32,15 @@ export default function Transactions() {
   const app = useApp();
   const { transactions, navigate } = app;
 
-  const [category, setCategory] = useState<Category>("All")
+  const [category, setCategory] = useViewState<Category>("accounting/Transactions:category", "All")
 
-  const [type, setType] = useState("All")
+  const [type, setType] = useViewState("accounting/Transactions:type", "All")
 
-  const [date, setDate] = useState("")
+  const [date, setDate] = useViewState("accounting/Transactions:date", "")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("accounting/Transactions:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/Transactions:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const types = useMemo(() => ['All', ...Array.from(new Set(transactions.map(item => item.transactionType)))], [transactions]);
@@ -148,7 +150,7 @@ export default function Transactions() {
               <th data-actions>Action</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(visible, page).map((item) => {
               const unit = unitFor(item)
 
@@ -211,7 +213,7 @@ export default function Transactions() {
                 </td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={visible.length} onPageChange={setPage} noun="movements" />
       </div>

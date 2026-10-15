@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { readPipeSpecifications } from '../finishedPipeRelations';
 import { batchOriginTrace } from '../productionGroups';
 import type { FinishedGood } from '../types';
+import RecordReference, { RelatedRecords } from './RecordReference';
 
 export default function BatchTraceability({ pipes }: { pipes: readonly FinishedGood[] }) {
   const app = useApp();
@@ -11,6 +12,7 @@ export default function BatchTraceability({ pipes }: { pipes: readonly FinishedG
     'Manufacturing Order': trace.mo, 'Customer Order': trace.order, Buyer: trace.buyer, 'Storage Purpose': trace.purpose, Shift: trace.shift, 'Temporary Storage': trace.temporary };
   return <section className="batch-traceability">
     <div className="section-title">Production Origin {trace.seasonal && <span className="badge-amber">SEASONAL</span>}</div>
-    <div className="responsive-grid">{Object.entries(fields).map(([label, value]) => <div key={label}><div className="field-label">{label}</div><div className="field-value">{value}</div></div>)}</div>
+    <div className="responsive-grid">{Object.entries(fields).map(([label, value]) => <div key={label}><div className="field-label">{label}</div><div className="field-value"><RecordReference value={value} /></div></div>)}</div>
+    <RelatedRecords references={[trace.originGroup, trace.po, trace.mo, trace.order].filter((value): value is string => typeof value === 'string')} />
   </section>;
 }

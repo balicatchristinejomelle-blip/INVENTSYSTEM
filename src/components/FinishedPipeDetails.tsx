@@ -6,6 +6,9 @@ import FinishedPipeStorage from './FinishedPipeStorage';
 import { metadataFor, printableKey } from '../reprintWorkflow';
 import DocumentViewer, { type PrintableDocument } from './DocumentViewer';
 import { customerOrderDocument, manufacturingOrderDocument, productionOrderDocument } from '../documentPrint';
+import RecordReference, { RelatedRecords } from './RecordReference';
+import { TermHelp } from './UXFeedback';
+import ActionButton from './ActionButton';
 
 export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch, readOnly = false }: { pipe: FinishedGood; compact?: boolean; onOpenBatch?: () => void; readOnly?: boolean }) {
   const app = useApp();
@@ -44,12 +47,13 @@ export default function FinishedPipeDetails({ pipe, compact = false, onOpenBatch
       <div className="section-title">System Record Details {result.seasonal && <span className="badge-amber">SEASONAL</span>}</div>
       {!compact && <div className="helper-text">{count === 0 ? 'NOT PRINTED' : `PRINTED · ${count} print event${count === 1 ? '' : 's'}`}</div>}
       {!!live.barcodeMigrations?.length && <div className="alert-warning">Legacy physical labels are obsolete. Print/reprint the current barcode through the existing authorized approval workflow.</div>}
-      <div className="responsive-grid">{Object.entries(values).map(([label, value]) => <div key={label}><div className="field-label">{label}</div><div className="field-value" style={{ overflowWrap: 'anywhere' }}>{value}</div></div>)}</div>
+      <div className="responsive-grid">{Object.entries(values).map(([label, value]) => <div key={label}><div className="field-label">{label}<TermHelp term={label} /></div><div className="field-value" style={{ overflowWrap: 'anywhere' }}><RecordReference value={value} /></div></div>)}</div>
+      {!compact && <RelatedRecords record={live} />}
       {!!live.barcodeMigrations?.length && <details><summary>Barcode migration history (traceability only)</summary>{live.barcodeMigrations.map((migration, index) => <div key={index} className="helper-text">{migration.oldBarcode} → {migration.newBarcode} · {migration.migratedAt} · {migration.migrationReason}</div>)}</details>}
       {!!result.issues.length && <div className="alert-info mt-3">{result.issues.join(' · ')}</div>}
     </div>
     {!compact && !readOnly && <FinishedPipeStorage pipe={live} />}
-    {!compact && !readOnly && role === 'production' && result.inventory.bucket === 'Ready for Ship Out' && live.fulfillmentStatus !== 'Loaded' && <div className="action-row"><button className="btn-secondary" onClick={() => app.markFinishedGoodLoaded(live.id)}>Confirm Loaded (still On Hand)</button></div>}
+    {!compact && !readOnly && role === 'production' && result.inventory.bucket === 'Ready for Ship Out' && live.fulfillmentStatus !== 'Loaded' && <div className="action-row"><ActionButton className="btn-secondary" onClick={() => app.markFinishedGoodLoaded(live.id)}>Confirm Loaded (still On Hand)</ActionButton></div>}
     <DocumentViewer open={!!document} document={document} onClose={() => setDocument(null)} />
   </>;
 }

@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import MetricCards from '../../components/MetricCards';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
@@ -63,7 +66,7 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
       <div className="page-stack">
         <div className="app-card detail-card">
           <div className="section-title">Barcode</div>
-          <div className="field-value font-mono">{fg.barcode}</div>
+          <div className="field-value font-mono"><RecordReference value={fg.barcode} /></div>
           <div className="helper-text">The system assigned this barcode after Quality Pass. Use Barcode Scanner for storage and release operations.</div>
         </div>
 
@@ -94,19 +97,19 @@ export default function FinishedPipes() {
     .filter(fg => fg.status === 'Released')
     .reduce((s, fg) => s + fg.quantity, 0);
 
-  const [activeTab, setActiveTab] = useState<FilterTab>('Awaiting Label / Storage');
+  const [activeTab, setActiveTab] = useViewState<FilterTab>("production/FinishedPipes:activeTab", 'Awaiting Label / Storage');
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("production/FinishedPipes:productType", 'All');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("production/FinishedPipes:grade", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("production/FinishedPipes:search", "")
 
   const [detailFG, setDetailFG] = useState<FinishedGood | null>(null);
 
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("production/FinishedPipes:purpose", 'All');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("production/FinishedPipes:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const period = usePeriod()
@@ -210,7 +213,7 @@ export default function FinishedPipes() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filtered, page).map((fg) => (
                   <tr
                     key={fg.id}
@@ -220,12 +223,12 @@ export default function FinishedPipes() {
                   >
                     <td>
                       <span className="font-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-blue)' }}>
-                        {fg.fgId}
+                        <RecordReference value={fg.fgId} />
                       </span>
                     </td>
                     <td>
                       <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {fg.barcode}
+                        <RecordReference value={fg.barcode} />
                       </span>
                     </td>
                     <td style={{ fontSize: 13 }}>{fg.product}</td>
@@ -259,7 +262,7 @@ export default function FinishedPipes() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           )}
         </div>

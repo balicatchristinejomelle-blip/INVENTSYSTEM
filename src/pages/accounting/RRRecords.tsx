@@ -1,3 +1,10 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { useCreatedRecordNotice } from '../../components/UXFeedback';
+import { RelatedRecords } from '../../components/RecordReference';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import LocationSelect from '../../components/LocationSelect';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
@@ -26,16 +33,17 @@ import { receivingReportDocument } from '../../documentPrint';
 export default function RRRecords() {
   const app = useApp();
   const { rrRecords, pellets, createReceivingReport } = app;
+  const receivingNotice = useCreatedRecordNotice(rrRecords, record => record.rrNumber);
 
   const [viewId, setViewId] = useState<string | null>(null)
 
   const [showNew, setShowNew] = useState(false)
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("accounting/RRRecords:search", "")
 
-  const [pelletTypeFilter, setPelletTypeFilter] = useState('All');
+  const [pelletTypeFilter, setPelletTypeFilter] = useViewState("accounting/RRRecords:pelletTypeFilter", 'All');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/RRRecords:page", 1)
 
   const [form, setForm] = useState({
     pelletType: 'Virgin' as 'Virgin' | 'Recycled',
@@ -96,10 +104,11 @@ export default function RRRecords() {
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: false })}>View Document</button>
           <DocumentPrintButton className="btn-primary" recordId={viewRR.id} recordType="RECEIVING REPORT" onClick={() => setDocumentAction({ id: viewRR.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700 }}>
-            RR Record — {viewRR.rrNumber}
+            RR Record — <RecordReference value={viewRR.rrNumber} />
           </h2>
         </div>
         <div className="page-stack">
+          <RelatedRecords record={viewRR} />
           {viewPellets.length > 0 && (
             <div className="app-card detail-card">
               <div className="section-title">Branch Barcode Status</div>
@@ -123,7 +132,7 @@ export default function RRRecords() {
                     <th>Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <TableBody>
                   {
                     <RecordRows
                       records={viewPellets}
@@ -140,7 +149,7 @@ export default function RRRecords() {
                       )}
                     />
                   }
-                </tbody>
+                </TableBody>
               </table>
             </div>
           )}
@@ -177,6 +186,7 @@ export default function RRRecords() {
 
   return (
     <div className="page-stack">
+      {receivingNotice.message && <div className="alert-success" role="status">{receivingNotice.message}</div>}
       <div className="toolbar">
         <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search RR number, supplier, grade, batch, reference…" />
         <label className="product-filter-field"><span className="field-label">Pellet Type</span><SearchableDropdown
@@ -204,11 +214,11 @@ export default function RRRecords() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((rr) => (
               <tr key={rr.id} className="table-row-hover" onClick={() => setViewId(rr.id)}>
                 <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                  {rr.rrNumber}
+                  <RecordReference value={rr.rrNumber} />
                 </td>
                 <td style={{ fontSize: 12 }}>{rr.date}</td>
                 <td>
@@ -239,19 +249,20 @@ export default function RRRecords() {
                 <td colSpan={9} className="empty-state">No records match the selected search or filters.</td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
       <DocumentViewer open={!!documentAction} document={documentRR ? receivingReportDocument(documentRR) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
-      <Modal open={showNew} title="New Receiving Report" onClose={() => setShowNew(false)} width="620px">
+      <Modal draft={form} open={showNew} title="New Receiving Report" onClose={() => setShowNew(false)} width="620px">
         <div className="page-stack">
           <div className="alert-info">
             <strong>Automatic physical bag registration</strong>
             <div>Each bag is fixed at 25 kg. Saving this RR creates one inventory record and one permanent Code 128 barcode per bag.</div>
           </div>
           <div className="form-grid receiving-form-grid">
-            <LocationSelect value={form.storageLocation} onChange={storageLocation => setForm(value => ({ ...value, storageLocation }))} />
+            <div className="form-field"><LocationSelect value={form.storageLocation} onChange={storageLocation => setForm(value => ({ ...value, storageLocation }))} />
+            {!form.storageLocation && formError.includes('Storage Location') && <div className="field-error" role="alert">Storage Location is required. Select an active Storage Location.</div>}</div>
             <label>
               Pellet Type
               <SearchableDropdown
@@ -304,8 +315,8 @@ export default function RRRecords() {
           </div>
           {formError && <div className="alert-error">{formError}</div>}
           <div className="form-actions">
-            <button className="btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
-            <button className="btn-primary" onClick={submitRR}>Save RR & Create Bags</button>
+            <DismissButton className="btn-secondary" onClick={() => setShowNew(false)}>Cancel</DismissButton>
+            <ActionButton className="btn-primary" onStart={receivingNotice.begin} confirmMessage={form.storageLocation && form.supplier.trim() && form.referenceNo.trim() && Number.isInteger(Number(form.numberOfBags)) && Number(form.numberOfBags) > 0 ? `Receive ${form.numberOfBags} physical 25 kg bags at Location ${form.storageLocation}? Saving creates the Receiving Report and bag records.` : undefined} onClick={submitRR}>Save RR & Create Bags</ActionButton>
           </div>
         </div>
       </Modal>

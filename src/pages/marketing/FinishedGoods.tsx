@@ -1,3 +1,7 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { ActiveFilters, LastUpdated } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
@@ -35,22 +39,22 @@ export default function MarketingFG() {
   const app = useApp();
   const { finishedGoods } = app;
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("marketing/FinishedGoods:productType", 'All');
 
-  const [status, setStatus] = useState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>('Available');
+  const [status, setStatus] = useViewState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>("marketing/FinishedGoods:status", 'Available');
 
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
-  const [grade, setGrade] = useState("All")
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("marketing/FinishedGoods:purpose", 'All');
+  const [grade, setGrade] = useViewState("marketing/FinishedGoods:grade", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("marketing/FinishedGoods:search", "")
 
-  const [viewMode, setViewMode] = useState<ViewMode>('By Batch');
+  const [viewMode, setViewMode] = useViewState<ViewMode>("marketing/FinishedGoods:viewMode", 'By Batch');
 
   const [selected, setSelected] = useState<FinishedGood | null>(null);
 
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("marketing/FinishedGoods:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const [batchPipePage, setBatchPipePage] = useState(1)
@@ -106,6 +110,8 @@ export default function MarketingFG() {
 
   return (
     <div className="page-stack">
+      <LastUpdated records={finishedGoods} />
+      <ActiveFilters items={[["Search", search], ["Storage Purpose", purpose]]} clearLabel="Clear search and purpose" onClear={() => { setSearch(''); setPurpose('All'); resetPage(); }} />
       <div>
         <div className="section-title">Finished Goods Availability</div>
         <div className="helper-text">Read-only stock visibility calculated from individual physical pipe records.</div>
@@ -155,7 +161,7 @@ export default function MarketingFG() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentBatches.map((group) => {
                   const available = finishedGoodsSummary(group.pipes, app).available;
 
@@ -169,9 +175,9 @@ export default function MarketingFG() {
 
                   return (
                     <tr key={group.item.batch}>
-                      <td className="font-mono">{group.item.batch}<br /><small>{trace.groupType} · {trace.originGroup}</small></td>
+                      <td className="font-mono"><RecordReference value={group.item.batch} /><br /><small>{trace.groupType} · <RecordReference value={trace.originGroup} /></small></td>
                       <td className="font-mono">
-                        {group.item.poRef}
+                        <RecordReference value={group.item.poRef} />
                         <br />
                         <small>{moFor(group.item)}</small>
                       </td>
@@ -194,7 +200,7 @@ export default function MarketingFG() {
                     </tr>
                   )
                 })}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <div className="mobile-record-list">
@@ -206,7 +212,7 @@ export default function MarketingFG() {
               return (
                 <article className="app-card mobile-record-card" key={group.item.batch}>
                   <div className="mobile-record-heading">
-                    <strong className="font-mono">{group.item.batch}</strong>
+                    <strong className="font-mono"><RecordReference value={group.item.batch} /></strong>
                     <StatusBadge status={batchStatus(group.pipes)} />
                   </div>
                   <div className="mobile-record-grid">
@@ -242,18 +248,18 @@ export default function MarketingFG() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentPipes.map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.fgId}</td>
-                    <td className="font-mono">{item.barcode}</td>
+                    <td className="font-mono"><RecordReference value={item.fgId} /></td>
+                    <td className="font-mono"><RecordReference value={item.barcode} /></td>
                     <td>{normalizedProductType(item.product)}</td>
                     <td>
                       {item.grade} · {item.diameter} · {item.sdr} ·{" "}
                       {item.length}
                     </td>
                     <td>{item.currentLocation || "Not Yet Assigned"}</td>
-                    <td className="font-mono">{item.poRef}</td>
+                    <td className="font-mono"><RecordReference value={item.poRef} /></td>
                     <td>
                       <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                     </td>
@@ -262,14 +268,14 @@ export default function MarketingFG() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <div className="mobile-record-list">
             {currentPipes.map((item) => (
               <article className="app-card mobile-record-card" key={item.id}>
                 <div className="mobile-record-heading">
-                  <strong className="font-mono">{item.barcode}</strong>
+                  <strong className="font-mono"><RecordReference value={item.barcode} /></strong>
                   <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                 </div>
                 <div className="mobile-record-grid">
@@ -311,7 +317,7 @@ export default function MarketingFG() {
               {pageRecords(openBatch.pipes, batchPipePage).map((item) => (
                 <article className="app-card mobile-record-card" key={item.id}>
                   <div className="mobile-record-heading">
-                    <strong className="font-mono">{item.barcode}</strong>
+                    <strong className="font-mono"><RecordReference value={item.barcode} /></strong>
                     <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                   </div>
                   <div className="mobile-record-grid">
@@ -337,10 +343,10 @@ export default function MarketingFG() {
                     <th data-actions>Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <TableBody>
                   {pageRecords(openBatch.pipes, batchPipePage).map((item) => (
                     <tr key={item.id}>
-                      <td className="font-mono">{item.barcode}</td>
+                      <td className="font-mono"><RecordReference value={item.barcode} /></td>
                       <td>
                         {normalizedProductType(item.product)} · {item.grade}
                       </td>
@@ -357,7 +363,7 @@ export default function MarketingFG() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </TableBody>
               </table>
             </div>
             <Pagination page={batchPipePage} totalRecords={openBatch.pipes.length} onPageChange={setBatchPipePage} noun="pipes" />

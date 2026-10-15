@@ -1,3 +1,5 @@
+import RecordReference from '../../components/RecordReference';
+import ActionButton from '../../components/ActionButton';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -49,11 +51,11 @@ function ProductionDashboard() {
           <div style={{ fontWeight: 700, fontSize: 13, color: '#92400e', marginBottom: 4 }}>PENDING SHIFT TURNOVER</div>
           <div style={{ fontSize: 12, color: "#78350f" }}>
             Previous: {pendingTurnover.outgoingShift} Shift ·{" "}
-            {pendingTurnover.outgoingEmployee} · {pendingTurnover.poRef}
+            {pendingTurnover.outgoingEmployee} · <RecordReference value={pendingTurnover.poRef} />
           </div>
           <div className="mt-3 button-group">
             <button className="btn-secondary" onClick={() => navigate('prod-turnover')}>View Shift Turnover</button>
-            <button className="btn-success" onClick={() => { acceptTurnover(); setShowTurnover(false); }}>Accept & Continue</button>
+            <ActionButton className="btn-success" onClick={() => { acceptTurnover(); setShowTurnover(false); }}>Accept & Continue</ActionButton>
           </div>
         </div>
       )}
@@ -181,7 +183,7 @@ function ProductionDashboard() {
             <div>
               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>PO Number</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-blue)', fontFamily: 'JetBrains Mono, monospace' }}>
-                {activePO.poNo}
+                <RecordReference value={activePO.poNo} />
               </div>
             </div>
             <div>

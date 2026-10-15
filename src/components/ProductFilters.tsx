@@ -6,10 +6,12 @@ import { emptyProductFilter, matchesProductFilter, productFilterSizes, type Prod
 import { useApp } from '../store';
 import { activeLocationCodes } from '../locationMaster';
 import { readStorageLocations } from '../finishedGoodsInventory';
+import { useViewState } from '../uiViewState';
+import { ActiveFilters } from './UXFeedback';
 
-export function useProductFilters(onChange?: () => void) {
+export function useProductFilters(onChange?: () => void, viewKey = 'product-filters') {
   const app = useApp();
-  const [value, setValue] = useState<ProductFilter>({ ...emptyProductFilter });
+  const [value, setValue] = useViewState<ProductFilter>(viewKey, { ...emptyProductFilter });
   const change = (next: ProductFilter) => { setValue(next); onChange?.(); };
   return { value, change, reset: () => change({ ...emptyProductFilter }), matches: (record: unknown, overrides: Partial<ProductFilter> = {}) => matchesProductFilter(record, { ...value, ...overrides }, app) };
 }
@@ -31,7 +33,11 @@ export default function ProductFilters({ value, onChange, product = '', grade = 
       onChange(next);
     }} />
   </label>;
-  return <div className="product-filter-controls">
+  return <><ActiveFilters clearLabel="Clear product filters" items={[
+    ['Product', onProductChange ? product : value.product], ['Material Grade', onGradeChange ? grade : value.grade],
+    ['Color', value.color], ['Size / Diameter', value.size], ['SDR / Thickness', value.sdr], ['Location', value.location], ['Length', value.length],
+  ]} onClear={() => { onChange({ ...emptyProductFilter }); onProductChange?.('All'); onGradeChange?.('All'); }} />
+  <div className="product-filter-controls">
     {(includeProduct || onProductChange) && field('product', 'Product', HPAI_PRODUCT_MASTER.products)}
     {(includeGrade || onGradeChange) && field('grade', 'Material Grade', HPAI_PRODUCT_MASTER.materialGrades)}
     {includeColor && field('color', 'Color', HPAI_PRODUCT_MASTER.pipeColors)}
@@ -39,5 +45,5 @@ export default function ProductFilters({ value, onChange, product = '', grade = 
     {field('sdr', 'SDR / Thickness', HPAI_PRODUCT_MASTER.sdrRatings)}
     {includeLocation && field('location', 'Location', ['All Locations', ...activeLocationCodes(readStorageLocations())])}
     {includeLength && field('length', 'Length / Coil Length', [...HPAI_PRODUCT_MASTER.straightLengths, ...HPAI_PRODUCT_MASTER.coilLengths])}
-  </div>;
+  </div></>;
 }
