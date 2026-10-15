@@ -33,7 +33,7 @@ import StatusBadge from "../../components/StatusBadge"
 import BarcodeLabel, { printBarcodeBatch } from '../../components/BarcodeLabel';
 import { BatchPrintAction } from '../../components/PrintAction';
 import { metadataFor, printState } from '../../reprintWorkflow';
-import { printableRecords } from '../../printableRecords';
+import { printableRecords, withPrintSearch } from '../../printableRecords';
 
 import CategoryTabs from "../../components/CategoryTabs"
 
@@ -150,17 +150,15 @@ export default function PMFinishedGoods() {
     [finishedGoods, grade, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders, period.range.start, period.range.end],
   )
 
-  const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
 
-  const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => dateInPeriod(item.productionDate, period.range) && item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
+  const batches = useMemo(() => Array.from(filtered
     .reduce((groups, item) => {
       const existing = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       existing.pipes.push(item);
       groups.set(item.batch, existing);
       return groups;
     }, new Map<string, { item: FinishedGood; pipes: FinishedGood[] }>()).values())
-    .sort((a, b) => a.item.batch.localeCompare(b.item.batch, undefined, { numeric: true })), [finishedGoods, visibleBatchIds]);
+    .sort((a, b) => a.item.batch.localeCompare(b.item.batch, undefined, { numeric: true })), [filtered]);
 
   const batchSummary = (group: { item: FinishedGood; pipes: FinishedGood[] }) => {
     const rejected = rejectedMaterials.filter(item => item.batch === group.item.batch).reduce((sum, item) => sum + item.quantity, 0);
@@ -241,7 +239,6 @@ export default function PMFinishedGoods() {
   return (
     <div className="page-stack">
       <LastUpdated records={finishedGoods} />
-      <ActiveFilters items={[["Search", search], ["Status", status], ["Storage Purpose", purpose]]} clearLabel="Clear list filters" onClear={clearFilters} />
       <MetricCards inventory label="Finished Goods inventory summary" items={[
         ['Available', available], ['Reserved', reserved], ['Temporary Storage', inventory.temporary],
         ['Ready for Ship Out', inventory.ready], ['On Hand', total],
@@ -252,26 +249,18 @@ export default function PMFinishedGoods() {
       ]} />
       <div className="filter-panel product-filter-panel">
           <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
-        <div className="combined-product-filters">
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
-        {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
-          <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
-          <label className="product-filter-field"><span className="field-label">Status</span>
-          <SearchableDropdown
-            className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
-          >
-            {DESTINATIONS.map(item => <option key={item}>{item}</option>)}
-          </SearchableDropdown>
-          </label>
-        </div>}
-        </div>
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation
+          records={finishedGoods.filter(pipe => pipe.qualityStatus !== 'Reject' && dateInPeriod(pipe.productionDate, period.range) && matchesRecord(withPrintSearch(app, pipe), search))}
+          purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
+          status={status} onStatusChange={value => { setStatus(value as Destination); resetPage(); }}
+          statusFor={pipe => DESTINATIONS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />
       </div>
         <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
       <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />
         <div className="product-view-actions">
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
       </div>
-      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={finishedGoods.filter(pipe => dateInPeriod(pipe.productionDate, period.range) && productFilters.matches(pipe, { product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }) && matchesRecord(pipeSearchRecord(pipe, app), search))} />}
+      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={filtered} />}
       {viewMode === 'Stock Levels' && (
         <div className="low-stock-panel">
           <div className="section-title">Finished Pipe Stock Targets</div>
@@ -315,7 +304,7 @@ export default function PMFinishedGoods() {
           </div>
         ) : viewMode === "By Batch" ? (
           <>
-            <table className="app-table">
+            <table className="app-table inventory-bucket-table">
               <thead>
                 <tr>
                   <th>Batch / Origin Group</th>
@@ -328,7 +317,9 @@ export default function PMFinishedGoods() {
                   <th>Produced / Good / Rejected</th>
                   <th>Available</th>
                   <th>Reserved</th>
-                  <th>Ready</th>
+                  <th>Temporary Storage</th>
+                  <th>Ready for Ship Out</th>
+                  <th>On Hand</th>
                   <th>Shipped</th>
                   <th>Status</th>
                   <th data-actions>Action</th>
@@ -362,8 +353,10 @@ export default function PMFinishedGoods() {
                         {summary.rejected}
                       </td>
                       <td>{summary.available}</td>
-                      <td>{summary.reserved}<br /><small>{trace.temporary} Temporary Storage</small></td>
+                      <td className="inventory-number">{summary.reserved}</td>
+                      <td className="inventory-number">{trace.temporary}</td>
                       <td>{summary.ready}</td>
+                      <td className="inventory-number">{summary.onHand}</td>
                       <td>{summary.shipped}</td>
                       <td>
                         <StatusBadge status={summary.status} />
@@ -446,7 +439,11 @@ export default function PMFinishedGoods() {
               <Info label="Origin Group / Type" value={`${batchOriginTrace(group.pipes, app).originGroup} · ${batchOriginTrace(group.pipes, app).groupType}`} />
               <Info label="Product / Grade" value={`${normalizedProductType(group.item.product)} · ${group.item.grade}`} />
               <Info label="Good / Rejected" value={`${group.pipes.length} / ${summary.rejected}`} />
-              <Info label="Available / Reserved" value={`${summary.available} / ${summary.reserved}`} />
+              <Info label="Available" value={summary.available} />
+              <Info label="Reserved" value={summary.reserved} />
+              <Info label="Temporary Storage" value={summary.temporary} />
+              <Info label="Ready for Ship Out" value={summary.ready} />
+              <Info label="On Hand" value={summary.onHand} />
             </div>
                 <button className="btn-primary" onClick={() => { setSelectedBatchId(group.item.batch); setBatchPipePage(1); }}>View Batch</button>
               </article>

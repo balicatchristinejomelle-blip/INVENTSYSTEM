@@ -1,0 +1,46 @@
+/* Inventory browsing only: equal-width facets, full-width summaries, natural height. */
+.inventory-facet-panel { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 8px; container-type: inline-size; }
+.operational-content .inventory-facet-grid.product-filter-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.operational-content .inventory-facet-grid.product-filter-controls > :nth-child(n) { grid-column: auto; min-width: 0; }
+.operational-content .inventory-facet-grid[data-field-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inventory-facet-panel .active-filter-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; width: 100%; grid-column: 1 / -1; gap: 6px; }
+.inventory-facet-panel .active-filter-summary > .field-label { grid-column: 1; grid-row: 1; }
+.inventory-facet-panel .active-filter-summary ul { grid-column: 2; grid-row: 1; width: 100%; }
+.inventory-facet-panel .active-filter-summary > button { width: auto; grid-column: 3; grid-row: 1; }
+.active-filter-summary li > button { border: 0; background: transparent; color: inherit; margin-inline-start: 6px; cursor: pointer; padding: 2px 4px; }
+.inventory-facet-panel .searchable-select:not([aria-expanded="true"]) { text-align: center; }
+.inventory-facet-panel .searchable-select[aria-expanded="true"] { text-align: left; }
+.inventory-facet-options .searchable-combobox-option { text-align: center; }
+.record-search-control { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; grid-column: 1 / -1; }
+.operational-content .record-search-control .record-search { text-align: left; flex: 1; min-width: 0; width: 100%; height: 36px; }
+.date-period-filter, .date-period-group { align-items: center; }
+.date-period-group { width: 100%; }
+.date-navigation-controls { display: grid; grid-template-columns: auto minmax(0, auto) auto; gap: 8px; align-items: center; max-width: 100%; }
+.date-period-buttons { justify-content: center; }
+.date-active-range { color: var(--text-secondary); font-size: 12px; text-align: center; overflow-wrap: anywhere; justify-content: center; }
+.date-period-button:disabled { opacity: .55; cursor: not-allowed; }
+.operational-content .app-table :is(th, td).inventory-number { white-space: nowrap; text-align: center; font-variant-numeric: tabular-nums; }
+.operational-content :is(.table-scroll, .app-card) > .app-table { display: table; min-width: 720px !important; max-width: none; overflow: visible; }
+.operational-content .app-table.inventory-bucket-table { display: table; min-width: 1120px !important; max-width: none; table-layout: auto; overflow: visible; }
+.inventory-bucket-table th { min-width: 90px; white-space: nowrap; }
+.inventory-bucket-table :is(th, td) { vertical-align: middle; }
+.operational-content .app-card:has(> .app-table) { min-width: 0; max-width: 100%; overflow-x: auto !important; }
+.record-filter-controls > .inventory-facet-panel { flex: 0 0 100%; }
+@container (max-width: 740px) {
+  .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-facet-panel .active-filter-summary { grid-template-columns: minmax(0, 1fr) auto; }
+  .inventory-facet-panel .active-filter-summary ul { grid-column: 1 / -1; grid-row: 2; }
+  .inventory-facet-panel .active-filter-summary > button { grid-column: 2; }
+}
+@media (max-width: 1000px) {
+  .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .date-navigation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .date-navigation-controls .date-period-buttons { grid-column: 1 / -1; grid-row: 1; }
+}
+@media (max-width: 600px) {
+  .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: minmax(0, 1fr); }
+  .date-period-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .date-period-buttons > :first-child { grid-column: 1 / -1; }
+  .date-navigation-controls { width: min(100%, 360px); }
+  .date-navigation-controls .date-period-button { min-width: 0; padding-inline: 8px; }
+}

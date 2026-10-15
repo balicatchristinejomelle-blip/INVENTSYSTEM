@@ -42,7 +42,7 @@ export default function MarketingFG() {
 
   const [productType, setProductType] = useViewState<'All' | PipeProductType>("marketing/FinishedGoods:productType", 'All');
 
-  const [status, setStatus] = useViewState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>("marketing/FinishedGoods:status", 'Available');
+  const [status, setStatus] = useViewState<'All Statuses' | 'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>("marketing/FinishedGoods:status", 'Available');
 
   const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("marketing/FinishedGoods:purpose", 'All');
   const [grade, setGrade] = useViewState("marketing/FinishedGoods:grade", "All")
@@ -71,17 +71,15 @@ export default function MarketingFG() {
     && productFilters.matches(item)
     && (productType === 'All' || normalizedProductType(item.product) === productType)
     && (grade === 'All' || item.grade === grade)
-    && (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && (status === 'Temporary Storage' ? finishedPipeInventory(item, app).bucket === status : item.status === status)) &&
+    && (status === 'All Statuses' || (status === 'Shipped Out / Released' ? item.releaseStatus === 'Released' : item.releaseStatus !== 'Released' && (status === 'Temporary Storage' ? finishedPipeInventory(item, app).bucket === status : item.status === status))) &&
           ([item.barcode, item.fgId, item.poRef, item.moRef || '', item.batch, item.product, item.grade, item.reservedForOrderRef || ''].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)),
       ),
     [finishedGoods, grade, purpose, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders, period.range.start, period.range.end],
   )
 
-  const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
 
-  const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => dateInPeriod(item.productionDate, period.range) && item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
+  const batches = useMemo(() => Array.from(visible
     .reduce((groups, item) => {
       const group = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       group.pipes.push(item);
@@ -89,7 +87,7 @@ export default function MarketingFG() {
       return groups;
     }, new Map<string, { item: FinishedGood; pipes: FinishedGood[] }>()).values())
     .sort((a, b) => b.item.productionDate.localeCompare(a.item.productionDate) || b.item.batch.localeCompare(a.item.batch, undefined, { numeric: true })),
-  [finishedGoods, visibleBatchIds]);
+  [visible]);
 
   const productSelected = productType === 'All' ? finishedGoods : finishedGoods.filter(item => normalizedProductType(item.product) === productType);
   const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => dateInPeriod(item.productionDate, period.range) && (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose) && productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
@@ -113,7 +111,6 @@ export default function MarketingFG() {
   return (
     <div className="page-stack">
       <LastUpdated records={finishedGoods} />
-      <ActiveFilters items={[["Search", search], ["Storage Purpose", purpose]]} clearLabel="Clear search and purpose" onClear={() => { setSearch(''); setPurpose('All'); resetPage(); }} />
       <div>
         <div className="section-title">Finished Goods Availability</div>
         <div className="helper-text">Read-only stock visibility calculated from individual physical pipe records.</div>
@@ -127,27 +124,21 @@ export default function MarketingFG() {
       ]} />
       <div className="filter-panel product-filter-panel">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
-        <div className="combined-product-filters">
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
-        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
-          className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
-        >
-          <option>Available</option>
-          <option>Reserved</option>
-          <option>Temporary Storage</option>
-          <option>Ready for Release</option>
-          <option>Shipped Out / Released</option>
-        </SearchableDropdown></label></div>}
-        </div>
+        <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation
+          records={finishedGoods.filter(pipe => pipe.qualityStatus !== 'Reject' && dateInPeriod(pipe.productionDate, period.range) && matchesRecord(pipeSearchRecord(pipe, app), search))}
+          purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
+          status={status} onStatusChange={value => { setStatus(value as typeof status); resetPage(); }}
+          statusLabel={value => value === 'Ready for Release' ? 'Ready for Ship Out' : value}
+          statusFor={pipe => pipe.releaseStatus === 'Released' ? 'Shipped Out / Released' : finishedPipeInventory(pipe, app).bucket === 'Temporary Storage' ? 'Temporary Storage' : ['Available','Reserved','Ready for Release'].includes(pipe.status) ? pipe.status : ''} />
       </div>
       <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
-      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={selectedGroup} />}
+      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={visible} />}
       <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished goods view mode" />
 
       {viewMode === 'Stock Levels' ? <div className="app-card detail-card"><div className="section-title">Stock Levels</div><p className="helper-text">The availability cards above show matching physical stock. Replenishment configuration remains with Plant Manager.</p>{!selectedGroup.length && <div className="empty-state">No matching records. Available = 0.</div>}</div> : viewMode === "By Batch" ? (
         <>
           <div className="app-card table-scroll desktop-record-table">
-            <table className="app-table">
+            <table className="app-table inventory-bucket-table">
               <thead>
                 <tr>
                   <th>Batch / Origin Group</th>
@@ -157,7 +148,9 @@ export default function MarketingFG() {
                   <th>Produced / Good / Rejected</th>
                   <th>Available</th>
                   <th>Reserved</th>
-                  <th>Ready</th>
+                  <th>Temporary Storage</th>
+                  <th>Ready for Ship Out</th>
+                  <th>On Hand</th>
                   <th>Shipped</th>
                   <th>Status</th>
                   <th data-actions>Action</th>
@@ -190,8 +183,10 @@ export default function MarketingFG() {
                       </td>
                       <td>{group.pipes.length + rejected} / {group.pipes.length} / {rejected}</td>
                       <td>{available}</td>
-                      <td>{reserved}<br /><small>{trace.temporary} Temporary Storage</small></td>
+                      <td className="inventory-number">{reserved}</td>
+                      <td className="inventory-number">{trace.temporary}</td>
                       <td>{ready}</td>
+                      <td className="inventory-number">{finishedGoodsSummary(group.pipes, app).onHand}</td>
                       <td>{shipped}</td>
                       <td>
                         <StatusBadge status={batchStatus(group.pipes)} />
@@ -225,6 +220,9 @@ export default function MarketingFG() {
                     <Info label="Good Pipes" value={group.pipes.length} />
                     <Info label="Available" value={available} />
                     <Info label="Reserved" value={reserved} />
+                    <Info label="Temporary Storage" value={finishedGoodsSummary(group.pipes, app).temporary} />
+                    <Info label="Ready for Ship Out" value={finishedGoodsSummary(group.pipes, app).ready} />
+                    <Info label="On Hand" value={finishedGoodsSummary(group.pipes, app).onHand} />
                   </div>
                   <button className="btn-primary" onClick={() => { setSelectedBatch(group.item.batch); setBatchPipePage(1); }}>View Batch</button>
                 </article>

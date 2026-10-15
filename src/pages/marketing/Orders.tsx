@@ -180,7 +180,7 @@ export default function Orders() {
 
       <div className="record-filter-bar">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
+        <ProductFilters records={orders.filter(item => dateInPeriod(item.orderDate, period.range) && matchesRecord(item, search))} value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
       </div>
 
       <div className="app-card table-scroll">

@@ -219,13 +219,11 @@ export default function PelletInventory() {
       <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setSearch(''); resetPage(); }} counts={counts} label="Material inventory category" />
 
       <div className="app-card detail-card page-stack">
-        {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); resetPage(); }} label={`${category} grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
         {category === 'Recycled Pellets' && <CategoryTabs items={['All', 'Complete 25 kg Bags', 'Loose Recycled Pellet'] as const} value={recycledView} onChange={value => { setRecycledView(value); resetPage(); }} label="Recycled pellet form" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); resetPage(); }} label="Colorant usage type" />}
-        {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" groupLabel="Status" />}
         <div className="filter-panel">
           <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
-          <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); resetPage(); }} onLocationChange={value => { setLocation(value); resetPage(); }} />
+          <MaterialLocationFilters grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} records={(category === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) && matchesRecord(item, search)) : pellets.filter(item => item.type === pelletType && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, search)))} status={lifecycle} onStatusChange={category === 'Colorants' ? undefined : value => { setLifecycle(value as typeof lifecycle); setPage(1); }} statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'} color={color} location={location} onColorChange={value => { setColor(value); resetPage(); }} onLocationChange={value => { setLocation(value); resetPage(); }} />
         </div>
       </div>
 

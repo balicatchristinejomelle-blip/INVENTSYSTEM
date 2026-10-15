@@ -274,7 +274,7 @@ export default function ProdOrders() {
         onSearchChange={value => { setSearch(value); resetPages(); }}
         onDateChange={resetPages}
         placeholder="Search PO, MO, product, barcode, reference..."
-        filters={<ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
+        filters={<ProductFilters records={productionOrders.filter(item => dateInPeriod(item.requiredDate, period.range) && matchesRecord(withPrintSearch(app, item), search))} value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />}
       />
       <div className="tab-strip">
         {ORDER_VIEWS.map(view => (

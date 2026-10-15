@@ -29,11 +29,12 @@ import Pagination, { pageRecords } from '../../components/Pagination';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-type FilterTab = 'Awaiting Label / Storage' | 'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Ship Out' | 'Shipped Out / Released';
+type FilterTab = 'All Statuses' | 'Awaiting Label / Storage' | 'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Ship Out' | 'Shipped Out / Released';
 
-const FILTER_TABS: FilterTab[] = ['Awaiting Label / Storage', 'Available', 'Reserved', 'Temporary Storage', 'Ready for Ship Out', 'Shipped Out / Released'];
+const FILTER_TABS: FilterTab[] = ['All Statuses', 'Awaiting Label / Storage', 'Available', 'Reserved', 'Temporary Storage', 'Ready for Ship Out', 'Shipped Out / Released'];
 
 const matchesDestination = (item: FinishedGood, destination: FilterTab) => {
+  if (destination === 'All Statuses') return true;
   if (destination === 'Shipped Out / Released') return item.releaseStatus === 'Released';
   if (item.releaseStatus === 'Released') return false;
   if (destination === 'Awaiting Label / Storage') return item.locationStatus === 'Awaiting Storage';
@@ -151,7 +152,11 @@ export default function FinishedPipes() {
       <div className="helper-text">Total Released: <strong>{totalReleased}</strong> units</div>
 
       <div className="app-card detail-card page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<><ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation /><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); setPage(1); }} /></>} />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation
+          records={finishedGoods.filter(pipe => dateInPeriod(pipe.productionDate, period.range) && matchesRecord(pipeSearchRecord(pipe, app), search))}
+          purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); setPage(1); }}
+          status={activeTab} onStatusChange={value => { setActiveTab(value as FilterTab); setPage(1); }}
+          statusFor={pipe => FILTER_TABS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />} />
       </div>
 
       <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
@@ -197,7 +202,7 @@ export default function FinishedPipes() {
               <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); period.setDate(''); setPage(1); }}>Clear Filters</button>
             </div>
           ) : (
-            <table className="app-table" style={{ width: "100%" }}>
+            <table className="app-table inventory-bucket-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>FG ID</th>
@@ -210,6 +215,9 @@ export default function FinishedPipes() {
                   <th style={{ textAlign: "right" }}>Qty</th>
                   <th style={{ textAlign: "right" }}>Available</th>
                   <th style={{ textAlign: "right" }}>Reserved</th>
+                  <th>Temporary Storage</th>
+                  <th>Ready for Ship Out</th>
+                  <th>On Hand</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -257,6 +265,9 @@ export default function FinishedPipes() {
                         {finishedPipeInventory(fg, app).reserved}
                       </span>
                     </td>
+                    <td className="inventory-number">{finishedPipeInventory(fg, app).temporary}</td>
+                    <td className="inventory-number">{finishedPipeInventory(fg, app).ready}</td>
+                    <td className="inventory-number">{finishedPipeInventory(fg, app).onHand}</td>
                     <td>
                       <StatusBadge status={fg.status} size="sm" />
                     </td>

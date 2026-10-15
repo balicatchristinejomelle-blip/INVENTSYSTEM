@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react"
+import React, { createContext, useContext, useState } from "react"
 import { useApp } from "../store"
 import { withPrintSearch } from '../printableRecords';
 import ProductFilters, { useProductFilters } from './ProductFilters';
@@ -6,7 +6,7 @@ import { emptyProductFilter, matchesProductFilter, type ProductFilter } from '..
 import { useViewState, useFilterChangeEffect } from '../uiViewState';
 import { ActiveFilters } from './UXFeedback';
 import PeriodSelector, { usePeriod } from './PeriodSelector';
-import { DateSearchContext } from './DateSearchContext';
+import { DateFilterRangeContext, DateSearchContext } from './DateSearchContext';
 import { COLLECTION_DATE_FIELDS, dateInPeriod, matchesRecordDate, parseSpecificDate, primaryRecordDate, type PeriodRange } from '../datePeriods';
 
 export const normalizeQuery = (value: string) =>
@@ -52,25 +52,32 @@ export function useSearchPaginationReset(...resetters: Array<(page: number) => v
 }
 export function withRecordSearch(Page: React.ComponentType, collections: readonly RecordCollection[], productControls = false, dateControls = true) {
   return function SearchableRecordPage() {
+    const app = useApp()
     const [query, setQuery] = useViewState('page-search', "")
     const productFilters = useProductFilters(undefined, 'page-product-filters')
     const period = usePeriod('all', query)
     const showPeriod = dateControls && collections.some(key => !!COLLECTION_DATE_FIELDS[key])
-    return <DateSearchContext.Provider value={{ query, clear: () => setQuery('') }}>
+    const [childRange, setChildRange] = useState<PeriodRange>();
+    const optionRange = showPeriod ? period.range : childRange;
+    const inventoryCollections = collections.filter(key => ['finishedGoods', 'pellets', 'colorants'].includes(key))
+    const facetCollections = inventoryCollections.length ? inventoryCollections : collections.filter(key => ['orders','manufacturingOrders','productionOrders','rejectedMaterials','recyclingBatches'].includes(key))
+    const inventoryRecords = facetCollections.length ? facetCollections.flatMap(key => (app[key] as readonly unknown[]).filter(record =>
+      (!optionRange || dateInPeriod(primaryRecordDate(record, COLLECTION_DATE_FIELDS[key]), optionRange)) && matchesRecord(record, query))) : undefined
+    return <DateFilterRangeContext.Provider value={setChildRange}><DateSearchContext.Provider value={{ query, clear: () => setQuery('') }}>
       <SearchContext.Provider value={{ query, collections, dateRange: showPeriod ? period.range : undefined,
         productFilter: productControls && Object.keys(emptyProductFilter).some(key => productFilters.value[key as keyof ProductFilter]) ? productFilters.value : undefined }}>
         <div className={'page-stack' + (productControls ? ' product-filter-page' : '')}>
           {showPeriod ? <PeriodSelector period={period} search={query} onSearchChange={setQuery}
             placeholder="Search reference, name, specification, barcode, location, date, or status..." /> : <>
-            <div className="record-filter-bar"><input className="app-input record-search" type="search" aria-label="Search page records"
+            <div className="record-filter-bar"><div className="record-search-control"><input className="app-input record-search" type="search" aria-label="Search page records"
               value={query} onChange={event => setQuery(event.target.value)}
-              placeholder="Search reference, name, specification, barcode, location, date, or status..." /></div>
+              placeholder="Search reference, name, specification, barcode, location, date, or status..." /></div></div>
             <ActiveFilters items={parseSpecificDate(query) ? [] : [['Search', query]]} onClear={() => setQuery('')} clearLabel="Clear search" />
           </>}
-          {productControls && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
+          {productControls && <ProductFilters records={inventoryRecords} value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
           <Page />
         </div>
       </SearchContext.Provider>
-    </DateSearchContext.Provider>
+    </DateSearchContext.Provider></DateFilterRangeContext.Provider>
   }
 }

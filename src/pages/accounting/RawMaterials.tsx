@@ -32,7 +32,7 @@ export default function RawMaterials() {
   const [search, setSearch] = useViewState("accounting/RawMaterials:search", "")
   const period = usePeriod('all', search);
 
-  const [lifecycle, setLifecycle] = useViewState<'Available' | 'Open / WIP' | 'Fully Consumed'>("accounting/RawMaterials:lifecycle", 'Available');
+  const [lifecycle, setLifecycle] = useViewState<'All' | 'Available' | 'Open / WIP' | 'Fully Consumed'>("accounting/RawMaterials:lifecycle", 'Available');
 
   const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
 
@@ -43,11 +43,11 @@ export default function RawMaterials() {
   const filteredPellets = pellets.filter(
     (item) =>
       dateInPeriod(item.receivedDate, period.range) && item.type === pelletType
-    && (lifecycle === 'Available'
+    && (lifecycle === 'All' || (lifecycle === 'Available'
       ? ['Available', 'Pending Receipt'].includes(item.inventoryStatus)
       : lifecycle === 'Open / WIP'
         ? ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus)
-        : item.inventoryStatus === 'Fully Consumed')
+        : item.inventoryStatus === 'Fully Consumed'))
     && matchesLocation(item, location) && matchesInventoryColor(item.color, color)
     && (grade === 'All' || item.grade === grade) &&
       ([item.barcode, item.batchNo, item.grade].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
@@ -72,11 +72,9 @@ export default function RawMaterials() {
       </div>
       <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setSearch(''); setPage(1); }} label="Raw material category" />
       <div className="app-card detail-card page-stack">
-      {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={v => { setGrade(v); setPage(1); }} label={`${category} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
-      {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={v => { setLifecycle(v); setPage(1); }} label="Pellet lifecycle destination" groupLabel="Status" />}
       {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={v => { setColorantType(v); setPage(1); }} label="Colorant usage type" />}
       <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
-      <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
+      <MaterialLocationFilters grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} records={(category === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) && matchesRecord(item, search)) : pellets.filter(item => item.type === pelletType && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, search)))} status={lifecycle} onStatusChange={category === 'Colorants' ? undefined : value => { setLifecycle(value as typeof lifecycle); setPage(1); }} statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
     </div>
       <div className="app-card table-scroll">
         {category === "Colorants" ? (

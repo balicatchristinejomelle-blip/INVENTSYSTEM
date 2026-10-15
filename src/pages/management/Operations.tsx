@@ -43,6 +43,8 @@ export default function Operations() {
   const [materialCategory, setMaterialCategory] = useViewState<MaterialCategoryTab>("management/Operations:materialCategory", 'Virgin Pellets');
 
   const [productType, setProductType] = useViewState<'All' | PipeProductType>("management/Operations:productType", 'All');
+  const [finishedPurpose, setFinishedPurpose] = useViewState('management/Operations:finishedPurpose', 'All');
+  const [finishedStatus, setFinishedStatus] = useViewState('management/Operations:finishedStatus', 'All Statuses');
 
   const [grade, setGrade] = useViewState("management/Operations:grade", "All")
 
@@ -97,6 +99,8 @@ export default function Operations() {
     (item) =>
       dateInPeriod(item.productionDate, period.range) &&
       productFilters.matches(item, { product: '' }) &&
+      (finishedPurpose === 'All' || finishedPipeInventory(item, app).purpose === finishedPurpose) &&
+      (finishedStatus === 'All Statuses' || (item.releaseStatus === 'Released' ? 'Shipped Out' : item.status) === finishedStatus) &&
       matchesRecord(withPrintSearch(app, item), query) &&
       (productType === 'All' || normalizedProductType(item.product) === productType),
   )
@@ -120,7 +124,11 @@ export default function Operations() {
   return (
     <div className="page-stack">
       <div className="page-stack">
-        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade includeColor includeLocation /> : undefined} />
+        <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade includeColor includeLocation
+          records={tab === 'orders' ? finishedGoods.filter(item => dateInPeriod(item.productionDate, period.range) && matchesRecord(withPrintSearch(app, item), query)) : productionOrders.filter(item => dateInPeriod(item.requiredDate, period.range) && matchesRecord(withPrintSearch(app, item), query))}
+          purpose={finishedPurpose} onPurposeChange={tab === 'orders' ? value => { setFinishedPurpose(value); setPage(1); } : undefined}
+          status={finishedStatus} onStatusChange={tab === 'orders' ? value => { setFinishedStatus(value); setPage(1); } : undefined}
+          statusFor={item => item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} statusLabel={value => value === 'Ready for Release' ? 'Ready for Ship Out' : value} /> : undefined} />
       </div>
       <div className="report-tabs flex flex-wrap">
         {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
@@ -178,9 +186,11 @@ export default function Operations() {
             </div>
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
-          <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); setPage(1); }} onLocationChange={value => { setMaterialLocation(value); setPage(1); }} />
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" groupLabel="Status" />}
+          <MaterialLocationFilters records={materialCategory === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && matchesRecord(item, query)) : pellets.filter(item => item.type === (materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled') && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, query))}
+            grade={grade} onGradeChange={materialCategory === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }}
+            status={pelletView} onStatusChange={materialCategory === 'Colorants' ? undefined : value => { setPelletView(value as PelletView); setPage(1); }}
+            statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'}
+            color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); setPage(1); }} onLocationChange={value => { setMaterialLocation(value); setPage(1); }} />
           <div className="app-card" style={{ overflow: "hidden" }}>
             {materialCategory === "Colorants" ? (
               <table className="app-table">

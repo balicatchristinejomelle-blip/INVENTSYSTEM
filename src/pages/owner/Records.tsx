@@ -79,6 +79,7 @@ export default function OwnerRecords() {
   const productArea = !['RR / Requests / Transfers', 'Pellet Inventory', 'Colorants', 'Inventory Transactions'].includes(section);
 
   const [status, setStatus] = useViewState("owner/Records:status", "All Statuses")
+  const [inventoryPurpose, setInventoryPurpose] = useViewState('owner/Records:inventoryPurpose', 'All');
 
   const [grade, setGrade] = useViewState("owner/Records:grade", "All Grades")
 
@@ -294,6 +295,7 @@ export default function OwnerRecords() {
     .filter(
       (item) =>
         dateInPeriod(item.date, period.range)
+    && (area !== 'Inventory & Finished Goods' || inventoryPurpose === 'All' || (!!item.specification && 'fgId' in (item.specification as object) && finishedPipeInventory(item.specification as any, app).purpose === inventoryPurpose))
     && (!productArea || !Object.values(productFilters.value).some(Boolean) || (!!(item.specification || item.material) && productFilters.matches(item.specification || item.material)))
     && (status === 'All Statuses' || item.status === status)
     && (grade === 'All Grades' || item.grade === grade)
@@ -353,6 +355,7 @@ export default function OwnerRecords() {
     setGrade('All Grades');
     setLocation('All Locations');
     setColor('');
+    setInventoryPurpose('All');
   };
 
   return (
@@ -368,11 +371,14 @@ export default function OwnerRecords() {
       <div className="button-group"><button className="btn-secondary" onClick={() => setMonitorReprints(value => !value)}>{monitorReprints ? 'Hide Reprint History' : 'Reprint Requests & History'}</button></div>
       {monitorReprints && <ReprintApprovals monitor search={search} />}
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
-      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation /> : undefined} />
+      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation
+        records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).map(row => ({ ...(row.specification || row.material || {}), status: row.status }))}
+        status={status} onStatusChange={inventoryArea ? value => { setStatus(value); setPage(1); } : undefined}
+        statusFor={record => record.status} purpose={inventoryPurpose} onPurposeChange={inventoryArea ? value => { setInventoryPurpose(value); setPage(1); } : undefined} /> : undefined} />
       {productArea && <LegacyBarcodeNotice query={search} pipes={app.finishedGoods} />}
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
       <div className="filter-panel">
-        <div className="record-status-filters">
+        {!inventoryArea && <div className="record-status-filters">
           <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
             className="app-select" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}
           >
@@ -391,8 +397,10 @@ export default function OwnerRecords() {
               ))}
             </SearchableDropdown></label>
           )}
-        </div>
-        {inventoryArea && !productArea && <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
+        </div>}
+        {inventoryArea && !productArea && <MaterialLocationFilters records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).flatMap(row => row.material ? [{ ...row.material, status: row.status }] : [])}
+          status={status} onStatusChange={value => { setStatus(value === 'All' ? 'All Statuses' : value); setPage(1); }} statusFor={record => record.status}
+          grade={grade} onGradeChange={value => { setGrade(value === 'All' ? 'All Grades' : value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
       </div>
       <div className="app-card table-scroll">
         <div className="table-title">

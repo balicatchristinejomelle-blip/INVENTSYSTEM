@@ -160,13 +160,15 @@ try {
       assert.ok(renderToStaticMarkup(React.createElement(globalThis.__HPAI_APP_CONTEXT__.Provider, { value:{...base,currentUser:user} }, React.createElement(Page))).length > 100);
     });
   }
-  for (const role of ['marketing','plantmanager']) check(`${role}: actual finished goods render has eight unchanged controls in one combined grid`, () => {
+  for (const role of ['marketing','plantmanager']) check(`${role}: actual finished goods render has eight inventory controls in the requested order`, () => {
     const html = htmlByPage.get(`src/pages/${role}/FinishedGoods.tsx`);
-    const start = html.indexOf('class="combined-product-filters"'), end = html.indexOf('class="category-tab-group"', start);
+    const start = html.indexOf('class="inventory-facet-grid product-filter-controls"'), end = html.indexOf('class="category-tab-group"', start);
     const panel = html.slice(start, end);
     assert.ok(start > 0); assert.equal((panel.match(/role="combobox"/g) || []).length, 8);
     assert.ok(panel.includes('class="field-label">Status</span>'));
     assert.ok(panel.includes('class="field-label">Storage Purpose</span>'));
+    const labels = [...panel.matchAll(/class="field-label">([^<]+)<\/span>/g)].map(match => match[1]);
+    assert.deepEqual(labels.slice(0,8), ['Product','Material Grade','Color','Size / Diameter','SDR / Thickness','Location','Storage Purpose','Status']);
   });
   check('Attendance uses one period control, no duplicate calendars and all three shift choices', () => {
     const html = htmlByPage.get('src/pages/plantmanager/Attendance.tsx');

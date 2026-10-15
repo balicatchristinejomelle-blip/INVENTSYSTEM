@@ -122,7 +122,7 @@ export default function PMProductionOrders() {
       {creationNotice.message && <div className="alert-success" role="status">{creationNotice.message}</div>}
       <div className="filter-panel product-filter-panel mb-4">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setMoPage(1); setPoPage(1); }} onDateChange={() => { setMoPage(1); setPoPage(1); }} />
-        <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
+        <ProductFilters records={[...manufacturingOrders.filter(item => dateInPeriod(item.createdDate, period.range) && matchesRecord(withPrintSearch(app, item), search)), ...productionOrders.filter(item => dateInPeriod(item.requiredDate, period.range) && matchesRecord(withPrintSearch(app, item), search))]} value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
         <div className="product-view-actions">
           <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>
         </div>

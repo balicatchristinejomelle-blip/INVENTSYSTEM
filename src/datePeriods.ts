@@ -69,6 +69,22 @@ export function effectiveDateRange(scope: DatePeriod, query: string, anchor = bu
   return exact ? { start: exact, end: exact, label: specificDateLabel(exact) } : periodRange(scope, anchor);
 }
 
+/** Calendar arithmetic only; clamp month/year moves so Jan 31 and leap days cannot skip a period. */
+export function shiftPeriodAnchor(anchor: string, scope: DatePeriod, direction: -1 | 1): string {
+  const valid = parseSpecificDate(anchor);
+  if (!valid || scope === 'all') return valid || businessToday();
+  const date = new Date(valid + 'T00:00:00Z');
+  if (scope === 'day' || scope === 'week') date.setUTCDate(date.getUTCDate() + direction * (scope === 'week' ? 7 : 1));
+  else {
+    const day = date.getUTCDate(); date.setUTCDate(1);
+    if (scope === 'month') date.setUTCMonth(date.getUTCMonth() + direction);
+    else date.setUTCFullYear(date.getUTCFullYear() + direction);
+    date.setUTCDate(Math.min(day, new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()));
+  }
+  const result = date.toISOString().slice(0, 10);
+  return parseSpecificDate(result) || valid;
+}
+
 export function dateInPeriod(value: string | undefined, range: PeriodRange): boolean {
   if (!range.start) return true;
   const date = calendarDate(value);

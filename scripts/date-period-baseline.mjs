@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { SMART_INVENTORY_NEW_FILES, restoreSmartInventoryFile } from './smart-inventory-baseline.mjs';
 
 export const DATE_PERIOD_BASELINE = '079e1d3';
-export const DATE_PERIOD_NEW_FILES = ['src/datePeriods.ts', 'src/datePeriods.css', 'src/components/DateSearchContext.tsx'];
+export const DATE_PERIOD_NEW_FILES = [...SMART_INVENTORY_NEW_FILES, 'src/datePeriods.ts', 'src/datePeriods.css', 'src/components/DateSearchContext.tsx'];
 // Older suites compare their original presentation/filter baselines. Only these exact
 // reviewed date-filter and PO table presentation changes may be restored; runtime checks load current code.
 // check-date-periods.mjs separately validates date behavior and protected business files.
@@ -52,7 +53,9 @@ export function datePeriodBaseline(file) {
   return previous.get(file);
 }
 export function restoreDatePeriodFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedDatePeriodDeltas[file] && normalized === datePeriodBaseline(file)) return normalized;
+  const source = restoreSmartInventoryFile(file, normalized);
   if (!reviewedDatePeriodDeltas[file]) return source;
   if (source === datePeriodBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedDatePeriodDeltas[file]) throw new Error('Unreviewed date-period delta: ' + file);

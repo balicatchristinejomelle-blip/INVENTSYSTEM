@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-export function ActiveFilters({ items, onClear, clearLabel = 'Clear filters' }: {
-  items: readonly (readonly [string, string | undefined])[]; onClear: () => void; clearLabel?: string;
+export function ActiveFilters({ items, onClear, onRemove, compact = false, clearLabel = 'Clear filters' }: {
+  items: readonly (readonly [string, string | undefined])[]; onClear: () => void; onRemove?: (label: string) => void; clearLabel?: string; compact?: boolean;
 }) {
   const active = items.filter(([,value]) => !!value && !/^(all(?:\s.*)?|select .*?)$/i.test(value));
   if (!active.length) return null;
   return <div className="active-filter-summary" role="region" aria-label="Active filters">
     <span className="field-label">Active filters</span>
-    <ul>{active.map(([label,value]) => <li key={label}><strong>{label}:</strong> {value}</li>)}</ul>
+    <ul>{active.map(([label,value]) => <li key={label} title={`${label}: ${value}`}>{!compact && <strong>{label}: </strong>}{value}{onRemove && <button type="button" aria-label={`Clear ${label}`} onClick={() => onRemove(label)}>×</button>}</li>)}</ul>
     <button type="button" className="btn-secondary btn-compact" onClick={onClear}>{clearLabel}</button>
   </div>;
 }
@@ -15,7 +15,14 @@ export function EmptyState({ message = 'No records match the selected filters.' 
   return <div className="empty-state" role="status"><strong>{message}</strong><div>Try another search or clear the filters above.</div></div>;
 }
 export function TableBody({ children, emptyMessage, ...props }: React.ComponentProps<'tbody'> & { emptyMessage?: string }) {
-  return <tbody {...props}>{React.Children.toArray(children).length ? children : <tr><td colSpan={100}><EmptyState message={emptyMessage} /></td></tr>}</tbody>;
+  const body = useRef<HTMLTableSectionElement>(null), [columns, setColumns] = useState(1);
+  const populated = React.Children.toArray(children).length > 0;
+  useEffect(() => {
+    if (populated) return;
+    const header = body.current?.closest('table')?.tHead?.rows[0];
+    if (header) setColumns(Array.from(header.cells).reduce((sum, cell) => sum + cell.colSpan, 0));
+  }, [populated]);
+  return <tbody {...props} ref={body}>{populated ? children : <tr><td colSpan={columns}><EmptyState message={emptyMessage} /></td></tr>}</tbody>;
 }
 const HELP: Record<string, string> = {
   Available: 'Unallocated general inventory that is physically stored and ready to reserve.',

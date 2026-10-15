@@ -40,7 +40,9 @@ export default function ProductionHistory() {
     : myRecycling.length;
 
   return <div className="page-stack">
-    <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search PO, MO, product, barcode, employee, shift..." compact filters={productTab ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade /> : undefined} />
+    <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search PO, MO, product, barcode, employee, shift..." compact filters={productTab ? <ProductFilters
+      records={(tab === 'My Turnovers' ? turnovers.filter(item => item.outgoingEmployeeId === currentUser?.employeeId) : tab === 'My Quality Records' ? rejectedMaterials.filter(item => item.employee === currentUser?.name) : tab === 'My Recycling Activity' ? recyclingBatches.filter(item => item.employees.includes(currentUser?.name || '')) : transactions.filter(item => item.employeeId === currentUser?.employeeId && (tab !== 'My Barcode Activity' || !!item.barcode))).filter(item => dateInPeriod(item.date, period.range) && matchesRecord(productFilterRecord(item, app), query))}
+      value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade /> : undefined} />
     <div className="tab-strip">{tabs.map(item => <button key={item} className={tab === item ? 'tab-active' : ''} onClick={() => { setTab(item); setPage(1); }}>{item}</button>)}</div>
     <div className="app-card table-scroll"><table className="app-table"><thead><tr>
       {tab === 'My Attendance' && <><th>Date</th><th>Shift</th><th>Clock In</th><th>Clock Out</th><th>Status</th></>}

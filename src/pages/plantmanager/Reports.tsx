@@ -405,7 +405,7 @@ export default function PlantManagerReports() {
         onChange={changeReport}
         label="Report type"
       />
-      {report === 'Recycling' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
+      {report === 'Recycling' && <ProductFilters records={[...rejectedMaterials, ...recyclingBatches].filter(item => dateInPeriod(item.date, period.range) && matchesRecord(item, search))} value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation includeLength />}
 
       {report === "Material Inventory" && (
         <>
@@ -450,17 +450,6 @@ export default function PlantManagerReports() {
             label="Material report category"
           />
           <div className="app-card detail-card page-stack">
-            {materialCategory !== "Colorants" && (
-              <CategoryTabs
-                items={["All", ...MATERIAL_GRADES] as const}
-                value={grade}
-                onChange={(value) => {
-                  setGrade(value)
-                  resetPage()
-                }}
-                label={`${materialCategory} grade`}
-              displayLabel={materialGradeFilterLabel} />
-            )}
             {materialCategory === "Recycled Pellets" && (
               <CategoryTabs
                 items={
@@ -478,21 +467,8 @@ export default function PlantManagerReports() {
                 label="Recycled pellet form"
               />
             )}
-            {materialCategory !== "Colorants" && (
-              <CategoryTabs
-                items={
-                  ["All", "Available", "Open / WIP", "Fully Consumed"] as const
-                }
-                value={lifecycle}
-                onChange={(value) => {
-                  setLifecycle(value)
-                  resetPage()
-                }}
-                label="Material lifecycle"
-              />
-            )}
 
-            <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
+            <MaterialLocationFilters status={lifecycle} onStatusChange={materialCategory === 'Colorants' ? undefined : value => { setLifecycle(value as Lifecycle); resetPage(); }} statusFor={item => item.inventoryStatus ? lifecycleForPellet(item.inventoryStatus) : item.status || ''} records={materialRecords.filter(item => dateInPeriod(item.date, period.range) && matchesRecord(item, search) && (materialCategory !== 'Recycled Pellets' || recycledForm === 'All' || (recycledForm === 'Complete 25 kg Bags' ? item.category.includes('Complete') : item.category.includes('Loose')))).map(item => pellets.find(record => record.id === item.id) || colorants.find(record => record.id === item.id) || {})} grade={grade} onGradeChange={materialCategory === 'Colorants' ? undefined : value => { setGrade(value); resetPage(); }} color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">{materialCategory} Detail</div>
@@ -563,34 +539,11 @@ export default function PlantManagerReports() {
           <FinishedGoodsMetrics pipes={filteredFinished} />
           <div className="filter-panel product-filter-panel">
 
-            <div className="combined-product-filters">
-            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeColor includeLocation includeLength />
-            <div className="product-operational-filters">
-              <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
-              <label className="product-filter-field"><span className="field-label">Status</span>
-              <SearchableDropdown
-                className="app-select"
-                value={finishedStatus}
-                onChange={(event) => {
-                  setFinishedStatus(event.target.value as FinishedStatus)
-                  resetPage()
-                }}
-              >
-                {([
-                  "All Statuses",
-                  "Awaiting Label / Storage",
-                  "Available",
-                  "Reserved",
-                  "Temporary Storage",
-                  "Ready for Ship Out",
-                  "Released / Shipped Out",
-                ] as const).map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </SearchableDropdown>
-              </label>
-            </div>
-            </div>
+            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeColor includeLocation includeLength
+              records={finishedGoods.filter(item => dateInPeriod(item.productionDate, period.range) && matchesRecord(item, search))}
+              purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
+              status={finishedStatus} onStatusChange={value => { setFinishedStatus(value as FinishedStatus); resetPage(); }}
+              statusFor={pipe => pipe.releaseStatus === 'Released' ? 'Released / Shipped Out' : pipe.locationStatus === 'Awaiting Storage' ? 'Awaiting Label / Storage' : pipe.status === 'Ready for Release' ? 'Ready for Ship Out' : ['Available','Reserved','Temporary Storage'].includes(finishedPipeInventory(pipe).bucket) ? finishedPipeInventory(pipe).bucket : ''} />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">Finished Goods / Pipe Inventory</div>
@@ -668,7 +621,7 @@ export default function PlantManagerReports() {
           </div>
           <div className="toolbar">
 
-            <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeColor includeLocation includeLength />
+            <ProductFilters records={periodProductionOrders.filter(item => matchesRecord(item, search))} value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeColor includeLocation includeLength />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">Production Order Detail</div>
