@@ -643,7 +643,7 @@ function Reports() {
           {/* Finished goods table */}
           <div className="app-card" style={{ padding: 14 }}>
             <SectionHeader>Finished Goods Summary</SectionHeader>
-            <table className="app-table" style={{ width: "100%" }}>
+            <table className="app-table inventory-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>FG ID</th>

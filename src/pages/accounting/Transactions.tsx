@@ -134,7 +134,7 @@ export default function Transactions() {
         </SearchableDropdown></label>
       </div>
       <div className="app-card table-scroll">
-        <table className="app-table">
+        <table className={category === 'Finished Pipe' ? "app-table inventory-table" : "app-table"}>
           <thead>
             <tr>
               <th>Date / Time</th>

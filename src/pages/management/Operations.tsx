@@ -328,7 +328,7 @@ export default function Operations() {
       {tab === "orders" && (
         <div className="page-stack">
           <div className="app-card" style={{ overflow: "hidden" }}>
-            <table className="app-table">
+            <table className="app-table inventory-table">
               <thead>
                 <tr>
                   <th>FG ID</th>

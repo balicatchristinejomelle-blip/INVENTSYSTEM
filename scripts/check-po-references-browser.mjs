@@ -40,11 +40,11 @@ const entry = [
   "  return React.createElement('main', {className:'operational-content page-stack',style:{padding:16,boxSizing:'border-box',minWidth:0,maxWidth:'100%'}},",
   "    React.createElement('div',{'data-qa-role':app.currentUser.role},app.currentUser.role),",
   "    React.createElement('div',{className:'app-card table-scroll','data-testid':'po-table-container'},",
-  "      React.createElement('table',{className:'app-table'},",
-  "        React.createElement('thead',null,React.createElement('tr',null,React.createElement('th',{className:'po-column'},'PO'),React.createElement('th',null,'Customer Order'))),",
+  "      React.createElement('table',{className:'app-table inventory-table'},",
+  "        React.createElement('thead',null,React.createElement('tr',null,React.createElement('th',{className:'po-column'},'PO'),React.createElement('th',null,'Customer Order'),...['Barcode','Product','Grade / Size','Purpose','Status','Location','Print','Actions'].map(label=>React.createElement('th',{key:label},label)))),",
   "        React.createElement('tbody',null,[PO,LONG].map((reference,index)=>React.createElement('tr',{key:reference,onClick:()=>{window.__poQA.rowClicked=true;}},",
   "          React.createElement('td',{className:'font-mono po-column','data-testid':index?'long-po':'sample-po'},React.createElement(RecordReference,{value:reference})),",
-  "          React.createElement('td',{'data-testid':'customer-order'},'SO-2026-0058')",
+  "          React.createElement('td',{'data-testid':'customer-order'},'SO-2026-0058'),...['110617BB-SN007-EXTRA-LONG-12345678901234567890','HDPE Pipe','PE100 · 110mm · SDR17 · 6m','Temporary Storage','Awaiting Storage','Production Area / Awaiting Storage / Extended Location Path','REPRINT APPROVED','View Details'].map((value,i)=>React.createElement('td',{key:i},React.createElement(i===7?'button':'span',{className:i===4?'badge-amber':i===7?'btn-secondary btn-compact':undefined},value)))",
   "        )))",
   "      )",
   "    )",
@@ -164,6 +164,8 @@ try {
           assert.equal(cell.nowrap,'nowrap');assert.equal(cell.breakWord,'keep-all');assert.equal(cell.wrapWord,'normal');
           assert.ok(cell.width>=150);assert.ok(cell.inside&&cell.apart&&cell.visible,JSON.stringify(cell));
         }
+        const fields=await evaluate("(()=>[...document.querySelectorAll('[data-testid=po-table-container] td')].map(cell=>{const rects=[],walker=document.createTreeWalker(cell,NodeFilter.SHOW_TEXT);while(walker.nextNode()){if(!walker.currentNode.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(walker.currentNode);rects.push(...range.getClientRects());}const ys=new Set(rects.filter(r=>r.width>0).map(r=>Math.round(r.top)));const box=cell.getBoundingClientRect();return {text:cell.textContent,lines:ys.size,inside:rects.every(r=>r.left>=box.left-1&&r.right<=box.right+1)};}))()");
+        for(const cell of fields){assert.equal(cell.lines,1,role+' '+width+' wrapped field '+cell.text);assert.ok(cell.inside,role+' clipped '+cell.text);}
         if(width<600){assert.ok(metrics.scrollable);assert.ok(metrics.scrolled>0);}
       }
     }
@@ -176,8 +178,12 @@ try {
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
       await pause(100);
       const result=await evaluate("(()=>{const cells=[...document.querySelectorAll('td.po-column')].filter(cell=>cell.textContent===window.__poQA.expectedPO&&cell.getBoundingClientRect().width>0);return cells.map(cell=>{const ref=cell.querySelector('.po-reference');const range=document.createRange();range.selectNodeContents(ref);const rect=ref.getBoundingClientRect(),box=cell.getBoundingClientRect(),next=cell.nextElementSibling.getBoundingClientRect();return {lines:range.getClientRects().length,inside:rect.right<=box.right,apart:rect.right<=next.left};});})()");
-      // Existing mobile card mode may hide the desktop table; the shared table fixture verifies mobile scrolling.
-      if(width===1280)assert.ok(result.length>0,role+' individual table is visible');
+      const inventory=await evaluate("(()=>{const table=document.querySelector('.inventory-table'),wrap=table.closest('.table-scroll');const cells=[...table.querySelectorAll('th,td')].filter(cell=>cell.getBoundingClientRect().width>0).map(cell=>{const box=cell.getBoundingClientRect(),ys=new Set();let inside=true;const walker=document.createTreeWalker(cell,NodeFilter.SHOW_TEXT);while(walker.nextNode()){if(!walker.currentNode.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(walker.currentNode);for(const r of range.getClientRects()){ys.add(Math.round(r.top));inside=inside&&r.left>=box.left-1&&r.right<=box.right+1;}}return {text:cell.textContent,lines:ys.size,inside};});wrap.scrollLeft=100000;const scroll=wrap.scrollLeft;wrap.scrollLeft=0;return {cells,scroll,overflow:document.documentElement.scrollWidth>innerWidth+1};})()");
+      for(const cell of inventory.cells){assert.equal(cell.lines,1,role+' '+width+' wrapped '+cell.text);assert.ok(cell.inside,role+' clipped '+cell.text);}
+      assert.equal(inventory.overflow,false,role+' page overflow');
+      if(width<800)assert.ok(inventory.scroll>0,role+' horizontal scroll');
+
+      assert.ok(result.length>0,role+' individual table is visible at '+width);
       for(const cell of result){assert.equal(cell.lines,1);assert.ok(cell.inside&&cell.apart);}
       if(width===1280){
         const screenshot=await send('Page.captureScreenshot',{format:'png'});
@@ -185,6 +191,10 @@ try {
         fs.writeFileSync(file,Buffer.from(screenshot.data,'base64'));console.log('SCREENSHOT '+file);
       }
     }
+    await evaluate("[...document.querySelectorAll('.inventory-table button')].find(button=>button.textContent==='View Details').click()");
+    await waitFor(()=>evaluate("!!document.querySelector('[aria-modal=true]')"),role+' View Details opens');
+    await evaluate("document.querySelector('[aria-modal=true] .modal-close').click()");
+    await waitFor(()=>evaluate("!document.querySelector('[aria-modal=true]')"),role+' close details');
     console.log('PASS actual '+role+' Individual Pipes: '+(await evaluate('window.__poQA.expectedPO'))+' stays intact and adjacent columns do not overlap');
   }
   assert.deepEqual(browserErrors,[]);

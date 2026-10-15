@@ -197,7 +197,7 @@ export default function FinishedPipes() {
               <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); setProductType('All'); setGrade('All'); productFilters.reset(); period.setDate(''); setPage(1); }}>Clear Filters</button>
             </div>
           ) : (
-            <table className="app-table" style={{ width: "100%" }}>
+            <table className="app-table inventory-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
                   <th>FG ID</th>

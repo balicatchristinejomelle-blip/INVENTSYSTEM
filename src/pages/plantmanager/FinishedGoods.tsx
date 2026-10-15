@@ -380,7 +380,7 @@ export default function PMFinishedGoods() {
           </>
         ) : (
           <>
-            <table className="app-table">
+            <table className="app-table inventory-table">
               <thead>
                 <tr>
                   <th>Barcode</th>
@@ -512,7 +512,7 @@ export default function PMFinishedGoods() {
                 </div>
                 <div className="app-card table-scroll desktop-record-table">
                   <div className="table-title">Individual Good Pipes in This Batch</div>
-                  <table className="app-table">
+                  <table className="app-table inventory-table">
                     <thead>
                       <tr>
                         <th>Barcode</th>

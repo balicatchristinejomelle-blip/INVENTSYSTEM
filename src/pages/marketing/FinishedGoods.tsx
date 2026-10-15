@@ -237,7 +237,7 @@ export default function MarketingFG() {
       ) : (
         <>
           <div className="app-card table-scroll desktop-record-table">
-            <table className="app-table">
+            <table className="app-table inventory-table">
               <thead>
                 <tr>
                   <th>Pipe ID</th>
@@ -333,7 +333,7 @@ export default function MarketingFG() {
               ))}
             </div>
             <div className="app-card table-scroll desktop-record-table">
-              <table className="app-table">
+              <table className="app-table inventory-table">
                 <thead>
                   <tr>
                     <th>Barcode</th>

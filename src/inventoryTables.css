@@ -1,0 +1,19 @@
+.app-table.inventory-table {
+  display: table; table-layout: auto;
+  width: max-content !important; min-width: 100% !important;
+  max-width: none; overflow: visible;
+}
+.app-table.inventory-table :is(th, td),
+.app-table.inventory-table :is(th, td) :is(a, button, span) {
+  white-space: nowrap !important; overflow-wrap: normal !important;
+  word-break: keep-all !important;
+}
+.app-table.inventory-table :is(th, td) { padding: 10px 14px; }
+.app-table.inventory-table :is(a, button, span) { max-width: none; text-overflow: clip; }
+.app-card:has(> .inventory-table), .table-scroll:has(.inventory-table),
+div:has(> .inventory-table) {
+  max-width: 100%; min-width: 0; overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.desktop-record-table:has(.inventory-table) { display: block; }
+.desktop-record-table:has(.inventory-table) + .mobile-record-list { display: none; }

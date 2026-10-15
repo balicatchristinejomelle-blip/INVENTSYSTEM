@@ -398,7 +398,7 @@ export default function OwnerRecords() {
         <div className="table-title">
           {section} · {period.range.label}
         </div>
-        <table className="app-table">
+        <table className={section === 'Finished Pipes' ? "app-table inventory-table" : "app-table"}>
           <thead>
             <tr>
               <th>Date</th>
