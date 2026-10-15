@@ -152,4 +152,4 @@ export default withRecordSearch(AccountingDashboard, [
   "transfers",
   "pellets",
   "colorants",
-])
+], false, false)

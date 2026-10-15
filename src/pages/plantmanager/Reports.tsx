@@ -83,7 +83,6 @@ export default function PlantManagerReports() {
     transactions,
   } = useApp()
 
-  const period = usePeriod("month")
 
   const [report, setReport] = useViewState<Report>("plantmanager/Reports:report", "Material Inventory")
 
@@ -91,6 +90,7 @@ export default function PlantManagerReports() {
   const productFilters = useProductFilters(() => setPage(1));
 
   const [search, setSearch] = useViewState("plantmanager/Reports:search", "")
+  const period = usePeriod("month", search);
 
   const [materialCategory, setMaterialCategory] =
     useState<MaterialCategoryTab>("Virgin Pellets")
@@ -191,6 +191,7 @@ export default function PlantManagerReports() {
       return colorants.map((item) => ({
         id: item.id,
 
+        date: item.lastUpdated,
         reference: item.colorantId,
 
         category:
@@ -217,6 +218,7 @@ export default function PlantManagerReports() {
       .map((item) => ({
         id: item.id,
 
+        date: item.receivedDate,
         reference: `${item.batchNo} · ${item.bagNo}`,
 
         category: `${item.type} · Complete 25 kg Bag`,
@@ -239,6 +241,7 @@ export default function PlantManagerReports() {
             .map((item) => ({
               id: `loose-${item.id}`,
 
+              date: item.date,
               reference: item.batchNo,
 
               category: "Recycled · Loose Recycled Pellet",
@@ -263,7 +266,7 @@ export default function PlantManagerReports() {
 
   const filteredMaterials = materialRecords.filter(
     (item) =>
-      ((() => { const original = pellets.find(row => row.id === item.id) || colorants.find(row => row.id === item.id); return original ? matchesLocation(original, materialLocation) && matchesInventoryColor(original.color, materialColor) : materialLocation === 'All' && !materialColor; })()) &&
+      dateInPeriod(item.date, period.range) && ((() => { const original = pellets.find(row => row.id === item.id) || colorants.find(row => row.id === item.id); return original ? matchesLocation(original, materialLocation) && matchesInventoryColor(original.color, materialColor) : materialLocation === 'All' && !materialColor; })()) &&
       (materialCategory === "Colorants" ||
         grade === "All" ||
         item.grade === grade) &&
@@ -291,6 +294,7 @@ export default function PlantManagerReports() {
 
 
   const filteredFinished = finishedProductEligible.filter((item) => {
+    if (!dateInPeriod(item.productionDate, period.range)) return false;
     if (purpose !== 'All' && finishedPipeInventory(item).purpose !== purpose) return false;
     const statusMatches =
       finishedStatus === "All Statuses" ||
@@ -394,7 +398,7 @@ export default function PlantManagerReports() {
 
   return (
     <div className="page-stack">
-      <PeriodSelector period={period} />
+      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); resetPage(); }} onDateChange={resetPage} />
       <CategoryTabs
         items={REPORTS}
         value={report}
@@ -487,15 +491,7 @@ export default function PlantManagerReports() {
                 label="Material lifecycle"
               />
             )}
-            <input
-              className="app-input"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                resetPage()
-              }}
-              placeholder="Search barcode, bag, batch, grade, location, or colorant"
-            />
+
             <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
           </div>
           <div className="app-card table-scroll">
@@ -566,7 +562,7 @@ export default function PlantManagerReports() {
           </div>
           <FinishedGoodsMetrics pipes={filteredFinished} />
           <div className="filter-panel product-filter-panel">
-            <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, product, grade, size, origin group, PO, or customer order" />
+
             <div className="combined-product-filters">
             <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeColor includeLocation includeLength />
             <div className="product-operational-filters">
@@ -671,16 +667,7 @@ export default function PlantManagerReports() {
             ))}
           </div>
           <div className="toolbar">
-            <input
-              className="app-input record-search"
-              type="search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                resetPage()
-              }}
-              placeholder="Search production order, product, grade, line, or status"
-            />
+
             <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} includeGrade includeColor includeLocation includeLength />
           </div>
           <div className="app-card table-scroll">
@@ -744,15 +731,7 @@ export default function PlantManagerReports() {
               </div>
             ))}
           </div>
-          <input
-            className="app-input"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              resetPage()
-            }}
-            placeholder="Search transaction, PO, material, or employee"
-          />
+
           <div className="app-card table-scroll">
             <div className="table-title">Inventory Transaction Detail</div>
             <table className="app-table">
@@ -805,15 +784,7 @@ export default function PlantManagerReports() {
               </div>
             ))}
           </div>
-          <input
-            className="app-input"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              resetPage()
-            }}
-            placeholder="Search recycling batch, source PO, product, or status"
-          />
+
           <div className="app-card table-scroll">
             <div className="table-title">Recycling Batch Detail</div>
             <table className="app-table">

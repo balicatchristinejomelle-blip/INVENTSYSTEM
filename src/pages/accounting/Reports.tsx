@@ -388,4 +388,4 @@ export default withRecordSearch(AccountingReports, [
   "colorants",
   "transfers",
   "materialRequests",
-])
+], false, false)

@@ -76,12 +76,12 @@ export default function ProductionRecycling() {
   const [message, setMessage] = useState("")
 
   const [search, setSearch] = useViewState("production/Recycling:search", "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState("production/Recycling:page", 1)
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
-  const period = usePeriod()
 
   const query = search.trim().toLowerCase()
 

@@ -51,6 +51,7 @@ export default function Operations() {
   const [productionView, setProductionView] = useViewState<ProductionView>("management/Operations:productionView", 'Active / Ready');
 
   const [search, setSearch] = useViewState("management/Operations:search", "")
+  const period = usePeriod("month", search);
   const [materialLocation, setMaterialLocation] = useViewState("management/Operations:materialLocation", 'All');
   const [materialColor, setMaterialColor] = useViewState("management/Operations:materialColor", '');
 
@@ -59,7 +60,6 @@ export default function Operations() {
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
-  const period = usePeriod("month")
 
   const query = search.trim().toLowerCase()
 

@@ -1028,4 +1028,4 @@ export default withRecordSearch(Reports, [
   "turnovers",
   "rejectedMaterials",
   "employees",
-], true)
+], true, false)

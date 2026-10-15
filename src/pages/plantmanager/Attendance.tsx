@@ -48,7 +48,6 @@ type Tab = typeof TABS[number]
 function PMAttendance() {
   const { attendance, productionOrders } = useSearchableApp()
 
-  const [dateFilter, setDateFilter] = useViewState("plantmanager/Attendance:dateFilter", "")
 
   const period = usePeriod("week")
 
@@ -67,7 +66,6 @@ function PMAttendance() {
 
   const filtered = attendance.filter(a => {
     if (!dateInPeriod(a.date, period.range)) return false;
-    if (dateFilter && a.date !== dateFilter) return false;
     if (activeTab === 'Day Shift') return a.shift === 'Day';
     if (activeTab === 'Night Shift') return a.shift === 'Night';
     return true;
@@ -75,7 +73,7 @@ function PMAttendance() {
 
   // Summary counts (over ALL records for selected date, ignoring tab)
 
-  const dateRecords = attendance.filter(a => dateInPeriod(a.date, period.range) && (!dateFilter || a.date === dateFilter));
+  const dateRecords = attendance.filter(a => dateInPeriod(a.date, period.range));
 
   const activeCount = dateRecords.filter(a => a.status === 'Active').length;
 
@@ -99,15 +97,6 @@ function PMAttendance() {
       {/* Filters row */}
       <div className="attendance-toolbar">
         <PeriodSelector period={period} compact />
-        <label className="date-filter-field">
-          <span className="field-label">Specific Date (optional)</span>
-          <input
-            type="date"
-            className="app-input"
-            value={dateFilter}
-            onChange={e => setDateFilter(e.target.value)}
-          />
-        </label>
         <div className="shift-filter-group" role="group" aria-label="Shift filter">
           {TABS.map(tab => (
             <button
@@ -270,4 +259,4 @@ function PMAttendance() {
   )
 }
 
-export default withRecordSearch(PMAttendance, ["attendance"])
+export default withRecordSearch(PMAttendance, ["attendance"], false, false)

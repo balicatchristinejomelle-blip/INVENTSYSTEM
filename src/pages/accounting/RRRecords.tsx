@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -40,6 +41,7 @@ export default function RRRecords() {
   const [showNew, setShowNew] = useState(false)
 
   const [search, setSearch] = useViewState("accounting/RRRecords:search", "")
+  const period = usePeriod('all', search);
 
   const [pelletTypeFilter, setPelletTypeFilter] = useViewState("accounting/RRRecords:pelletTypeFilter", 'All');
 
@@ -71,11 +73,11 @@ export default function RRRecords() {
     () =>
       rrRecords.filter(
         (rr) =>
-          (pelletTypeFilter === 'All' || rr.pelletType === pelletTypeFilter) &&
+          dateInPeriod(rr.date, period.range) && (pelletTypeFilter === 'All' || rr.pelletType === pelletTypeFilter) &&
           ((!search.trim() || [rr.rrNumber, rr.supplier, rr.grade, rr.batchNo, rr.referenceNo, rr.destination].some(v => (v || '').toLowerCase().includes(search.trim().toLowerCase()))) ||
               matchesRecord(withPrintSearch(app, rr), search)),
       ),
-    [rrRecords, search, pelletTypeFilter, app.printMetadata, app.reprintRequests],
+    [rrRecords, search, pelletTypeFilter, app.printMetadata, app.reprintRequests, period.range.start, period.range.end],
   )
 
   const submitRR = () => {
@@ -188,7 +190,7 @@ export default function RRRecords() {
     <div className="page-stack">
       {receivingNotice.message && <div className="alert-success" role="status">{receivingNotice.message}</div>}
       <div className="toolbar">
-        <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search RR number, supplier, grade, batch, reference…" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         <label className="product-filter-field"><span className="field-label">Pellet Type</span><SearchableDropdown
           className="app-select" value={pelletTypeFilter} onChange={e => { setPelletTypeFilter(e.target.value); setPage(1); }}
         >

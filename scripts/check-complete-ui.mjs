@@ -168,11 +168,12 @@ try {
     assert.ok(panel.includes('class="field-label">Status</span>'));
     assert.ok(panel.includes('class="field-label">Storage Purpose</span>'));
   });
-  check('Attendance preserves both independent date values and all three shift choices in one compact toolbar', () => {
+  check('Attendance uses one period control, no duplicate calendars and all three shift choices', () => {
     const html = htmlByPage.get('src/pages/plantmanager/Attendance.tsx');
-    assert.equal((html.match(/type="date"/g) || []).length, 2);
+    assert.equal((html.match(/type="date"/g) || []).length, 0);
+    assert.equal((html.match(/aria-label="Date period"/g) || []).length, 1);
     assert.ok(html.includes('class="attendance-toolbar"'));
-    for (const label of ['Date (optional)','Specific Date (optional)','Shift filter','All','Day Shift','Night Shift','View Only.']) assert.ok(html.includes(label));
+    for (const label of ['Date period','Day','Week','Month','Year','Shift filter','All','Day Shift','Night Shift','View Only.']) assert.ok(html.includes(label));
   });
   const Tabs = (await server.ssrLoadModule('/src/components/CategoryTabs.tsx')).default;
   check('Chip caption is separate from navigation, preserving original selected tab/count semantics', () => {
@@ -183,11 +184,12 @@ try {
     assert.ok(html.includes('PE80<span>2</span>'));
   });
   const Period = (await server.ssrLoadModule('/src/components/PeriodSelector.tsx')).default;
-  check('Selected-date filter retains clear button, value and accessible attached label', () => {
-    const html = renderToStaticMarkup(React.createElement(Period, { period:{date:'2026-10-15',setDate:()=>{}},search:'example',onSearchChange:()=>{} }));
-    assert.ok(/<label class="date-filter-field"><span class="field-label">Date \(optional\)<\/span><div class="date-filter"><input/.test(html));
-    assert.ok(html.includes('value="2026-10-15"')); assert.ok(html.includes('aria-label="Clear date filter"'));
-    assert.ok(html.includes('type="search"')); assert.ok(html.includes('class="record-filter-controls"'));
+  check('Selected period exposes compact controls and an accessible clear action', () => {
+    const html = renderToStaticMarkup(React.createElement(Period, { period:{scope:'day',setScope:()=>{},exactDate:null,clearExact:()=>{},date:'',setDate:()=>{},range:{start:'2026-10-15',end:'2026-10-15',label:'Day: Oct 15, 2026'}},search:'example',onSearchChange:()=>{} }));
+    assert.ok(html.includes('aria-label="Date period"'));
+    assert.ok(html.includes('aria-pressed="true" class="date-period-button">Day</button>'));
+    assert.ok(html.includes('aria-label="Clear period filter"')); assert.ok(!html.includes('type="date"'));
+    assert.ok(html.includes('type="search"')); assert.ok(html.includes('class="date-period-buttons"'));
   });
   check('All source data and real localhost storage remain untouched by QA', () => { assert.equal(JSON.stringify(base), snapshot); assert.equal(localWrites.length, 0); });
   console.log(`Completed ${count} complete UI source, bindings, CSS and all-six-role rendering checks against ${COMPLETE_UI_BASELINE}. These are NOT browser screenshots or measured viewport/theme/keyboard/overflow tests.`);

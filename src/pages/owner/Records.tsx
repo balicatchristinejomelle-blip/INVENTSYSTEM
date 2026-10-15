@@ -69,7 +69,6 @@ export default function OwnerRecords() {
   const app = useApp()
   const [monitorReprints, setMonitorReprints] = useState(false);
 
-  const period = usePeriod("month")
 
   const [area, setArea] = useViewState<Area>("owner/Records:area", "Company Records", AREAS)
 
@@ -87,6 +86,7 @@ export default function OwnerRecords() {
   const [color, setColor] = useViewState("owner/Records:color", '');
 
   const [search, setSearch] = useViewState("owner/Records:search", "")
+  const period = usePeriod("month", search);
 
   const [documentAction, setDocumentAction] = useState<{ module: string; id: string; autoPrint: boolean } | null>(null);
 

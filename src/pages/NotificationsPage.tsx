@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../components/PeriodSelector';
 import React, { useMemo, useState } from "react"
 import { useViewState } from '../uiViewState';
 
@@ -19,6 +20,7 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useViewState<'all' | 'unread'>('notifications:filter', 'all');
 
   const [search, setSearch] = useViewState('notifications:search', "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState('notifications:page', 1)
 
@@ -28,7 +30,7 @@ export default function NotificationsPage() {
 
   const visible = myNotifications.filter(
     (notification) =>
-      (filter !== "unread" || !notification.read) &&
+      dateInPeriod(notification.datetime, period.range) && (filter !== "unread" || !notification.read) &&
       matchesRecord(notification, search),
   )
 
@@ -72,17 +74,7 @@ export default function NotificationsPage() {
         </button>
       </div>
       <div className="record-filter-bar">
-        <input
-          className="app-input record-search"
-          type="search"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            setPage(1)
-          }}
-          aria-label="Search notifications"
-          placeholder="Search notification, reference, priority, or date..."
-        />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
       </div>
       <div className="app-card notification-history">
         {pageRecords(visible, page).map((notification) => (

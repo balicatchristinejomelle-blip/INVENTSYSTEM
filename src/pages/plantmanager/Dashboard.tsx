@@ -172,4 +172,4 @@ export default withRecordSearch(PMDashboard, [
   "finishedGoods",
   "attendance",
   "turnovers",
-])
+], false, false)

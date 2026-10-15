@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -47,6 +48,7 @@ export default function MarketingFG() {
   const [grade, setGrade] = useViewState("marketing/FinishedGoods:grade", "All")
 
   const [search, setSearch] = useViewState("marketing/FinishedGoods:search", "")
+  const period = usePeriod('all', search);
 
   const [viewMode, setViewMode] = useViewState<ViewMode>("marketing/FinishedGoods:viewMode", 'By Batch');
 
@@ -64,7 +66,7 @@ export default function MarketingFG() {
     () =>
       finishedGoods.filter(
         (item) =>
-          item.qualityStatus !== 'Reject'
+          dateInPeriod(item.productionDate, period.range) && item.qualityStatus !== 'Reject'
     && (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose)
     && productFilters.matches(item)
     && (productType === 'All' || normalizedProductType(item.product) === productType)
@@ -73,13 +75,13 @@ export default function MarketingFG() {
           ([item.barcode, item.fgId, item.poRef, item.moRef || '', item.batch, item.product, item.grade, item.reservedForOrderRef || ''].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)),
       ),
-    [finishedGoods, grade, purpose, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, purpose, productType, search, status, productFilters.value, app.productionOrders, app.manufacturingOrders, app.orders, period.range.start, period.range.end],
   )
 
   const visibleBatchIds = useMemo(() => new Set(visible.map(item => item.batch)), [visible]);
 
   const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
+    .filter(item => dateInPeriod(item.productionDate, period.range) && item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
     .reduce((groups, item) => {
       const group = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       group.pipes.push(item);
@@ -90,7 +92,7 @@ export default function MarketingFG() {
   [finishedGoods, visibleBatchIds]);
 
   const productSelected = productType === 'All' ? finishedGoods : finishedGoods.filter(item => normalizedProductType(item.product) === productType);
-  const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose) && productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
+  const selectedGroup = viewMode === 'Stock Levels' ? productSelected.filter(item => dateInPeriod(item.productionDate, period.range) && (purpose === 'All' || finishedPipeInventory(item, app).purpose === purpose) && productFilters.matches(item) && (grade === 'All' || item.grade === grade) && matchesRecord(pipeSearchRecord(item, { ...app, specifications: readPipeSpecifications() }), search)) : productSelected;
 
   const inventory = finishedGoodsSummary(selectedGroup, app);
   const openBatch = batches.find(group => group.item.batch === selectedBatch);
@@ -124,7 +126,7 @@ export default function MarketingFG() {
         ['On Hand', inventory.onHand, 'individual physical pipes'],
       ]} />
       <div className="filter-panel product-filter-panel">
-        <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         <div className="combined-product-filters">
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
         {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown

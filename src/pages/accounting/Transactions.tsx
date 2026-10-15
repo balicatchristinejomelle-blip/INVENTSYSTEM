@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
@@ -36,9 +37,9 @@ export default function Transactions() {
 
   const [type, setType] = useViewState("accounting/Transactions:type", "All")
 
-  const [date, setDate] = useViewState("accounting/Transactions:date", "")
 
   const [search, setSearch] = useViewState("accounting/Transactions:search", "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState("accounting/Transactions:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
@@ -51,7 +52,7 @@ export default function Transactions() {
       (category === 'All' || categoryOf(item) === category)
     && (category !== 'Finished Pipe' || productFilters.matches(item))
     && (type === 'All' || item.transactionType === type)
-    && (!date || item.date === date) &&
+    && dateInPeriod(item.date, period.range) &&
       ([item.barcode, item.reference, item.poRef, item.productType, item.item, item.batch, item.employee].some(value => (value || '').toLowerCase().includes(search.trim().toLowerCase())) ||
         matchesRecord(categoryOf(item) === 'Finished Pipe' ? productFilterRecord(item, app) : item, search)),
   )
@@ -122,7 +123,7 @@ export default function Transactions() {
       {category === 'Finished Pipe' && finishedCard.needsReconciliation && <div className="alert-warning">Historical movement totals do not reconcile with the retained physical sample records. No history was rewritten; review the opening balance before backend import.</div>}
       <CategoryTabs items={CATEGORIES} value={category} onChange={value => { setCategory(value); setPage(1); }} label="Inventory transaction category" />
       <div className="toolbar">
-        <input className={`app-input${category === 'Finished Pipe' ? ' record-search' : ''}`} type="search" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation />}
         <label className="product-filter-field"><span className="field-label">Transaction Type</span><SearchableDropdown
           className="app-select" aria-label="Transaction type" value={type} onChange={event => { setType(event.target.value); setPage(1); }}
@@ -131,7 +132,6 @@ export default function Transactions() {
             <option key={item}>{item}</option>
           ))}
         </SearchableDropdown></label>
-        <label className="date-filter-field"><span className="field-label">Movement Date (optional)</span><input className="app-input" aria-label="Movement date" type="date" value={date} onChange={event => { setDate(event.target.value); setPage(1); }} /></label>
       </div>
       <div className="app-card table-scroll">
         <table className="app-table">
@@ -209,7 +209,7 @@ export default function Transactions() {
                 <td colSpan={11} className="empty-state empty-state-action">
                   <strong>NO INVENTORY MOVEMENTS</strong>
                   <span>No stock movement exists for the selected search or filters.</span>
-                  {(search || date || type !== 'All' || category !== 'All') && <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); setDate(''); setType('All'); setCategory('All'); setPage(1); }}>Clear Filters</button>}
+                  {(search || period.scope !== 'all' || type !== 'All' || category !== 'All') && <button className="btn-secondary btn-compact" onClick={() => { setSearch(''); period.setDate(''); setType('All'); setCategory('All'); setPage(1); }}>Clear Filters</button>}
                 </td>
               </tr>
             )}

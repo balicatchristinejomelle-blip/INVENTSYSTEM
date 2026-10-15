@@ -16,17 +16,17 @@ export default function ProductionHistory() {
   const { currentUser, attendance, transactions, turnovers, rejectedMaterials, recyclingBatches, productionOrders } = app;
   const [tab, setTab] = useViewState<typeof tabs[number]>("production/History:tab", 'My Attendance');
   const [search, setSearch] = useViewState("production/History:search", '');
+  const period = usePeriod('all', search);
   const [page, setPage] = useViewState("production/History:page", 1);
   const productFilters = useProductFilters(() => setPage(1));
   const productTab = tab !== 'My Attendance';
-  const period = usePeriod();
   const query = search.trim().toLowerCase();
   const mine = useMemo(() => transactions.filter(item =>
     item.employeeId === currentUser?.employeeId
     && (!productTab || productFilters.matches(item))
     && dateInPeriod(item.date, period.range)
     && matchesRecord(productFilterRecord(item, app), query)
-  ), [transactions, currentUser, search, period.range, productFilters.value, productTab]);
+  ), [transactions, currentUser, search, period.range, productFilters.value, productTab, period.range.start, period.range.end]);
   const matchesSearch = (item: unknown) => matchesRecord(productTab ? productFilterRecord(item, app) : item, query) && (!productTab || productFilters.matches(item));
   const myAttendance = attendance.filter(item => item.employeeId === currentUser?.employeeId && dateInPeriod(item.date, period.range) && matchesSearch(item));
   const myTurnovers = turnovers.filter(item => item.outgoingEmployeeId === currentUser?.employeeId && dateInPeriod(item.date, period.range) && matchesSearch(item));

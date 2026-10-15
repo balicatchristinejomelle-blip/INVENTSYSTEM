@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -48,6 +49,7 @@ export default function Orders() {
   const [filter, setFilter] = useViewState("marketing/Orders:filter", "All")
 
   const [search, setSearch] = useViewState("marketing/Orders:search", "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState("marketing/Orders:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
@@ -71,7 +73,7 @@ export default function Orders() {
 
   const filtered = orders.filter(
     (order) =>
-      (filter === "All" || order.status === filter) &&
+      dateInPeriod(order.orderDate, period.range) && (filter === "All" || order.status === filter) &&
       productFilters.matches(order) &&
       ([order.orderNo, order.customerName, order.product, order.diameter, order.sdr, order.grade, order.color, order.stripe, order.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(withPrintSearch(app, order), search)),
@@ -177,7 +179,7 @@ export default function Orders() {
       </div>
 
       <div className="record-filter-bar">
-        <input className="app-input record-search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search order, customer, product, size, grade, color, or status" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
       </div>
 

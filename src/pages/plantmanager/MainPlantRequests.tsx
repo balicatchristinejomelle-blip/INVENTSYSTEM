@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -54,6 +55,7 @@ export default function MainPlantRequests() {
   const [tab, setTab] = useViewState<RequestTab>("plantmanager/MainPlantRequests:tab", "All")
 
   const [search, setSearch] = useViewState("plantmanager/MainPlantRequests:search", "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState("plantmanager/MainPlantRequests:page", 1)
 
@@ -109,7 +111,7 @@ export default function MainPlantRequests() {
 
   const filtered = materialRequests.filter(
     (request) =>
-      (tab === "All" || requestCategory(request) === tab) &&
+      dateInPeriod(request.date, period.range) && (tab === "All" || requestCategory(request) === tab) &&
       ([request.refNo, request.grade, request.color, request.poRef || '', request.destination || '', request.status].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(withPrintSearch(app, request), search)),
   )
@@ -199,7 +201,7 @@ export default function MainPlantRequests() {
 
       <CategoryTabs items={REQUEST_TABS} value={tab} onChange={value => { setTab(value); setPage(1); }} counts={counts} label="Material request category" />
       <div className="record-filter-bar">
-        <input className="app-input record-search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search request, grade, color, PO, destination, or status" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
       </div>
 
       <div className="app-card table-scroll">

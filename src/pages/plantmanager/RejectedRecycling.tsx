@@ -258,4 +258,4 @@ function RejectedRecycling() {
 export default withRecordSearch(RejectedRecycling, [
   "rejectedMaterials",
   "recyclingBatches",
-])
+], false, false)

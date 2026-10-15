@@ -260,4 +260,4 @@ export default withRecordSearch(ProductionDashboard, [
   "finishedGoods",
   "rejectedMaterials",
   "transactions",
-])
+], false, false)

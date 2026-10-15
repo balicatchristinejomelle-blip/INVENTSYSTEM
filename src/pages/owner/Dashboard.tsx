@@ -189,4 +189,4 @@ export default withRecordSearch(OwnerDashboard, [
   "transfers",
   "attendance",
   "turnovers",
-])
+], false, false)

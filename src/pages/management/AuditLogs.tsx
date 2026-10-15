@@ -43,10 +43,10 @@ export default function AuditLogs() {
   const [action, setAction] = useViewState("management/AuditLogs:action", "All")
 
   const [search, setSearch] = useViewState("management/AuditLogs:search", "")
+  const period = usePeriod("month", search);
 
   const [page, setPage] = useViewState("management/AuditLogs:page", 1)
 
-  const period = usePeriod("month")
 
   const authorizedLogs = currentUser?.role === 'management'
     ? auditLogs.filter(log => log.role !== 'Owner / Super Admin' && !/access change|account created/i.test(log.action))

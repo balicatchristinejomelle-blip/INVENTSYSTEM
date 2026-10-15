@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -51,6 +52,7 @@ export default function PMProductionOrders() {
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
   const [search, setSearch] = useViewState("plantmanager/ProductionOrders:search", "")
+  const period = usePeriod('all', search);
 
   const [moPage, setMoPage] = useViewState("plantmanager/ProductionOrders:moPage", 1)
 
@@ -92,13 +94,13 @@ export default function PMProductionOrders() {
 
   const filteredMOs = manufacturingOrders.filter(
     (item) =>
-      productFilters.matches(item) && (!query || [item.moNo, item.orderRef, item.poRef || '', item.product, item.grade, item.diameter, item.sdr, item.length, item.color, item.stripe, item.status, item.requiredDate].some(value => String(value).toLowerCase().includes(query)) ||
+      dateInPeriod(item.createdDate, period.range) && productFilters.matches(item) && (!query || [item.moNo, item.orderRef, item.poRef || '', item.product, item.grade, item.diameter, item.sdr, item.length, item.color, item.stripe, item.status, item.requiredDate].some(value => String(value).toLowerCase().includes(query)) ||
         matchesRecord(withPrintSearch(app, item), query)),
   )
 
   const filteredPOs = productionOrders.filter(
     (item) =>
-      productFilters.matches(item) && (!query || [item.poNo, item.source || 'Manufacturing Order', item.moRef, item.product, item.grade, item.diameter, item.sdr, item.length, item.priority, item.requiredDate, item.status, item.replenishmentReason || ''].some(value => String(value).toLowerCase().includes(query)) ||
+      dateInPeriod(item.requiredDate, period.range) && productFilters.matches(item) && (!query || [item.poNo, item.source || 'Manufacturing Order', item.moRef, item.product, item.grade, item.diameter, item.sdr, item.length, item.priority, item.requiredDate, item.status, item.replenishmentReason || ''].some(value => String(value).toLowerCase().includes(query)) ||
         matchesRecord(withPrintSearch(app, item), query)),
   )
 
@@ -119,7 +121,7 @@ export default function PMProductionOrders() {
     <div>
       {creationNotice.message && <div className="alert-success" role="status">{creationNotice.message}</div>}
       <div className="filter-panel product-filter-panel mb-4">
-        <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); setMoPage(1); setPoPage(1); }} placeholder="Search PO, source, MO, product, grade, size, SDR / Thickness, priority, date, or status" />
+        <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setMoPage(1); setPoPage(1); }} onDateChange={() => { setMoPage(1); setPoPage(1); }} />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade />
         <div className="product-view-actions">
           <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>

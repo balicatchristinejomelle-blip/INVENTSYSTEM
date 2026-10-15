@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -48,6 +49,7 @@ export default function PelletInventory() {
   const [lifecycle, setLifecycle] = useViewState<'All' | 'Available' | 'Open / WIP' | 'Fully Consumed'>("plantmanager/PelletInventory:lifecycle", 'All');
 
   const [search, setSearch] = useViewState("plantmanager/PelletInventory:search", "")
+  const period = usePeriod('all', search);
 
   const [location, setLocation] = useViewState("plantmanager/PelletInventory:location", "All")
   const [color, setColor] = useViewState("plantmanager/PelletInventory:color", '');
@@ -69,7 +71,7 @@ export default function PelletInventory() {
 
   const filtered = pellets.filter(
     (item) =>
-      item.type === pelletType
+      dateInPeriod(item.receivedDate, period.range) && item.type === pelletType
     && (lifecycle === 'All' || (lifecycle === 'Available'
       ? ['Available', 'Pending Receipt'].includes(item.inventoryStatus)
       : lifecycle === 'Open / WIP'
@@ -83,7 +85,7 @@ export default function PelletInventory() {
 
   const visibleColorants = colorants.filter(
     (item) =>
-      matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
+      dateInPeriod(item.lastUpdated, period.range) && matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
       ([item.colorantId, item.name, item.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(item, search)),
   )
@@ -222,7 +224,7 @@ export default function PelletInventory() {
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); resetPage(); }} label="Colorant usage type" />}
         {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" groupLabel="Status" />}
         <div className="filter-panel">
-          <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
+          <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
           <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); resetPage(); }} onLocationChange={value => { setLocation(value); resetPage(); }} />
         </div>
       </div>

@@ -104,6 +104,7 @@ export default function FinishedPipes() {
   const [grade, setGrade] = useViewState("production/FinishedPipes:grade", "All")
 
   const [search, setSearch] = useViewState("production/FinishedPipes:search", "")
+  const period = usePeriod('all', search);
 
   const [detailFG, setDetailFG] = useState<FinishedGood | null>(null);
 
@@ -112,7 +113,6 @@ export default function FinishedPipes() {
   const [page, setPage] = useViewState("production/FinishedPipes:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
-  const period = usePeriod()
 
   const filtered = useMemo(() => {
     return finishedGoods.filter(
@@ -126,7 +126,7 @@ export default function FinishedPipes() {
         ([fg.barcode, fg.fgId, fg.poRef, fg.currentLocation, fg.product].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
           matchesRecord(pipeSearchRecord(fg, { ...app, specifications: readPipeSpecifications() }), search)),
     )
-  }, [finishedGoods, purpose, activeTab, grade, productType, search, productFilters.value, period.range, app.productionOrders, app.manufacturingOrders, app.orders])
+  }, [finishedGoods, purpose, activeTab, grade, productType, search, productFilters.value, period.range, app.productionOrders, app.manufacturingOrders, app.orders, period.range.start, period.range.end])
 
 
   return (

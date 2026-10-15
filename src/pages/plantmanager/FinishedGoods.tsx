@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -71,6 +72,7 @@ export default function PMFinishedGoods() {
   const printRecord = (id: string) => printable.find(record => record.kind === 'Barcode' && record.recordType === 'Finished Pipe' && record.recordId === id);
 
   const [search, setSearch] = useViewState("plantmanager/FinishedGoods:search", "")
+  const period = usePeriod('all', search);
 
   const [status, setStatus] = useViewState<Destination>("plantmanager/FinishedGoods:status", 'All Statuses');
 
@@ -134,7 +136,7 @@ export default function PMFinishedGoods() {
     () =>
       finishedGoods.filter(
         (f) =>
-          f.qualityStatus !== 'Reject'
+          dateInPeriod(f.productionDate, period.range) && f.qualityStatus !== 'Reject'
     &&
     (productType === 'All' || normalizedProductType(f.product) === productType)
     && (purpose === 'All' || finishedPipeInventory(f, app).purpose === purpose)
@@ -145,13 +147,13 @@ export default function PMFinishedGoods() {
           ([f.barcode, f.fgId, f.poRef, f.moRef || '', f.product, f.grade, f.diameter, f.sdr, f.length, f.productForm, f.color, f.stripe, f.reservedForOrderRef || '', f.currentLocation].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
             matchesRecord({ ...pipeSearchRecord(f, { ...app, specifications: readPipeSpecifications() }), printStatus: printRecord(f.id) ? printState(app, printRecord(f.id)!) : '', reprintStatus: app.reprintRequests.find(request => request.printable.key === printRecord(f.id)?.key)?.status }, search)),
       ),
-    [finishedGoods, grade, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders],
+    [finishedGoods, grade, purpose, productType, search, productFilters.value, status, app.printMetadata, app.reprintRequests, app.productionOrders, app.manufacturingOrders, app.orders, period.range.start, period.range.end],
   )
 
   const visibleBatchIds = useMemo(() => new Set(filtered.map(item => item.batch)), [filtered]);
 
   const batches = useMemo(() => Array.from(finishedGoods
-    .filter(item => item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
+    .filter(item => dateInPeriod(item.productionDate, period.range) && item.qualityStatus !== 'Reject' && visibleBatchIds.has(item.batch) && matchesLocation(item, productFilters.value.location || ''))
     .reduce((groups, item) => {
       const existing = groups.get(item.batch) || { item, pipes: [] as FinishedGood[] };
       existing.pipes.push(item);
@@ -249,7 +251,7 @@ export default function PMFinishedGoods() {
         ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length],
       ]} />
       <div className="filter-panel product-filter-panel">
-          <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
+          <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         <div className="combined-product-filters">
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
@@ -269,7 +271,7 @@ export default function PMFinishedGoods() {
         <div className="product-view-actions">
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <BatchPrintAction records={unprinted.map(item => printRecord(item.id)!)} onPreview={printAllUnprinted} label="Print All Unprinted Barcodes" />}
       </div>
-      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={finishedGoods.filter(pipe => productFilters.matches(pipe, { product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }) && matchesRecord(pipeSearchRecord(pipe, app), search))} />}
+      {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={finishedGoods.filter(pipe => dateInPeriod(pipe.productionDate, period.range) && productFilters.matches(pipe, { product: productType === 'All' ? '' : productType, grade: grade === 'All' ? '' : grade }) && matchesRecord(pipeSearchRecord(pipe, app), search))} />}
       {viewMode === 'Stock Levels' && (
         <div className="low-stock-panel">
           <div className="section-title">Finished Pipe Stock Targets</div>

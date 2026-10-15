@@ -1,3 +1,4 @@
+import { restoreDatePeriodFile } from './date-period-baseline.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import React from 'react';
@@ -6,7 +7,7 @@ import ts from 'typescript';
 import { createServer } from 'vite';
 import { UX_BASELINE, UX_NEW_FILES, reviewedUXDeltas, uxBaseline, restoreUXFile } from './ux-baseline.mjs';
 
-const read = file => fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+const read = file => restoreDatePeriodFile(file, fs.readFileSync(file, 'utf8')).replace(/\r/g, '');
 const files = dir => fs.readdirSync(dir, { withFileTypes:true }).flatMap(entry => entry.isDirectory() ? files(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]);
 const parse = text => ts.createSourceFile('view.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const jsx = node => ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node);

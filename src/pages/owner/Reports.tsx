@@ -81,4 +81,4 @@ export default withRecordSearch(OwnerReports, [
   "rejectedMaterials",
   "attendance",
   "transactions",
-], true)
+], true, false)

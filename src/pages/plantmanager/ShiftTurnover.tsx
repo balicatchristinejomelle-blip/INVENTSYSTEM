@@ -482,4 +482,4 @@ function PMShiftTurnover() {
   )
 }
 
-export default withRecordSearch(PMShiftTurnover, ["turnovers"])
+export default withRecordSearch(PMShiftTurnover, ["turnovers"], false, false)

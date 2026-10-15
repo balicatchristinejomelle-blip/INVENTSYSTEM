@@ -17,7 +17,9 @@
     "check:barcodes": "node scripts/check-barcodes-locations.mjs",
     "check:ui": "node scripts/check-ui-layout.mjs",
     "check:ui-complete": "node scripts/check-complete-ui.mjs",
-    "check:ux": "node scripts/check-ux.mjs"
+    "check:ux": "node scripts/check-ux.mjs",
+    "check:dates": "node scripts/check-date-periods.mjs",
+    "qa:dates:browser": "node scripts/check-date-periods-browser.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

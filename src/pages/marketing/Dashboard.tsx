@@ -123,4 +123,4 @@ export default withRecordSearch(MarketingDashboard, [
   "finishedGoods",
   "manufacturingOrders",
   "customers",
-])
+], false, false)

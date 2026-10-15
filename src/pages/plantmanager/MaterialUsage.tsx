@@ -229,4 +229,4 @@ function MaterialUsage() {
 export default withRecordSearch(MaterialUsage, [
   "materialUsageTransactions",
   "productionOrders",
-])
+], false, false)

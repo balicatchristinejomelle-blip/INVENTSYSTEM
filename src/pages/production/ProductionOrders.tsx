@@ -89,13 +89,13 @@ export default function ProdOrders() {
   const [orderView, setOrderView] = useViewState<OrderView>("production/ProductionOrders:orderView", 'Ready');
 
   const [search, setSearch] = useViewState("production/ProductionOrders:search", "")
+  const period = usePeriod('all', search);
 
   const [pages, setPages] = useViewState<Record<OrderView, number>>("production/ProductionOrders:pages", { Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
   const productFilters = useProductFilters(() => setPages({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 }));
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
 
-  const period = usePeriod()
 
   const query = search.trim().toLowerCase()
 

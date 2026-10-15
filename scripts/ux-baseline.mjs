@@ -1,8 +1,9 @@
+import { DATE_PERIOD_NEW_FILES, restoreDatePeriodFile } from './date-period-baseline.mjs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 export const UX_BASELINE = '306019b';
-export const UX_NEW_FILES = ['src/uiViewState.tsx','src/uiSubmission.ts','src/recordReferences.ts','src/components/ActionButton.tsx','src/components/UXFeedback.tsx','src/components/RecordReference.tsx'];
+export const UX_NEW_FILES = [...DATE_PERIOD_NEW_FILES, 'src/uiViewState.tsx','src/uiSubmission.ts','src/recordReferences.ts','src/components/ActionButton.tsx','src/components/UXFeedback.tsx','src/components/RecordReference.tsx'];
 // Exact reviewed frontend UX deltas only. Current behavior and original business callbacks
 // are checked independently in check-ux.mjs; unknown deltas cannot bypass older suites.
 export const reviewedUXDeltas = {
@@ -70,7 +71,9 @@ export function uxBaseline(file) {
   return baseline.get(file);
 }
 export function restoreUXFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedUXDeltas[file] && normalized === uxBaseline(file)) return normalized;
+  const source = restoreDatePeriodFile(file, normalized);
   if (!reviewedUXDeltas[file] || source === uxBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedUXDeltas[file]) throw new Error('Unreviewed frontend UX delta: ' + file);
   return uxBaseline(file);

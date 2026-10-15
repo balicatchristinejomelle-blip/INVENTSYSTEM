@@ -252,10 +252,10 @@ export default function Pellets() {
   const [colorantType, setColorantType] = useViewState<'All' | 'Base Colorant' | 'Stripe Colorant'>("production/Pellets:colorantType", 'All');
 
   const [search, setSearch] = useViewState("production/Pellets:search", "")
+  const period = usePeriod('all', search);
 
   const [page, setPage] = useViewState("production/Pellets:page", 1)
 
-  const period = usePeriod()
 
   const selectedType = category === 'Virgin Pellets' ? 'Virgin' : 'Recycled';
 

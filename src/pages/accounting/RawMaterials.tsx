@@ -1,3 +1,4 @@
+import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -29,6 +30,7 @@ export default function RawMaterials() {
   const [color, setColor] = useViewState("accounting/RawMaterials:color", '');
 
   const [search, setSearch] = useViewState("accounting/RawMaterials:search", "")
+  const period = usePeriod('all', search);
 
   const [lifecycle, setLifecycle] = useViewState<'Available' | 'Open / WIP' | 'Fully Consumed'>("accounting/RawMaterials:lifecycle", 'Available');
 
@@ -40,7 +42,7 @@ export default function RawMaterials() {
 
   const filteredPellets = pellets.filter(
     (item) =>
-      item.type === pelletType
+      dateInPeriod(item.receivedDate, period.range) && item.type === pelletType
     && (lifecycle === 'Available'
       ? ['Available', 'Pending Receipt'].includes(item.inventoryStatus)
       : lifecycle === 'Open / WIP'
@@ -54,7 +56,7 @@ export default function RawMaterials() {
 
   const filteredColorants = colorants.filter(
     (item) =>
-      matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
+      dateInPeriod(item.lastUpdated, period.range) && matchesLocation(item, location) && matchesInventoryColor(item.color, color) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) &&
       ([item.colorantId, item.name, item.color].some(value => value.toLowerCase().includes(search.toLowerCase())) ||
         matchesRecord(item, search)),
   )
@@ -73,7 +75,7 @@ export default function RawMaterials() {
       {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={v => { setGrade(v); setPage(1); }} label={`${category} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
       {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={v => { setLifecycle(v); setPage(1); }} label="Pellet lifecycle destination" groupLabel="Status" />}
       {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={v => { setColorantType(v); setPage(1); }} label="Colorant usage type" />}
-      <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
+      <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
       <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
     </div>
       <div className="app-card table-scroll">

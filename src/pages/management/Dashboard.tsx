@@ -172,4 +172,4 @@ export default withRecordSearch(ManagementDashboard, [
   "finishedGoods",
   "turnovers",
   "rejectedMaterials",
-])
+], false, false)
