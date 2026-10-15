@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreLayoutLockFile } from './layout-lock-baseline.mjs';
 
 export const RECOVERY_BASELINE = '9f6d47b';
 // Exact recovery deltas, independently exercised by check-recovery and browser QA.
@@ -25,7 +26,9 @@ export function recoveryBaseline(file) {
   return previous.get(file);
 }
 export function restoreRecoveryFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedRecoveryDeltas[file] && normalized === recoveryBaseline(file)) return normalized;
+  const source = restoreLayoutLockFile(file, normalized);
   if (!reviewedRecoveryDeltas[file] || source === recoveryBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedRecoveryDeltas[file]) throw new Error('Unreviewed recovery delta: ' + file);
   return recoveryBaseline(file);

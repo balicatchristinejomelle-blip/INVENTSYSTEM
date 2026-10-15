@@ -105,9 +105,9 @@ function MarketingDashboard() {
       </section>
 
       {/* Quick Actions */}
-      <section>
+      <section className="quick-actions">
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Quick Actions</h3>
-        <div className="button-group">
+        <div className="button-group quick-action-grid">
           <button className="btn-primary" onClick={() => navigate('mkt-orders')}>Create Order</button>
           <button className="btn-secondary" onClick={() => navigate('mkt-finished-goods')}>Check Stock</button>
           <button className="btn-secondary" onClick={() => navigate('mkt-mo-tracking')}>View MO</button>

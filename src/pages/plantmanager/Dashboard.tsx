@@ -152,9 +152,9 @@ function PMDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <section>
+      <section className="quick-actions">
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Quick Actions</h3>
-        <div className="button-group">
+        <div className="button-group quick-action-grid">
           <button className="btn-secondary" onClick={() => navigate('pm-production-orders')}>View MO</button>
           <button className="btn-primary" onClick={() => navigate('pm-production-orders')}>Create Production Order</button>
           <button className="btn-primary" onClick={() => navigate('pm-requests')}>Request Pellets</button>
