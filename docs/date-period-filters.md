@@ -20,3 +20,10 @@ Validation:
 - Screenshot and overflow checks apply to the shared filter component; the 31 complete role pages are covered by server rendering rather than a full interactive page audit.
 
 The older source-preservation suites retain their original comparisons through the repository's existing exact-reviewed-change guard pattern. Only the pinned date-filter deltas are accepted; arbitrary edits still fail. Runtime tests load the current app implementation, and the dedicated date suite independently checks that protected business files remain byte-for-byte unchanged.
+
+
+Section 37 �w^~)�t horizontal period layout
+-------------------------------------
+The shared period toolbar now occupies the available parent width even when it contains no Search input. This overrides the legacy fit-content rule under inline-size containment, preventing a collapsed toolbar. Desktop/tablet period buttons stay in a compact horizontal row; mobile buttons retain balanced wrapping. Period summaries and full dates stay on one line, with local horizontal scrolling when needed. The summary stays directly below its buttons and before the warning, KPIs and tables.
+
+Only scoped date-filter CSS changed. Day/calendar logic, Monday�w^~)�wSunday weeks, exact-date precedence, clear state, original dates, totals, warning thresholds, inventory formulas, database behavior, workflows and RBAC remain unchanged. Browser QA now mounts the actual Plant Manager Rejected & Recycling page at 360, 375, 390, 412, 430, 768 and 1280px, selects all five periods, checks summary lines and compact warning spacing, and confirms records/totals remain unchanged. Existing shared-component keyboard, search, theme and viewport tests remain in place; date regression checks cover all six roles.

@@ -14,3 +14,39 @@
   .date-period-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(100%, 300px); }
   .date-period-button { width: auto; min-width: 0; padding-inline: 9px; }
 }
+
+/* Filter-only toolbars must have a real width before inline-size containment.
+   Otherwise the legacy fit-content toolbar can collapse the shared control. */
+.operational-content .record-filter-bar.record-filter-bar:has(> .date-period-filter) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: start;
+}
+.date-period-filter .date-period-group { width: 100%; min-width: 0; }
+.date-period-filter .date-period-buttons {
+  flex-direction: row;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+}
+.date-period-filter .date-period-button { flex: 0 0 auto; white-space: nowrap; }
+.date-period-filter .date-period-summary {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.date-period-filter .date-period-summary span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media (max-width: 480px) {
+  .date-period-filter .date-period-buttons { width: min(100%, 300px); }
+}

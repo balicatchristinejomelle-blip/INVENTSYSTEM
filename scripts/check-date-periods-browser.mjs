@@ -22,7 +22,14 @@ const entry = [
 "const records=[{id:'today',date:today},{id:'specific',date:'2026-10-08'},{id:'old',date:'2025-01-01'}];",
 "function App(){const [search,setSearch]=useState('');const period=usePeriod('all',search);const visible=records.filter(record=>dateInPeriod(record.date,period.range)&&matchesRecord(record,search));",
 "return React.createElement('main',{className:'operational-content page-stack',style:{padding:16,boxSizing:'border-box',maxWidth:'100%',minWidth:0}},React.createElement(PeriodSelector,{period,search,onSearchChange:setSearch}),React.createElement('output',{'data-testid':'results'},visible.map(record=>record.id).join('|')));}",
-"createRoot(document.getElementById('root')).render(React.createElement(App));"
+"import { AppProvider, useApp, USERS } from '/src/store';",
+"import RejectedRecycling from '/src/pages/plantmanager/RejectedRecycling';",
+"import { effectiveDateRange } from '/src/datePeriods';",
+"let baseline;function Capture(){const app=useApp();if(!baseline)baseline=JSON.parse(JSON.stringify(app));window.__dateQA.state=JSON.stringify([app.rejectedMaterials,app.recyclingBatches,app.totalRejectedKg]);return null;}",
+"const root=createRoot(document.getElementById('root'));",
+"window.__dateQA.mountRejected=()=>{const user=USERS.find(user=>user.role==='plantmanager');localStorage.setItem('hpai:shared-app-state-v1',JSON.stringify({...baseline,currentUser:user,currentPage:'rejected-layout-qa'}));sessionStorage.clear();root.render(React.createElement(AppProvider,{key:'rejected'},React.createElement(Capture),React.createElement('main',{className:'operational-content',style:{padding:16,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}},React.createElement(RejectedRecycling))));};",
+"window.__dateQA.expected=(scope)=>{const range=effectiveDateRange(scope,'',businessToday());return baseline.rejectedMaterials.filter(r=>dateInPeriod(r.date,range)).map(r=>r.rejectionId);};",
+"root.render(React.createElement(AppProvider,null,React.createElement(Capture),React.createElement(App)));"
 ].join('\n');
 const server = await createServer({
   server: { host: '127.0.0.1', port: 0, hmr: false },
@@ -75,13 +82,14 @@ async function setSearch(value) {
 try {
   await server.listen();
   const address = server.httpServer.address();
-  const port = address.port, debugPort = 9237;
+  const port = address.port, debugPort = 0;
   chrome = spawn(executable, ['--headless=new','--disable-gpu','--disable-background-networking','--no-first-run','--no-default-browser-check','--remote-debugging-port='+debugPort,'--user-data-dir='+profile,'about:blank'], { windowsHide:true, stdio:'ignore' });
   chrome.on('error', error => {browserErrors.push(error.message);});
   const target = await waitFor(async () => {
-    const response = await fetch('http://127.0.0.1:'+debugPort+'/json');
+    const actualPort=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0].trim();
+    const response = await fetch('http://127.0.0.1:'+actualPort+'/json');
     return (await response.json()).find(target=>target.type==='page');
-  }, 'headless browser startup');
+  }, 'headless browser startup',60000);
   socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
   socket.addEventListener('message', event => {
@@ -149,6 +157,29 @@ try {
     }
   }
   assert.notEqual(themeColors.get('light'),themeColors.get('dark'),'Light and dark checks must use distinct theme tokens');
+
+  await evaluate('window.__dateQA.mountRejected()');
+  await waitFor(()=>evaluate("document.body.textContent.includes('Rejected Material')"),'actual Rejected & Recycling page');
+  const recordsBefore=await evaluate('window.__dateQA.state');
+  for(const width of [360,375,390,412,430,768,1280]){
+    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+    for(const label of ['All','Day','Week','Month','Year']){
+      await clickPeriod(label);
+      const metrics=await evaluate("(()=>{const filter=document.querySelector('.date-period-filter'),buttons=[...filter.querySelectorAll('.date-period-button')].map(b=>{const r=b.getBoundingClientRect();return {top:r.top,bottom:r.bottom,right:r.right,width:r.width};}),summary=filter.querySelector('.date-period-summary'),span=summary?.querySelector('span'),range=document.createRange();if(span)range.selectNodeContents(span);const warning=document.querySelector('[class^=alert-]');return {tops:[...new Set(buttons.map(b=>Math.round(b.top)))],buttons,lines:span?range.getClientRects().length:0,text:span?.textContent,nowrap:span?getComputedStyle(span).whiteSpace:null,filterWidth:filter.getBoundingClientRect().width,gap:warning.getBoundingClientRect().top-filter.getBoundingClientRect().bottom,overflow:document.documentElement.scrollWidth>innerWidth+1};})()");
+      if(width>=768)assert.equal(metrics.tops.length,1,'desktop/tablet buttons horizontal '+width+' '+label);
+      assert.ok(metrics.filterWidth>width-80,'toolbar has usable width '+JSON.stringify(metrics));
+      assert.equal(metrics.overflow,false);
+      assert.ok(metrics.gap>=0&&metrics.gap<100,'compact warning placement '+metrics.gap);
+      if(label!=='All'){assert.equal(metrics.lines,1);assert.equal(metrics.nowrap,'nowrap');assert.ok(metrics.text.startsWith('Period: '));}
+      const expected=await evaluate('window.__dateQA.expected('+JSON.stringify(label.toLowerCase())+')');
+      const rendered=await evaluate("[...document.querySelectorAll('.app-table')][0].textContent");
+      for(const id of expected)assert.ok(rendered.includes(id),label+' missing '+id);
+      assert.equal(await evaluate('window.__dateQA.state'),recordsBefore,'filters preserve records/totals');
+    }
+    const screenshot=await send('Page.captureScreenshot',{format:'png'});
+    if(width===390||width===1280)fs.writeFileSync(path.join(os.tmpdir(),'hpai-rejected-period-'+width+'.png'),Buffer.from(screenshot.data,'base64'));
+    console.log('PASS actual Rejected & Recycling '+width+'px: all selections, horizontal desktop buttons, one-line summary, compact warning/KPIs/table, preserved records');
+  }
   assert.deepEqual(browserErrors,[]);
   console.log('PASS browser date-filter QA: selection, date precedence, clearing, keyboard, 7 widths and both themes.');
 } finally {
