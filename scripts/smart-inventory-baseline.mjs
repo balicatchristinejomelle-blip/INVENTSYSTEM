@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreRecoveryFile } from './recovery-baseline.mjs';
 export const SMART_INVENTORY_BASELINE = '4f251f6';
 export const SMART_INVENTORY_NEW_FILES = ['src/inventoryFacets.ts', 'src/components/InventoryFacetFields.tsx', 'src/smartInventory.css'];
 // Pinned presentation/filter deltas only. check-smart-inventory independently checks
@@ -34,7 +35,9 @@ export function smartInventoryBaseline(file) {
   return baseline.get(file);
 }
 export function restoreSmartInventoryFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedSmartInventoryDeltas[file] && normalized === smartInventoryBaseline(file)) return normalized;
+  const source = restoreRecoveryFile(file, normalized);
   if (!reviewedSmartInventoryDeltas[file] || source === smartInventoryBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedSmartInventoryDeltas[file]) throw new Error('Unreviewed smart-inventory delta: ' + file);
   return smartInventoryBaseline(file);

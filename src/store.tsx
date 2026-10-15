@@ -19,6 +19,7 @@ import { requestCategory, transferCategory } from './inventoryCategories';
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 
+// Backward-compatible display metadata only; never triggers an automatic reset.
 const BARCODE_TEST_RESET_VERSION = 'material-balance-wip-lifecycle-2026-10-01-v5';
 const APP_STATE_STORAGE_KEY = 'hpai:shared-app-state-v1';
 
@@ -690,13 +691,24 @@ export function addReplenishmentSample<T extends AppState>(state: T): T {
 
 const restoreAppState = (): AppState => {
   const initial = createInitialState();
+  // Server rendering has no browser storage or print history to initialize.
+  if (typeof window === 'undefined') return addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(initial)));
   try {
     const stored = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
     if (!stored) {
       const demo = seedReprintSamples(initial, USERS);
-      return { ...initial, ...demo, notifications: [...demo.notifications, ...initial.notifications], auditLogs: [...demo.auditLogs, ...initial.auditLogs] };
+      const fresh = { ...initial, ...demo, notifications: [...demo.notifications, ...initial.notifications], auditLogs: [...demo.auditLogs, ...initial.auditLogs] };
+      return addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(fresh)));
     }
-    const restored = { ...initial, ...JSON.parse(stored) } as AppState;
+    const saved = JSON.parse(stored);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('Invalid saved state');
+    // A schema gap is not permission to reseed transactions. Existing/empty collections win.
+    const collections: Record<string, unknown[]> = {};
+    for (const [key, value] of Object.entries(initial)) {
+      if (Array.isArray(value) && key in saved && !Array.isArray(saved[key])) throw new Error(`Invalid saved collection: ${key}`);
+      if (Array.isArray(value)) collections[key] = key in saved ? saved[key] : [];
+    }
+    const restored = { ...initial, ...saved, ...collections } as AppState;
     Object.assign(restored, hydratePrintWorkflow(restored, restored));
     if (restored.currentUser?.username === 'owner.admin' || restored.currentUser?.employeeId === 'HQ-OWN-TEST') {
       restored.currentUser = null;
@@ -711,31 +723,21 @@ const restoreAppState = (): AppState => {
     restored.pellets = restored.pellets.map(item => {
       const legacy = item as PelletInventory & { materialGrade?: string; pelletGrade?: string; material_type?: string };
       return { ...item, grade: normalizeMaterialGrade(item.grade || legacy.materialGrade || legacy.pelletGrade || legacy.material_type || '') };
-    }).filter(item => isSupportedMaterialGrade(item.grade));
-    if (!restored.pellets.some(item => normalizeBarcodeValue(item.barcode) === 'PEL-V-2026-0018-001')) {
-      restored.pellets = [INITIAL_PELLETS[0], ...restored.pellets];
-    }
+    });
     restored.finishedGoods = restored.finishedGoods.map(item => ({
       ...item,
-      grade: isSupportedMaterialGrade(item.grade) ? normalizeMaterialGrade(item.grade) : 'PE80',
+      grade: item.grade ? normalizeMaterialGrade(item.grade) : item.grade,
       inventoryPurpose: item.inventoryPurpose || (item.reservedForOrderId ? 'Customer Order' : item.locationStatus === 'Stored' ? 'General Inventory' : 'Unassigned'),
       reservationStatus: item.reservationStatus || (item.releaseStatus === 'Released' ? 'Shipped Out' : item.status === 'Ready for Release' ? 'Ready for Ship Out' : item.status === 'Reserved' ? 'Reserved' : item.status === 'Available' ? 'Available' : 'Unassigned'),
-      availableQty: item.locationStatus === 'Stored' && item.status === 'Available' ? 1 : 0,
+      availableQty: item.availableQty ?? (item.locationStatus === 'Stored' && item.status === 'Available' ? item.quantity : 0),
     }));
-    const supportedGrade = (grade: string) => isSupportedMaterialGrade(grade) ? normalizeMaterialGrade(grade) : 'PE80';
+    const supportedGrade = (grade: string) => grade ? normalizeMaterialGrade(grade) : grade;
     restored.materialRequests = restored.materialRequests.map(item => ({ ...item, grade: requestCategory(item) === 'Colorant' ? item.grade : supportedGrade(item.grade) }));
     restored.transfers = restored.transfers.map(item => ({ ...item, grade: transferCategory(item) === 'Colorant' ? item.grade : supportedGrade(item.grade) }));
     restored.rrRecords = restored.rrRecords.map(item => ({ ...item, grade: supportedGrade(item.grade) }));
     restored.orders = restored.orders.map(item => ({ ...item, grade: supportedGrade(item.grade) }));
     restored.manufacturingOrders = restored.manufacturingOrders.map(item => ({ ...item, grade: supportedGrade(item.grade) }));
     restored.productionOrders = restored.productionOrders.map(item => ({ ...item, grade: supportedGrade(item.grade) }));
-    const physicalIds = new Set([...restored.pellets, ...restored.finishedGoods].map(item => item.id));
-    restored.barcodeRegistry = restored.barcodeRegistry.filter(item => physicalIds.has(item.itemId));
-    restored.attendance = restored.attendance.map(record =>
-      record.id === 'att1' && record.status === 'Active'
-        ? { ...record, clockOut: '14:02', status: 'Completed' as const }
-        : record
-    );
     if (restored.materialUsageTransactions.length === 0) {
       restored.materialUsageTransactions = restored.transactions
         .filter(transaction =>
@@ -786,7 +788,8 @@ const restoreAppState = (): AppState => {
         }
       : restored;
   } catch {
-    return initial;
+    // Fail closed: persisting fresh seeds here would overwrite the unreadable user's data.
+    throw new Error('Saved HPAI data could not be read safely. No reset was performed. Export/repair the existing browser backup before continuing.');
   }
 };
 
@@ -896,7 +899,7 @@ export const formatProductionTime = (value?: string) => {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(migrateFinishedPipeBarcodes(addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(restoreAppState()))))));
+  const [state, setState] = useState<AppState>(() => hydratePipeRelationships(migrateFinishedPipeBarcodes(restoreAppState())));
   const stateRef = useRef(state);
   stateRef.current = state;
   const printTickets = useRef(new Map<string, { keys: string[]; approvalId?: string; employeeId: string; release?: () => void }>());
@@ -1010,63 +1013,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    setState(current => {
-      const legacyDemoSession = current.attendance.find(record =>
-        record.id === 'att1' && record.status === 'Active'
-      );
-      const needsMaterialState = !Array.isArray(current.colorants) || !Array.isArray(current.materialUsageTransactions);
-      if (!legacyDemoSession && !needsMaterialState) return current;
-      const isCurrentUser = !!legacyDemoSession && current.currentUser?.employeeId === legacyDemoSession.employeeId;
-      return {
-        ...current,
-        colorants: Array.isArray(current.colorants) ? current.colorants : INITIAL_COLORANTS,
-        materialUsageTransactions: Array.isArray(current.materialUsageTransactions) ? current.materialUsageTransactions : [],
-        attendance: legacyDemoSession
-          ? current.attendance.map(record =>
-              record.id === legacyDemoSession.id
-                ? { ...record, clockOut: '14:02', status: 'Completed' as const }
-                : record
-            )
-          : current.attendance,
-        ...(isCurrentUser ? {
-          clockedIn: false,
-          clockInTime: '',
-          currentPage: 'shift-attendance',
-        } : {}),
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    const resetKey = `hpai:${BARCODE_TEST_RESET_VERSION}`;
-    try {
-      if (window.localStorage.getItem(resetKey)) return;
-    } catch {
-      // Continue with the in-memory reset when browser storage is unavailable.
-    }
-    setState(current => ({
-      ...current,
-      rrRecords: INITIAL_RR,
-      orders: INITIAL_ORDERS,
-      productionOrders: INITIAL_POS,
-      pellets: INITIAL_PELLETS,
-      colorants: INITIAL_COLORANTS,
-      materialUsageTransactions: [],
-      finishedGoods: INITIAL_FG,
-      rejectedMaterials: INITIAL_REJECTED,
-      barcodeRegistry: INITIAL_BARCODE_REGISTRY,
-      recyclingBatches: INITIAL_RECYCLING,
-      transactions: [],
-      auditLogs: current.auditLogs.filter(log => !/barcode|pellet loaded|pipe stored|goods released|transfer received/i.test(log.action)),
-    }));
-    try {
-      window.localStorage.setItem(resetKey, 'complete');
-    } catch {
-      // The reset remains valid for the current in-memory session.
-    }
-  }, []);
-
-  useEffect(() => {
     try {
       window.localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -1074,7 +1020,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
-  useEffect(() => { setState(current => hydratePipeRelationships(migrateFinishedPipeBarcodes(addReplenishmentSample(migrateSampleLocations(migrateFinishedPipeBarcodes(current)))))); }, []);
+  useEffect(() => { setState(current => hydratePipeRelationships(migrateFinishedPipeBarcodes(current))); }, []);
 
   const setTheme = useCallback((t: Theme) => {
     setState(s => ({ ...s, theme: t }));

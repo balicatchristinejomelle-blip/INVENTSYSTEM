@@ -1,6 +1,7 @@
 // Exact reviewed barcode/location deltas from cd18191. This whitelist fails on any unreviewed edit.
 // The current callbacks are executed separately in check-barcodes-locations.mjs; old suites still protect all other logic.
 import { execFileSync } from 'node:child_process';
+import { restoreRecoveryFile } from './recovery-baseline.mjs';
 import ts from 'typescript';
 import { restoreUILayoutStyles } from './ui-layout-baseline.mjs';
 const deltas = {
@@ -132,6 +133,7 @@ const deltas = {
   ]
 };
 export function restoreBarcodeLocationFile(file, source) {
+  source = restoreRecoveryFile(file, source);
   if (file === 'src/index.css') source = restoreUILayoutStyles(source);
   source = source.replace(/\r/g, '');
   for (const delta of [...(deltas[file] || [])].reverse()) {

@@ -11,7 +11,7 @@ const executable = process.env.BROWSER_PATH || [
 ].find(file => fs.existsSync(file));
 if (!executable) throw new Error('Set BROWSER_PATH to a Chrome or Edge executable for headless date-filter QA.');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'hpai-smart-browser-'));
-const entry = "\nimport React, { useState } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport InventoryFacetFields from '/src/components/InventoryFacetFields';\nimport { inventoryFacetRow, matchesFacets } from '/src/inventoryFacets';\nimport PeriodSelector, { usePeriod } from '/src/components/PeriodSelector';\nimport { businessToday } from '/src/datePeriods';\nimport { AppProvider, useApp, USERS } from '/src/store';\nimport { ViewStateScope, VIEW_STATE_PREFIX } from '/src/uiViewState';\nimport Owner from '/src/pages/owner/Records';\nimport Accounting from '/src/pages/accounting/RawMaterials';\nimport Marketing from '/src/pages/marketing/FinishedGoods';\nimport Management from '/src/pages/management/Operations';\nimport Plant from '/src/pages/plantmanager/FinishedGoods';\nimport Production from '/src/pages/production/FinishedPipes';\nimport '/src/index.css';\nconst root=createRoot(document.getElementById('root'));\nwindow.__smartQA={ready:false};\nlet baseline,version=0;\nconst pages={OWNER_SUPER_ADMIN:Owner,accounting:Accounting,marketing:Marketing,management:Management,plantmanager:Plant,production:Production};\nconst fieldNames=['Product','Material Grade','Color','Size / Diameter','SDR / Thickness','Location','Storage Purpose','Status'];\nconst keys=['product','grade','color','size','sdr','location','purpose','status'];\nconst make=(location,extra={})=>inventoryFacetRow({product:'HDPE Pipe',grade:'PE100',color:'Black (BK)',diameter:'20mm',sdr:'SDR11',currentLocation:location,status:'Available',...extra},{purpose:'Inventory Storage'});\nconst fixtures=[make('A'),make('C'),make('F'),make('H',{grade:'PE80',sdr:'SDR17',diameter:'25mm',color:'Blue'})];\nfunction Capture(){const app=useApp();if(!baseline)baseline=JSON.parse(JSON.stringify(app));window.__smartQA.ready=true;window.__smartQA.role=app.currentUser?.role;return null;}\nfunction Fixture(){\n const [value,setValue]=useState(Object.fromEntries(keys.map(key=>[key,'']))),[search,setSearch]=useState('');\n const period=usePeriod('all',search);\n window.__smartQA.value=value;window.__smartQA.period=period;window.__smartQA.today=businessToday();window.__smartQA.matches=fixtures.filter(row=>matchesFacets(row,value)).length;\n return React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}},\n  React.createElement(PeriodSelector,{period,search,onSearchChange:setSearch}),\n  React.createElement(InventoryFacetFields,{rows:fixtures,fields:keys.map((key,index)=>({key,label:fieldNames[index]})),value,onChange:setValue}),\n  React.createElement('output',null,window.__smartQA.matches+' matching inventory records'),\n  React.createElement('div',{className:'app-card table-scroll','data-testid':'bucket-table'},React.createElement('table',{className:'app-table inventory-bucket-table'},\n   React.createElement('thead',null,React.createElement('tr',null,['Product','Available','Reserved','Temporary Storage','Ready for Ship Out','On Hand'].map(label=>React.createElement('th',{key:label},label)))),\n   React.createElement('tbody',null,React.createElement('tr',null,['HDPE Pipe',5,0,0,2,7].map((value,index)=>React.createElement('td',{key:index,className:index?'inventory-number':''},value)))))));\n}\nwindow.__smartQA.mount=(role='fixture')=>{\n window.__smartQA.ready=false;\n if(role==='fixture'){root.render(React.createElement(Fixture,{key:++version}));window.__smartQA.ready=true;return;}\n const user=USERS.find(user=>user.role===role),currentPage='smart-browser-qa';\n localStorage.setItem('hpai:shared-app-state-v1',JSON.stringify({...baseline,currentUser:user,currentPage}));\n const prefix=VIEW_STATE_PREFIX+user.employeeId+':'+role+':'+currentPage+':';\n const prefs=role==='OWNER_SUPER_ADMIN'?{'owner/Records:area':'Inventory & Finished Goods','owner/Records:section':'Finished Pipes'}:role==='management'?{'management/Operations:tab':'orders'}:role==='marketing'?{'marketing/FinishedGoods:viewMode':'By Batch','marketing/FinishedGoods:status':'All Statuses'}:role==='plantmanager'?{'plantmanager/FinishedGoods:viewMode':'By Batch'}:role==='production'?{'production/FinishedPipes:activeTab':'All Statuses'}:{};\n for(const[name,value]of Object.entries(prefs))sessionStorage.setItem(prefix+name,JSON.stringify(value));\n root.render(React.createElement(AppProvider,{key:++version},React.createElement(Capture),React.createElement(ViewStateScope,null,React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}},React.createElement(pages[role])))));\n};\nroot.render(React.createElement(AppProvider,null,React.createElement(Capture)));\n";
+const entry = "\nimport React, { useState } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport ProductFilters from '/src/components/ProductFilters';\nimport { inventoryFacetRow, matchesFacets } from '/src/inventoryFacets';\nimport PeriodSelector, { usePeriod } from '/src/components/PeriodSelector';\nimport { businessToday } from '/src/datePeriods';\nimport { AppProvider, useApp, USERS } from '/src/store';\nimport { ViewStateScope, VIEW_STATE_PREFIX } from '/src/uiViewState';\nimport Owner from '/src/pages/owner/Records';\nimport Accounting from '/src/pages/accounting/RawMaterials';\nimport Marketing from '/src/pages/marketing/FinishedGoods';\nimport Management from '/src/pages/management/Operations';\nimport Plant from '/src/pages/plantmanager/FinishedGoods';\nimport Production from '/src/pages/production/FinishedPipes';\nimport '/src/index.css';\nconst root=createRoot(document.getElementById('root'));\nwindow.__smartQA={ready:false};\nlet baseline,version=0;\nconst pages={OWNER_SUPER_ADMIN:Owner,accounting:Accounting,marketing:Marketing,management:Management,plantmanager:Plant,production:Production};\nconst fieldNames=['Product','Material Grade','Color','Size / Diameter','SDR / Thickness','Location','Storage Purpose','Status'];\nconst keys=['product','grade','color','size','sdr','location','purpose','status'];\nconst make=(location,extra={})=>({product:'HDPE Pipe',grade:'PE100',color:'Black (BK)',diameter:'20mm',sdr:'SDR11',currentLocation:location,status:'Available',...extra});\nconst fixtures=[make('A'),make('C'),make('F'),make('H',{grade:'PE80',sdr:'SDR17',diameter:'25mm',color:'Blue'})];\nfunction Capture(){const app=useApp();if(!baseline)baseline=JSON.parse(JSON.stringify(app));window.__smartQA.ready=true;window.__smartQA.role=app.currentUser?.role;window.__smartQA.state=JSON.parse(JSON.stringify(app));return null;}\nfunction Fixture(){\n const [value,setValue]=useState(Object.fromEntries(keys.map(key=>[key,'']))),[search,setSearch]=useState('');\n const period=usePeriod('all',search);\n window.__smartQA.value=value;window.__smartQA.period=period;window.__smartQA.today=businessToday();window.__smartQA.matches=fixtures.map(row=>inventoryFacetRow(row,{purpose:'Inventory Storage'})).filter(row=>matchesFacets(row,value)).length;\n return React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}},\n  React.createElement(PeriodSelector,{period,search,onSearchChange:setSearch}),\n  React.createElement(ProductFilters,{records:fixtures,value:Object.fromEntries(['product','grade','color','size','sdr','length','location'].map(key=>[key,value[key]||''])),onChange:next=>setValue(previous=>({...previous,...next})),includeProduct:true,includeGrade:true,includeColor:true,includeLocation:true,purpose:value.purpose,onPurposeChange:purpose=>setValue(previous=>({...previous,purpose})),status:value.status,onStatusChange:status=>setValue(previous=>({...previous,status})),statusOptions:['Available','Reserved','Temporary Storage','Ready for Release','Shipped Out']}),\n  React.createElement('output',null,window.__smartQA.matches+' matching inventory records'),\n  React.createElement('div',{className:'app-card table-scroll','data-testid':'bucket-table'},React.createElement('table',{className:'app-table inventory-bucket-table'},\n   React.createElement('thead',null,React.createElement('tr',null,['Product','Available','Reserved','Temporary Storage','Ready for Ship Out','On Hand'].map(label=>React.createElement('th',{key:label},label)))),\n   React.createElement('tbody',null,React.createElement('tr',null,['HDPE Pipe',5,0,0,2,7].map((value,index)=>React.createElement('td',{key:index,className:index?'inventory-number':''},value)))))));\n}\nwindow.__smartQA.mount=(role='fixture')=>{\n window.__smartQA.ready=false;\n if(role==='fixture'){root.render(React.createElement(AppProvider,{key:++version},React.createElement(Fixture)));window.__smartQA.ready=true;return;}\n const user=USERS.find(user=>user.role===role),currentPage='smart-browser-qa';\n localStorage.setItem('hpai:shared-app-state-v1',JSON.stringify({...baseline,currentUser:user,currentPage}));\n const prefix=VIEW_STATE_PREFIX+user.employeeId+':'+role+':'+currentPage+':';\n const prefs=role==='OWNER_SUPER_ADMIN'?{'owner/Records:area':'Inventory & Finished Goods','owner/Records:section':'Finished Pipes'}:role==='management'?{'management/Operations:tab':'orders'}:role==='marketing'?{'marketing/FinishedGoods:viewMode':'By Batch','marketing/FinishedGoods:status':'All Statuses'}:role==='plantmanager'?{'plantmanager/FinishedGoods:viewMode':'By Batch'}:role==='production'?{'production/FinishedPipes:activeTab':'All Statuses'}:{};\n for(const[name,value]of Object.entries(prefs))sessionStorage.setItem(prefix+name,JSON.stringify(value));\n root.render(React.createElement(AppProvider,{key:++version},React.createElement(Capture),React.createElement(ViewStateScope,null,React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}},React.createElement(pages[role])))));\n};\nroot.render(React.createElement(AppProvider,null,React.createElement(Capture)));\n";
 const server = await createServer({
   server: { host: '127.0.0.1', port: 0, hmr: false },
   plugins: [{
@@ -78,6 +78,7 @@ try {
 
   await evaluate("window.__smartQA.mount()");
   await waitFor(()=>evaluate("document.querySelectorAll('.inventory-facet-grid [role=combobox]').length===8"),'eight facet controls');
+  assert.equal(await evaluate("document.querySelectorAll('.date-navigation-controls').length"),0,'All has no period navigation');
   async function choose(label,value){
     await evaluate("(()=>{const input=document.querySelector('.inventory-facet-grid input[aria-label="+JSON.stringify(label)+"]');input.focus();input.click();})()");
     await waitFor(()=>evaluate("!!document.querySelector('[role=listbox]')"),'open '+label);
@@ -87,7 +88,7 @@ try {
     await pause(60);
   }
   await choose('SDR / Thickness','SDR11');
-  assert.deepEqual(await evaluate("({grade:window.__smartQA.value.grade,size:window.__smartQA.value.size,color:window.__smartQA.value.color,location:window.__smartQA.value.location})"),{grade:'PE100',size:'20mm',color:'Black',location:''});
+  assert.deepEqual(await evaluate("({grade:window.__smartQA.value.grade,size:window.__smartQA.value.size,color:window.__smartQA.value.color,location:window.__smartQA.value.location})"),{grade:'',size:'',color:'',location:''});
   await evaluate("(()=>{const input=document.querySelector('.inventory-facet-grid input[aria-label=Location]');input.focus();input.click();})()");
   await waitFor(()=>evaluate("!!document.querySelector('[role=listbox]')"),'location options');
   assert.deepEqual(await evaluate("[...document.querySelectorAll('[role=option]')].map(option=>option.textContent)"),['All Matching Locations','A','C','F']);
@@ -97,11 +98,50 @@ try {
   await evaluate("[...document.querySelectorAll('button')].find(button=>button.textContent==='Clear All').click()");
   await pause(80);
   assert.equal(await evaluate('window.__smartQA.matches'),4);
-  assert.ok(Object.values(await evaluate('window.__smartQA.value')).every(value=>value===''));
+  assert.ok(Object.values(await evaluate('window.__smartQA.value')).every(value=>!value||value.startsWith('All')));
   await choose('Location','H');
-  assert.equal(await evaluate('window.__smartQA.value.grade'),'PE80');
-  assert.equal(await evaluate('window.__smartQA.value.sdr'),'SDR17');
-  console.log('PASS browser: SDR first; unique auto-selection; actual A/C/F options without guessing; Location first; Clear All');
+  assert.equal(await evaluate('window.__smartQA.value.grade'),'');
+  assert.equal(await evaluate('window.__smartQA.value.sdr'),'');
+  await choose('SDR / Thickness','SDR17');
+  assert.equal(await evaluate('window.__smartQA.value.location'),'H');
+  assert.equal(await evaluate('window.__smartQA.value.grade'),'');
+  await evaluate("document.querySelector('button[aria-label=\"Clear Location\"]').click()");
+  await pause(60);assert.equal(await evaluate('window.__smartQA.value.location'),'');
+  async function options(label){
+    await evaluate("document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))");await pause(30);
+    await evaluate("(()=>{const input=document.querySelector('.inventory-facet-grid input[aria-label="+JSON.stringify(label)+"]');input.focus();input.click();})()");
+    await waitFor(()=>evaluate("!!document.querySelector('[role=listbox]')"),'options '+label);
+    const result=await evaluate("[...document.querySelectorAll('[role=option]')].map(option=>option.textContent)");
+    await evaluate("document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))");
+    await pause(60);return result;
+  }
+  const sizes=['13mm','20mm','25mm','32mm','40mm','50mm','63mm','75mm','90mm','110mm','160mm','225mm','280mm','315mm','355mm','400mm','450mm','500mm'];
+  const products=['HDPE Pipe','CTS HDPE Pipe','Commercial HDPE Pipe (CGPE)','Spiral Pipe','Polytube'];
+  for(const size of sizes)assert.ok((await options('Size / Diameter')).includes(size));
+  assert.ok(!(await options('Size / Diameter')).includes('100mm'));
+  for(const product of products)assert.ok((await options('Product')).includes(product));
+  assert.deepEqual((await options('Material Grade')).slice(1),['PE80','PE100']);
+  assert.deepEqual((await options('Color')).slice(1),['Black (BK)','Blue (BE)','Orange (OR)','Red Orange (RO)','Green (GRN)']);
+  assert.equal((await options('SDR / Thickness')).length,10);
+  await choose('Size / Diameter','500mm');
+  assert.equal(await evaluate('window.__smartQA.value.size'),'500mm');
+  assert.equal(await evaluate('window.__smartQA.matches'),0);
+  assert.deepEqual(await options('Location'),['No Matching Locations']);
+  assert.equal((await options('Product')).length,6);
+  assert.equal((await options('SDR / Thickness')).length,10);
+  await choose('Product','Spiral Pipe');
+  assert.equal(await evaluate('window.__smartQA.value.size'),'');
+  assert.deepEqual((await options('Size / Diameter')).slice(1),['12\"','16\"']);
+  await choose('Size / Diameter','16\"');
+  await choose('Product','CTS HDPE Pipe');
+  assert.deepEqual((await options('Size / Diameter')).slice(1),['1/2\"','3/4\"','1\"']);
+  await choose('Status','Reserved');await choose('Storage Purpose','Temporary Storage');
+  await choose('SDR / Thickness','SDR11');
+  assert.equal(await evaluate('window.__smartQA.value.status'),'Reserved');
+  assert.equal(await evaluate('window.__smartQA.value.purpose'),'Temporary Storage');
+  await evaluate("[...document.querySelectorAll('button')].find(button=>button.textContent==='Clear All').click()");
+  await pause(60);await choose('SDR / Thickness','SDR11');
+  console.log('PASS browser: real master-backed filters; SDR first; unique/multiple/zero locations; Location chip removal; zero-stock/special sizes; independent status/purpose');
   for(const [scope,previous,next]of [['Day','2026-10-14','2026-10-15'],['Week','2026-10-05','2026-10-12'],['Month','2026-09-01','2026-10-01'],['Year','2025-01-01','2026-01-01']]){
     await evaluate("window.__smartQA.period.setDate('2026-10-15')");
     await pause(30);
@@ -139,7 +179,10 @@ try {
       if(width===1280){assert.equal(metrics.columns,4);assert.equal(metrics.firstRow,4);}
       assert.ok(Math.abs(metrics.chipWidth-metrics.panelWidth)<2,'full-width active strip');
       for(const number of metrics.numbers){assert.equal(number.align,'center');assert.equal(number.space,'nowrap');}
-      for(const button of metrics.buttons){assert.ok(button.width>25&&button.left>=0&&button.right<=width+1,'reachable date controls');}
+      for(const button of metrics.buttons){assert.ok(button.width>0&&button.left>=0&&button.right<=width+1,'reachable date controls');}
+      const navigation=await evaluate("(()=>{const types=document.querySelector('.date-period-buttons').getBoundingClientRect(),nav=document.querySelector('.date-navigation-controls').getBoundingClientRect(),previous=document.querySelector('.date-previous').getBoundingClientRect(),range=document.querySelector('.date-active-range').getBoundingClientRect(),next=document.querySelector('.date-next').getBoundingClientRect();return {typesBottom:types.bottom,navTop:nav.top,previousRight:previous.right,rangeLeft:range.left,rangeRight:range.right,nextLeft:next.left,typeButtons:document.querySelectorAll('.date-period-buttons button').length};})()");
+      assert.equal(navigation.typeButtons,5);assert.ok(navigation.navTop>=navigation.typesBottom,'range navigation below period types');
+      assert.ok(navigation.previousRight<=navigation.rangeLeft&&navigation.rangeRight<=navigation.nextLeft,'arrows flank the actual range');
       if(width<1152)assert.ok(metrics.scrollable);assert.ok(metrics.label>0);
       if(width===390||width===1280){const shot=await send('Page.captureScreenshot',{format:'png'});const file=path.join(os.tmpdir(),'hpai-smart-'+theme+'-'+width+'.png');fs.writeFileSync(file,Buffer.from(shot.data,'base64'));console.log('SCREENSHOT '+file);}
     }
@@ -158,6 +201,14 @@ try {
     }
     console.log('PASS actual '+role+' inventory page: aligned table cells, one date navigator, 7 widths, 2 themes, no measured page overflow');
   }
+  // Real mounted effects and reloads, in the unique temporary profile only.
+  const persisted=await evaluate("(()=>{const key='hpai:shared-app-state-v1',state=JSON.parse(localStorage.getItem(key));state.pellets=state.pellets.slice(1);Object.assign(state.pellets[0],{availableKg:3.75,currentLocation:'D'});state.orders[0].quantity=117;localStorage.setItem(key,JSON.stringify(state));return state;})()");
+  for(let reload=0;reload<2;reload++){
+    await send('Page.reload');await waitFor(()=>evaluate('window.__smartQA?.ready'),'saved-state reload');await pause(100);
+    const after=await evaluate('window.__smartQA.state');
+    for(const collection of ['pellets','finishedGoods','productionOrders','manufacturingOrders','orders','rrRecords','transactions','attendance','turnovers','colorants'])assert.deepEqual(after[collection],persisted[collection],collection+' preserved on reload '+reload);
+  }
+  console.log('PASS browser: mounted startup effects and two real reloads preserve modified quantities/locations, IDs, active barcodes and transactions without duplicates');
   assert.deepEqual(browserErrors,[]);
   console.log('PASS isolated smart-inventory browser QA; no live app profile or saved localhost records touched.');
 } finally {

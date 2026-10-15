@@ -127,7 +127,7 @@ export default function MarketingFG() {
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation
           records={finishedGoods.filter(pipe => pipe.qualityStatus !== 'Reject' && dateInPeriod(pipe.productionDate, period.range) && matchesRecord(pipeSearchRecord(pipe, app), search))}
           purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
-          status={status} onStatusChange={value => { setStatus(value as typeof status); resetPage(); }}
+          status={status} statusOptions={['Available', 'Reserved', 'Temporary Storage', 'Ready for Release', 'Shipped Out / Released']} onStatusChange={value => { setStatus(value as typeof status); resetPage(); }}
           statusLabel={value => value === 'Ready for Release' ? 'Ready for Ship Out' : value}
           statusFor={pipe => pipe.releaseStatus === 'Released' ? 'Shipped Out / Released' : finishedPipeInventory(pipe, app).bucket === 'Temporary Storage' ? 'Temporary Storage' : ['Available','Reserved','Ready for Release'].includes(pipe.status) ? pipe.status : ''} />
       </div>

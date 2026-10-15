@@ -155,7 +155,7 @@ export default function FinishedPipes() {
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation
           records={finishedGoods.filter(pipe => dateInPeriod(pipe.productionDate, period.range) && matchesRecord(pipeSearchRecord(pipe, app), search))}
           purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); setPage(1); }}
-          status={activeTab} onStatusChange={value => { setActiveTab(value as FilterTab); setPage(1); }}
+          status={activeTab} statusOptions={FILTER_TABS.slice(1)} onStatusChange={value => { setActiveTab(value as FilterTab); setPage(1); }}
           statusFor={pipe => FILTER_TABS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />} />
       </div>
 

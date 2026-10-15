@@ -62,14 +62,14 @@ check('Every temporal collection has an explicit primary date field',()=>{
 });
 check('Store, permissions, product masters, business types and inventory formulas remain byte-for-byte unchanged',()=>{
  for(const file of ['src/store.tsx','src/types.ts','src/productMaster.ts','src/productFilters.ts','src/finishedGoodsInventory.ts','src/locationMaster.ts','src/reprintWorkflow.ts','src/components/Sidebar.tsx','src/components/ProductFilters.tsx']){
-  assert.equal(file === 'src/components/ProductFilters.tsx' ? restoreSmartInventoryFile(file, raw(file)) : raw(file),execFileSync('git',['show','079e1d3:'+file],{encoding:'utf8'}).replace(/\r/g,''),file);
+  assert.equal(restoreSmartInventoryFile(file, raw(file)),execFileSync('git',['show','079e1d3:'+file],{encoding:'utf8'}).replace(/\r/g,''),file);
  }
 });
 check('Legacy comparison guards accept only the exact reviewed date-filter update',()=>{
  const file='src/components/PeriodSelector.tsx';
  assert.ok(reviewedDatePeriodDeltas[file]);
  assert.equal(restoreDatePeriodFile(file,raw(file)),execFileSync('git',['show','079e1d3:'+file],{encoding:'utf8'}).replace(/\r/g,''));
- assert.throws(()=>restoreDatePeriodFile(file,raw(file)+'\n/* unexpected */'),/Unreviewed (date-period|smart-inventory) delta/);
+ assert.throws(()=>restoreDatePeriodFile(file,raw(file)+'\n/* unexpected */'),/Unreviewed (date-period|smart-inventory|recovery) delta/);
 });
 check('Only business-entry date inputs remain',()=>{
  const walk=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?walk(dir+'/'+entry.name):[dir+'/'+entry.name]);

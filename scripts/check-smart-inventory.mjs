@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { SMART_INVENTORY_BASELINE, SMART_INVENTORY_NEW_FILES, reviewedSmartInventoryDeltas, smartInventoryBaseline, restoreSmartInventoryFile } from './smart-inventory-baseline.mjs';
+import { restoreRecoveryFile } from './recovery-baseline.mjs';
 
 let checks = 0;
 const check = (label, run) => { run(); checks++; console.log('PASS ' + label); };
@@ -22,7 +23,7 @@ function actionCalls(text) {
 function functionBody(text, name) { const source = tree(text); return source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name)?.body?.getText(source); }
 const files = execFileSync('git', ['ls-tree','-r','--name-only',SMART_INVENTORY_BASELINE,'src'], { encoding:'utf8' }).trim().split('\n').filter(file=>/\.(tsx?|css)$/.test(file));
 for (const file of files) {
-  const current = raw(file), before = smartInventoryBaseline(file);
+  const current = restoreRecoveryFile(file, raw(file)), before = smartInventoryBaseline(file);
   check('Existing source unchanged or exact reviewed filter/presentation delta: ' + file, () => {
     if (current === before) assert.equal(current,before);
     else { assert.ok(reviewedSmartInventoryDeltas[file],file); assert.equal(restoreSmartInventoryFile(file,current),before); assert.throws(()=>restoreSmartInventoryFile(file,current+'\n// unexpected')); }
@@ -37,35 +38,30 @@ const oldWindow=globalThis.window,oldSession=globalThis.sessionStorage;
 try {
   const facets=await server.ssrLoadModule('/src/inventoryFacets.ts');
   const dates=await server.ssrLoadModule('/src/datePeriods.ts');
-  const keys=['product','grade','color','size','sdr','location','purpose','status'];
+  const physical=['A','B','C','D','E','F','G','H','I'];
   const fixture=(location,extra={})=>facets.inventoryFacetRow({product:'HDPE Pipe',grade:'PE100',color:'Black (BK)',diameter:'20mm',sdr:'SDR11',currentLocation:location,status:'Available',...extra},{purpose:'Inventory Storage'});
   const rows=[fixture('A'),fixture('C'),fixture('F'),fixture('H',{grade:'PE80',sdr:'SDR17',diameter:'25mm',color:'Blue'})];
   const snapshot=JSON.stringify(rows);
-  for(const [key,value]of Object.entries({product:'HDPE Pipe',grade:'PE100',color:'Black',size:'20mm',sdr:'SDR11',location:'C',purpose:'Inventory Storage',status:'Available'})) check('Any facet can be chosen first: '+key,()=>{
-    const result=facets.resolveInventoryFacets(rows,keys,{[key]:value},[key]);
-    assert.equal(result.selected[key],value);
-    if(key!=='product'&&key!=='purpose'&&key!=='status')assert.equal(result.selected.grade,'PE100');
+  for(const [key,value]of Object.entries({product:'HDPE Pipe',grade:'PE100',color:'Black',size:'20mm',sdr:'SDR11',location:'C',purpose:'Inventory Storage',status:'Available'})) check('Any filter can be chosen first without inference: '+key,()=>{
+    const selected={[key]:value},before=structuredClone(selected);
+    const result=facets.resolveInventoryLocations(rows,selected,physical);
+    assert.deepEqual(selected,before);assert.deepEqual(Object.keys(result).sort(),['label','location','options']);
   });
   check('SDR11 first narrows actual locations A/C/F without guessing',()=>{
-    const result=facets.resolveInventoryFacets(rows,keys,{sdr:'SDR11'});
-    assert.deepEqual(result.options.location,['A','C','F']); assert.equal(result.selected.location,'');
-    assert.equal(result.selected.grade,'PE100');assert.equal(result.selected.size,'20mm');assert.equal(result.selected.color,'Black');
+    const result=facets.resolveInventoryLocations(rows,{sdr:'SDR11'},physical);
+    assert.deepEqual(result.options,['A','C','F']); assert.equal(result.location,'');
   });
-  check('A unique remaining location auto-selects',()=>assert.equal(facets.resolveInventoryFacets([rows[1]],keys,{sdr:'SDR11'}).selected.location,'C'));
+  check('A unique remaining location auto-selects',()=>assert.equal(facets.resolveInventoryLocations([rows[1]],{sdr:'SDR11'},physical).location,'C'));
   check('Newest SDR wins and incompatible old location resets',()=>{
-    const result=facets.resolveInventoryFacets([fixture('A',{sdr:'SDR17'}),fixture('C'),fixture('F')],keys,{location:'A',sdr:'SDR11'},['sdr','location']);
-    assert.equal(result.selected.sdr,'SDR11');assert.equal(result.selected.location,'');assert.deepEqual(result.options.location,['C','F']);
+    const result=facets.resolveInventoryLocations([fixture('A',{sdr:'SDR17'}),fixture('C'),fixture('F')],{location:'A',sdr:'SDR11'},physical);
+    assert.equal(result.location,'');assert.deepEqual(result.options,['C','F']);
   });
-  check('Impossible old location becomes unique current C',()=>assert.equal(facets.resolveInventoryFacets([fixture('A',{sdr:'SDR17'}),fixture('C')],keys,{location:'A',sdr:'SDR11'},['sdr','location']).selected.location,'C'));
-  check('No matches resets stale selections and invents no options',()=>{const result=facets.resolveInventoryFacets([],keys,{location:'A',sdr:'SDR11'});assert.ok(Object.values(result.selected).every(value=>value===''));assert.ok(Object.values(result.options).every(options=>options.length===0));});
+  check('Impossible old location becomes unique current C',()=>assert.equal(facets.resolveInventoryLocations([fixture('A',{sdr:'SDR17'}),fixture('C')],{location:'A',sdr:'SDR11'},physical).location,'C'));
+  check('No matches clears only Location and invents no options',()=>{const selected={location:'A',sdr:'SDR11'},result=facets.resolveInventoryLocations([],selected,physical);assert.equal(result.location,'');assert.deepEqual(result.options,[]);assert.equal(selected.sdr,'SDR11');assert.equal(result.label,'No Matching Locations');});
   check('Positive multi-location balances remain multiple, not one master location',()=>assert.deepEqual(facets.inventoryFacetRow({locationBalances:{A:0,C:10,F:3},currentLocation:'A'}).location,['C','F']));
-  check('Clear All and individual chip removal remain clear until a new choice',()=>assert.ok(Object.values(facets.resolveInventoryFacets([rows[0]],keys,{},[],keys).selected).every(value=>value==='')));
-  check('Auto choices do not trap the next explicit selection',()=>{
-    const first=facets.resolveInventoryFacets(rows,keys,{location:'C'});
-    const next=facets.resolveInventoryFacets(rows,keys,{...first.retained,location:'H'},['location']);
-    assert.equal(next.selected.grade,'PE80');assert.equal(next.selected.sdr,'SDR17');
-  });
-  check('Facet sources stay caller-scoped; no hidden grade/location options',()=>{const result=facets.resolveInventoryFacets([rows[0]],keys,{});assert.deepEqual(result.options.location,['A']);assert.deepEqual(result.options.grade,['PE100']);assert.equal(JSON.stringify(rows),snapshot);});
+  check('No specification constraint restores the full Location master, without auto-selection',()=>assert.deepEqual(facets.resolveInventoryLocations([rows[0]],{},physical),{location:'',options:physical,label:'All Locations'}));
+  check('Location first never infers Product, Grade, SDR or Color',()=>{const selected={location:'H'};facets.resolveInventoryLocations(rows,selected,physical);assert.deepEqual(selected,{location:'H'});});
+  check('Matching inventory stays caller-scoped; no hidden locations or writes',()=>{const result=facets.resolveInventoryLocations([rows[0]],{sdr:'SDR11'},physical);assert.deepEqual(result.options,['A']);assert.equal(JSON.stringify(rows),snapshot);});
   for(const [scope,anchor,previous,next]of [
     ['day','2026-10-15','2026-10-14','2026-10-16'],['week','2026-10-15','2026-10-08','2026-10-22'],
     ['month','2027-01-31','2026-12-31','2027-02-28'],['year','2024-02-29','2023-02-28','2025-02-28'],

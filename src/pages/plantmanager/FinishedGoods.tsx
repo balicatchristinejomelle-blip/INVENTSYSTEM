@@ -252,7 +252,7 @@ export default function PMFinishedGoods() {
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation
           records={finishedGoods.filter(pipe => pipe.qualityStatus !== 'Reject' && dateInPeriod(pipe.productionDate, period.range) && matchesRecord(withPrintSearch(app, pipe), search))}
           purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
-          status={status} onStatusChange={value => { setStatus(value as Destination); resetPage(); }}
+          status={status} statusOptions={DESTINATIONS.slice(1)} onStatusChange={value => { setStatus(value as Destination); resetPage(); }}
           statusFor={pipe => DESTINATIONS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />
       </div>
         <LegacyBarcodeNotice query={search} pipes={finishedGoods} />

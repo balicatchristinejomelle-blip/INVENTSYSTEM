@@ -373,7 +373,7 @@ export default function OwnerRecords() {
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
       <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation
         records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).map(row => ({ ...(row.specification || row.material || {}), status: row.status }))}
-        status={status} onStatusChange={inventoryArea ? value => { setStatus(value); setPage(1); } : undefined}
+        status={status} statusOptions={statuses} onStatusChange={inventoryArea ? value => { setStatus(value); setPage(1); } : undefined}
         statusFor={record => record.status} purpose={inventoryPurpose} onPurposeChange={inventoryArea ? value => { setInventoryPurpose(value); setPage(1); } : undefined} /> : undefined} />
       {productArea && <LegacyBarcodeNotice query={search} pipes={app.finishedGoods} />}
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
@@ -399,7 +399,7 @@ export default function OwnerRecords() {
           )}
         </div>}
         {inventoryArea && !productArea && <MaterialLocationFilters records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).flatMap(row => row.material ? [{ ...row.material, status: row.status }] : [])}
-          status={status} onStatusChange={value => { setStatus(value === 'All' ? 'All Statuses' : value); setPage(1); }} statusFor={record => record.status}
+          status={status} statusOptions={statuses} onStatusChange={value => { setStatus(value === 'All' ? 'All Statuses' : value); setPage(1); }} statusFor={record => record.status}
           grade={grade} onGradeChange={value => { setGrade(value === 'All' ? 'All Grades' : value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
       </div>
       <div className="app-card table-scroll">

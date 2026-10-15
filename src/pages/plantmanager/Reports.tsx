@@ -543,6 +543,7 @@ export default function PlantManagerReports() {
               records={finishedGoods.filter(item => dateInPeriod(item.productionDate, period.range) && matchesRecord(item, search))}
               purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
               status={finishedStatus} onStatusChange={value => { setFinishedStatus(value as FinishedStatus); resetPage(); }}
+              statusOptions={['Awaiting Label / Storage', 'Available', 'Reserved', 'Temporary Storage', 'Ready for Ship Out', 'Released / Shipped Out']}
               statusFor={pipe => pipe.releaseStatus === 'Released' ? 'Released / Shipped Out' : pipe.locationStatus === 'Awaiting Storage' ? 'Awaiting Label / Storage' : pipe.status === 'Ready for Release' ? 'Ready for Ship Out' : ['Available','Reserved','Temporary Storage'].includes(finishedPipeInventory(pipe).bucket) ? finishedPipeInventory(pipe).bucket : ''} />
           </div>
           <div className="app-card table-scroll">

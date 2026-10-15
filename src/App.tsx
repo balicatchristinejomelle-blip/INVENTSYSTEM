@@ -171,10 +171,27 @@ function AppShell() {
   );
 }
 
+class SavedDataBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      if (!this.state.error.message.startsWith('Saved HPAI data could not be read safely.')) throw this.state.error;
+      return <main role="alert" style={{ padding: 24, maxWidth: 680, margin: 'auto' }}>
+        <h1>Saved data needs attention</h1><p>{this.state.error.message}</p>
+        <p>Do not clear browser storage. Keep the existing <code>hpai:shared-app-state-v1</code> data for recovery.</p>
+      </main>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <ViewStateScope><RecordReferenceProvider><AppShell /></RecordReferenceProvider></ViewStateScope>
-    </AppProvider>
+    <SavedDataBoundary>
+      <AppProvider>
+        <ViewStateScope><RecordReferenceProvider><AppShell /></RecordReferenceProvider></ViewStateScope>
+      </AppProvider>
+    </SavedDataBoundary>
   );
 }

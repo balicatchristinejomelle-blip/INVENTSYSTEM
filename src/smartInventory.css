@@ -15,7 +15,7 @@
 .operational-content .record-search-control .record-search { text-align: left; flex: 1; min-width: 0; width: 100%; height: 36px; }
 .date-period-filter, .date-period-group { align-items: center; }
 .date-period-group { width: 100%; }
-.date-navigation-controls { display: grid; grid-template-columns: auto minmax(0, auto) auto; gap: 8px; align-items: center; max-width: 100%; }
+.date-navigation-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; width: min(100%, 520px); max-width: 100%; }
 .date-period-buttons { justify-content: center; }
 .date-active-range { color: var(--text-secondary); font-size: 12px; text-align: center; overflow-wrap: anywhere; justify-content: center; }
 .date-period-button:disabled { opacity: .55; cursor: not-allowed; }
@@ -34,13 +34,10 @@
 }
 @media (max-width: 1000px) {
   .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .date-navigation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .date-navigation-controls .date-period-buttons { grid-column: 1 / -1; grid-row: 1; }
 }
 @media (max-width: 600px) {
   .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: minmax(0, 1fr); }
-  .date-period-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  .date-period-buttons > :first-child { grid-column: 1 / -1; }
+  .date-period-buttons { display: flex; flex-wrap: wrap; width: auto; }
   .date-navigation-controls { width: min(100%, 360px); }
   .date-navigation-controls .date-period-button { min-width: 0; padding-inline: 8px; }
 }

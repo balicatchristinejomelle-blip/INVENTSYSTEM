@@ -36,20 +36,20 @@ export function DatePeriodFilter({ period, onChange, onClearExact }: {
   return <div className="date-period-filter">
     <div className="date-period-group" role="group" aria-label="Date period">
       <span className="field-label">Date</span>
-      <div className="date-navigation-controls">
-      <button type="button" className="date-period-button date-previous" disabled={!!period.exactDate} title={period.exactDate ? 'Clear the specific date search to navigate periods' : undefined} onClick={() => { period.move(-1); onChange?.(); }}>← Previous</button>
       <div className="date-period-buttons">
         {PERIODS.map(scope => <button key={scope} type="button" aria-pressed={scope === period.scope}
           className="date-period-button" onClick={() => { period.setScope(scope); onChange?.(); }}>
           {scope[0].toUpperCase() + scope.slice(1)}
         </button>)}
       </div>
-      <button type="button" className="date-period-button date-next" disabled={!!period.exactDate} title={period.exactDate ? 'Clear the specific date search to navigate periods' : undefined} onClick={() => { period.move(1); onChange?.(); }}>Next →</button>
-      </div>
+      <div className={period.scope !== 'all' || period.exactDate ? 'date-navigation-controls' : 'date-all-summary'}>
+      {(period.scope !== 'all' || period.exactDate) && <button type="button" className="date-period-button date-previous" aria-label="Previous period" disabled={!!period.exactDate} title={period.exactDate ? 'Clear the specific date search to navigate periods' : 'Previous period'} onClick={() => { period.move(-1); onChange?.(); }}>←</button>}
       <div className="date-active-range date-period-summary" aria-live="polite" role="region" aria-label="Active date filter">
         <span>{period.exactDate ? 'Date: ' + specificDateLabel(period.exactDate) : period.range.label}</span>
         {(period.exactDate || period.scope !== 'all') && <button type="button" className="date-filter-clear" aria-label={period.exactDate ? 'Clear specific date search' : 'Clear period filter'}
           onClick={() => { if (period.exactDate) (onClearExact || period.clearExact)(); else period.setDate(''); onChange?.(); }}>×</button>}
+      </div>
+      {(period.scope !== 'all' || period.exactDate) && <button type="button" className="date-period-button date-next" aria-label="Next period" disabled={!!period.exactDate} title={period.exactDate ? 'Clear the specific date search to navigate periods' : 'Next period'} onClick={() => { period.move(1); onChange?.(); }}>→</button>}
       </div>
     </div>
   </div>;
