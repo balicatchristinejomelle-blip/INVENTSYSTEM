@@ -1,4 +1,5 @@
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
+import MetricCards from '../../components/MetricCards';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
@@ -138,26 +139,13 @@ export default function FinishedPipes() {
       </div>
 
       {/* Summary cards */}
-      <div className="kpi-grid">
-        {[
-          { label: 'Physical On-Hand', value: totalUnits, color: 'var(--text-primary)' },
-          { label: 'Total Available', value: totalAvailable, color: '#16a34a' },
-          { label: 'Total Reserved', value: totalReserved, color: '#2563eb' },
-          { label: 'Temporary Buyer Stock', value: inventory.temporary, color: 'var(--text-primary)' },
-          { label: 'Ready for Ship Out', value: inventory.ready, color: 'var(--text-primary)' },
-          { label: 'Total Released', value: totalReleased, color: 'var(--text-muted)' },
-        ].map((card) => (
-          <div key={card.label} className="app-card" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-              {card.label}
-            </div>
-            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: card.color, lineHeight: 1 }}>
-              {card.value}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>units</div>
-          </div>
-        ))}
-      </div>
+      <MetricCards inventory label="Finished Goods inventory summary" items={[
+        ['Available', <span style={{ color: '#16a34a' }}>{totalAvailable}</span>, 'units'],
+        ['Reserved', <span style={{ color: '#2563eb' }}>{totalReserved}</span>, 'units'],
+        ['Temporary Storage', inventory.temporary, 'units'], ['Ready for Ship Out', inventory.ready, 'units'],
+        ['On Hand', totalUnits, 'units'],
+      ]} />
+      <div className="helper-text">Total Released: <strong>{totalReleased}</strong> units</div>
 
       <div className="app-card detail-card page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<><ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation /><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); setPage(1); }} /></>} />

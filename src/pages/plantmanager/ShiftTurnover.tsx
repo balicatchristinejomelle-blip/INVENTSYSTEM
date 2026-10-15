@@ -337,9 +337,14 @@ function PMShiftTurnover() {
               <DetailField label="Recycled Bags / Weight" value={`${viewRec.recycledBagsUsed ?? 0} / ${viewRec.recycledWeightUsed ?? 0} kg`} mono />
               <DetailField label="Base Colorant" value={`${viewRec.baseColorantUsed ?? 0} kg · ${viewRec.baseColorantTypes?.join(', ') || 'None recorded'}`} />
               <DetailField label="Stripe Colorant" value={viewRec.stripeColorantTypes?.length ? `${viewRec.stripeColorantUsed ?? 0} kg · ${viewRec.stripeColorantTypes.join(', ')}` : 'Not Required / None recorded'} />
-              <DetailField label="Total Colorant Weight" value={`${viewRec.totalColorantWeight ?? viewRec.colorantUsed ?? 0} kg`} mono />
-              <DetailField label="Total Pellet Weight" value={`${viewRec.totalPelletWeight ?? viewRec.pelletUsed} kg`} mono />
-              <DetailField label="Total Material Weight" value={`${viewRec.totalMaterialWeight ?? viewRec.pelletUsed} kg`} mono />
+            </div>
+            <div className="material-usage-group material-summary">
+              <SectionHeader>Summary</SectionHeader>
+              <div className="material-summary-metrics">
+                <DetailField label="Total Pellet Weight" value={`${viewRec.totalPelletWeight ?? viewRec.pelletUsed} kg`} mono />
+                <DetailField label="Total Colorant Weight" value={`${viewRec.totalColorantWeight ?? viewRec.colorantUsed ?? 0} kg`} mono />
+                <DetailField label="Total Material Weight" value={`${viewRec.totalMaterialWeight ?? viewRec.pelletUsed} kg`} mono />
+              </div>
             </div>
           </div>
 

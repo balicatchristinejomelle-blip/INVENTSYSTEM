@@ -2,6 +2,7 @@ import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoods
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
+import MetricCards from '../../components/MetricCards';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -109,20 +110,13 @@ export default function MarketingFG() {
         <div className="section-title">Finished Goods Availability</div>
         <div className="helper-text">Read-only stock visibility calculated from individual physical pipe records.</div>
       </div>
-      <div className="kpi-grid">
-        {[
-        ['Available General Inventory', inventory.available],
-        ['Reserved General Inventory', inventory.reserved],
-        ['Temporary Buyer Stock', inventory.temporary], ['On Hand', inventory.onHand],
-        ['Ready for Ship Out', inventory.ready],
-      ].map(([label, value]) => (
-          <div className="app-card kpi-card" key={label}>
-            <div>{label}</div>
-            <strong>{value}</strong>
-            <small>individual physical pipes</small>
-          </div>
-        ))}
-      </div>
+      <MetricCards inventory label="Finished Goods inventory summary" items={[
+        ['Available', inventory.available, 'individual physical pipes'],
+        ['Reserved', inventory.reserved, 'individual physical pipes'],
+        ['Temporary Storage', inventory.temporary, 'individual physical pipes'],
+        ['Ready for Ship Out', inventory.ready, 'individual physical pipes'],
+        ['On Hand', inventory.onHand, 'individual physical pipes'],
+      ]} />
       <div className="filter-panel product-filter-panel">
         <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />

@@ -2,13 +2,18 @@ import React from 'react';
 import { useApp } from '../store';
 import { finishedGoodsSummary } from '../finishedGoodsInventory';
 import type { FinishedGood } from '../types';
+import MetricCards from './MetricCards';
 export default function FinishedGoodsMetrics({ pipes }: { pipes?: readonly FinishedGood[] }) {
   const app = useApp();
   const counts = finishedGoodsSummary(pipes || app.finishedGoods, app);
-  return <div className="kpi-grid">{[
-    ['Available General Inventory', counts.available], ['Reserved General Inventory', counts.reserved],
-    ['Temporary Buyer Stock', counts.temporary], ['Ready for Ship Out', counts.ready], ['Physical On Hand', counts.onHand],
+  return <div className="inventory-summary page-stack">
+    <MetricCards inventory label="Finished Goods inventory summary" items={[
+      ['Available', counts.available], ['Reserved', counts.reserved], ['Temporary Storage', counts.temporary],
+      ['Ready for Ship Out', counts.ready], ['On Hand', counts.onHand],
+    ]} />
+    <MetricCards label="Additional inventory conditions" items={[
     ['Awaiting Storage / Quality', counts.awaiting + counts.qualityPending],
     ['Held Rejected Pipe Records', counts.rejected],
-  ].map(([label, count]) => <div className="app-card kpi-card" key={label}><div>{label}</div><strong>{count}</strong></div>)}</div>;
+    ]} />
+  </div>;
 }

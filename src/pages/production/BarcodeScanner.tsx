@@ -529,21 +529,21 @@ export default function BarcodeScanner() {
       <button className="btn-secondary btn-compact ml-2" onClick={() => navigate('prod-orders')}>Return to Production Output</button>
     </div>}
       <div className="scanner-context">
-        <div>
+        <div className="scanner-context-status">
           <span className="field-label">Current Operation</span>
           <strong>{modeLabel}</strong>
           <div>
             {mode === 'Load Pellets' ? activePO?.poNo || 'No active Production Order' : mode === 'Release Finished Goods' ? releaseOrder?.orderNo || 'No order ready for release' : 'Authorized physical operation'}
           </div>
         </div>
-        <SearchableDropdown
+        <div className="scanner-context-control"><SearchableDropdown
           className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setLegacyPipe(null); setStorageLocation(''); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
         >
           <option>Receive Pellets</option>
           <option>Load Pellets</option>
           <option value="Store Finished Pipes">Inspect Finished Pipe Storage</option>
           <option value="Release Finished Goods">Release Finished Pipes</option>
-        </SearchableDropdown>
+        </SearchableDropdown></div>
       </div>
       <section className="app-card detail-card hardware-scanner-card">
         <div className="hardware-scanner-heading">

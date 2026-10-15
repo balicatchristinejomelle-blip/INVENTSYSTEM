@@ -100,7 +100,7 @@ function ProductionDashboard() {
       </div>
 
       <div className="app-card" style={{ padding: "14px 16px" }}>
-        <div className="flex items-center justify-between mb-10">
+        <div className="section-heading material-usage-heading">
           <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Automatic Material Usage</h3>
         </div>
         {materialUsageMissing && <div className="alert-warning mb-3">
@@ -151,24 +151,16 @@ function ProductionDashboard() {
               {activePO?.stripe === 'No Stripe' ? 'Not Required' : `${displayedStripeColorant} kg`}
             </div>
           </div>
-          <div className="material-usage-group">
-            <div className="section-title">Summary</div>
-            <div className="field-label">Total Pellet Weight</div>
-            <div className="field-value font-mono">
-              {currentMaterialUsage.totalPelletWeightKg} kg
-            </div>
-            <div className="field-label mt-3">Total Colorant Weight</div>
-            <div className="field-value font-mono">
-              {displayedColorantTotal} kg
-            </div>
-            <div className="field-label mt-3">Total Material Weight</div>
-            <div className="field-value font-mono">
-              {currentMaterialUsage.totalPelletWeightKg + displayedColorantTotal}{" "}
-              kg
-            </div>
+        </div>
+        <div className="material-usage-group material-summary">
+          <div className="section-title">Summary</div>
+          <div className="material-summary-metrics">
+            <div><div className="field-label">Total Pellet Weight</div><div className="field-value font-mono">{currentMaterialUsage.totalPelletWeightKg} kg</div></div>
+            <div><div className="field-label">Total Colorant Weight</div><div className="field-value font-mono">{displayedColorantTotal} kg</div></div>
+            <div><div className="field-label">Total Material Weight</div><div className="field-value font-mono">{currentMaterialUsage.totalPelletWeightKg + displayedColorantTotal}{" "}kg</div></div>
           </div>
         </div>
-        <div className="helper-text mt-3">
+        <div className="helper-text material-usage-note">
           PO color and stripe select matching colorants automatically at output. Current configurable TEST / PROTOTYPE rates: base {" "}
           {(TEST_BASE_COLORANT_RATE * 100).toFixed(2)}%, stripe{" "}
           {(TEST_STRIPE_COLORANT_RATE * 100).toFixed(2)}%. These are not
@@ -179,7 +171,7 @@ function ProductionDashboard() {
       {/* Active PO */}
       {activePO ? (
         <div className="app-card" style={{ padding: "14px 16px" }}>
-          <div className="flex items-center justify-between mb-10">
+          <div className="section-heading mb-3">
             <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Production Order</h3>
             <span className="badge-blue px-2 py-0.5 text-[11px] rounded font-medium">
               {activePO.status}

@@ -2,6 +2,7 @@ import { finishedGoodsSummary, finishedPipeInventory, generalStockStatus } from 
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
+import MetricCards from '../../components/MetricCards';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -231,14 +232,14 @@ export default function PMFinishedGoods() {
 
   return (
     <div className="page-stack">
-      <div className="kpi-grid">
-        {[['Physical On-Hand', total], ['Available for New Orders', available], ['Reserved', reserved], ['Temporary Buyer Stock', inventory.temporary], ['Ready for Ship Out', inventory.ready], ['Awaiting Storage', inventory.awaiting], ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length]].map(([label, value]) => (
-          <div className="app-card kpi-card" key={label}>
-            <div>{label}</div>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
+      <MetricCards inventory label="Finished Goods inventory summary" items={[
+        ['Available', available], ['Reserved', reserved], ['Temporary Storage', inventory.temporary],
+        ['Ready for Ship Out', inventory.ready], ['On Hand', total],
+      ]} />
+      <MetricCards items={[
+        ['Awaiting Storage', inventory.awaiting],
+        ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length],
+      ]} />
       <div className="filter-panel product-filter-panel">
           <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />

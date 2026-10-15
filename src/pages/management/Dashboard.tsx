@@ -10,13 +10,13 @@ import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/Period
 
 function Metric({ label, value, color, sub }: { label: string; value: string | number; color?: string; sub?: string }) {
   return (
-    <div className="app-card" style={{ padding: "12px 14px" }}>
+    <div className="app-card kpi-card" style={{ padding: "12px 14px" }}>
       <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
         {label}
       </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
+      <strong style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
         {value}
-      </div>
+      </strong>
       {sub && (
         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
           {sub}
@@ -105,15 +105,18 @@ function ManagementDashboard() {
       {/* Inventory */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Inventory</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Metric label="Virgin Pellet" value={`${virginKg.toFixed(0)} kg`} color={virginKg < 500 ? '#dc2626' : '#2563eb'} />
           <Metric label="Recycled Pellet" value={`${recycledKg.toFixed(1)} kg`} color="#7c3aed" />
           <Metric label="WIP" value={wip + ' pcs'} color="#d97706" />
-          <Metric label="Available General FG" value={fgTotal + ' pcs'} color="#16a34a" />
-          <Metric label="Reserved FG" value={fgReserved + ' pcs'} color="#d97706" />
-          <Metric label="Temporary Buyer FG" value={inventory.temporary + ' pcs'} />
-          <Metric label="Physical On Hand" value={inventory.onHand + ' pcs'} />
           <Metric label="Rejected Material" value={`${totalRejectedKg} kg`} color={totalRejectedKg >= 50 ? '#dc2626' : totalRejectedKg >= 40 ? '#d97706' : 'var(--text-primary)'} />
+        </div>
+        <div className="kpi-grid inventory-metrics inventory-summary" aria-label="Finished Goods inventory summary">
+          <Metric label="Available" value={fgTotal + ' pcs'} color="#16a34a" />
+          <Metric label="Reserved" value={fgReserved + ' pcs'} color="#d97706" />
+          <Metric label="Temporary Storage" value={inventory.temporary + ' pcs'} />
+          <Metric label="Ready for Ship Out" value={inventory.ready} color="#16a34a" />
+          <Metric label="On Hand" value={inventory.onHand + ' pcs'} />
         </div>
       </section>
 
@@ -130,10 +133,9 @@ function ManagementDashboard() {
         </section>
         <section>
           <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Orders</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="kpi-grid">
             <Metric label="Active MOs" value={manufacturingOrders.filter(m=>m.status==='In Production').length} color="#d97706" />
             <Metric label="In Production" value={productionOrders.filter(p=>p.status==='In Production').length} color="#2563eb" />
-            <Metric label="Ready for Release" value={inventory.ready} color="#16a34a" />
             <Metric label="Completed POs" value={productionOrders.filter(p=>p.status==='Completed').length} />
           </div>
         </section>

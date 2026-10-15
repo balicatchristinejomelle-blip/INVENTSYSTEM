@@ -1,3 +1,4 @@
+import MetricCards from '../../components/MetricCards';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -527,10 +528,14 @@ function Reports() {
             <div className="app-card kpi-card">
               <div>Finished Pipes — Current Balance</div>
               <strong>{inventory.onHand} pcs On Hand</strong>
-              <small>{fgAvailable} available · {fgReserved} reserved · {inventory.temporary} temporary · {inventory.ready} ready · {inventory.awaiting + inventory.qualityPending} awaiting/quality pending</small>
+              <small>{inventory.awaiting + inventory.qualityPending} awaiting/quality pending</small>
             </div>
           </div>
 
+          <MetricCards inventory label="Finished Goods inventory summary" items={[
+            ['Available', fgAvailable], ['Reserved', fgReserved], ['Temporary Storage', inventory.temporary],
+            ['Ready for Ship Out', inventory.ready], ['On Hand', inventory.onHand],
+          ]} />
           {/* Charts row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="app-card" style={{ padding: 14 }}>
