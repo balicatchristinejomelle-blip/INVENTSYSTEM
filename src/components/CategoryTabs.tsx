@@ -7,10 +7,13 @@ interface CategoryTabsProps<T extends string> {
   counts?: Partial<Record<T, number>>;
   label?: string;
   displayLabel?: (value: T) => React.ReactNode;
+  groupLabel?: string;
 }
 
-export default function CategoryTabs<T extends string>({ items, value, onChange, counts, label = 'Category', displayLabel }: CategoryTabsProps<T>) {
+export default function CategoryTabs<T extends string>({ items, value, onChange, counts, label = 'Category', displayLabel, groupLabel }: CategoryTabsProps<T>) {
   return (
+    <div className={groupLabel ? 'filter-chip-group' : 'category-tab-group'}>
+    {groupLabel && <div className="field-label">{groupLabel}</div>}
     <div className="category-tabs" role="tablist" aria-label={label}>
       {items.map(item => (
         <button
@@ -25,6 +28,7 @@ export default function CategoryTabs<T extends string>({ items, value, onChange,
           {counts && <span>{counts[item] ?? 0}</span>}
         </button>
       ))}
+    </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { restoreUILayoutStyles, UI_LAYOUT_BASELINE } from './ui-layout-baseline.mjs';
+import { restoreCompleteUIFile } from './complete-ui-baseline.mjs';
 
 const require = createRequire(import.meta.url);
 const postcss = createRequire(require.resolve('vite/package.json'))('postcss');
@@ -14,7 +15,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const previousWindow = globalThis.window, previousSession = globalThis.sessionStorage;
 let checks = 0;
 const check = (label, fn) => { fn(); checks++; console.log(`PASS ${label}`); };
-const source = file => fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+const source = file => restoreCompleteUIFile(file, fs.readFileSync(file, 'utf8'));
 const previous = file => execFileSync('git', ['show', `${UI_LAYOUT_BASELINE}:${file}`], { encoding: 'utf8' }).replace(/\r/g, '');
 const editedPages = ['src/components/FinishedGoodsMetrics.tsx', 'src/pages/owner/Dashboard.tsx', 'src/pages/management/Dashboard.tsx', 'src/pages/management/Reports.tsx', 'src/pages/marketing/FinishedGoods.tsx', 'src/pages/plantmanager/FinishedGoods.tsx', 'src/pages/plantmanager/Reports.tsx', 'src/pages/plantmanager/ShiftTurnover.tsx', 'src/pages/production/BarcodeScanner.tsx', 'src/pages/production/Dashboard.tsx', 'src/pages/production/ShiftTurnover.tsx', 'src/pages/production/FinishedPipes.tsx'];
 

@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreCompleteUIFile } from './complete-ui-baseline.mjs';
 
 export const UI_LAYOUT_BASELINE = '30ba566';
 /** Exact reviewed presentation-only CSS block; all earlier styles remain guarded by the existing suites. */
 export function restoreUILayoutStyles(source) {
-  source = source.replace(/\r/g, '');
+  source = restoreCompleteUIFile('src/index.css', source);
   const marker = '/* UI consistency pass:';
   if (!source.includes(marker)) return source;
   const index = source.indexOf(marker);

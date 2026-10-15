@@ -41,17 +41,17 @@ function MaterialUsage() {
   const remainingQty = targetQty - completedQty
 
   return (
-    <div>
+    <div className="page-stack">
       <PeriodSelector period={period} />
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
+      <div className="kpi-grid">
         <ReportCard
           label="Recorded Pellet Consumption"
           value={`${pelletConsumption.toFixed(1)} kg`}
           sub={`${pelletLoadedTxns.length} successful bag load(s)`}
           color="var(--accent-blue)"
         />
-        <div className="app-card" style={{ padding: "12px 14px" }}>
+        <div className="app-card production-output-card" style={{ padding: "12px 14px" }}>
           <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
             Production Output — {mainPO?.poNo}
           </div>

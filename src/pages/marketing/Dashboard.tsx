@@ -9,7 +9,7 @@ import StatusBadge from "../../components/StatusBadge"
 
 function Stat({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
-    <div className="app-card" style={{ padding: "12px 16px" }}>
+    <div className="app-card statistic-card" style={{ padding: "12px 16px" }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
         {label}
       </div>
@@ -29,7 +29,7 @@ function MarketingDashboard() {
       {/* Orders */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Orders</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Stat label="New" value={orders.filter(o=>o.status==='New').length} color="#2563eb" />
           <Stat label="Active" value={orders.filter(o=>o.status==='Active').length} color="#2563eb" />
           <Stat label="In Production" value={orders.filter(o=>o.status==='In Production').length} color="#d97706" />
@@ -41,7 +41,7 @@ function MarketingDashboard() {
       {/* Finished Goods */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Finished Goods</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Stat label="Available" value={finishedGoods.filter(f=>f.status==='Available').length + ' batches'} color="#16a34a" />
           <Stat label="Reserved" value={finishedGoods.filter(f=>f.status==='Reserved').length + ' batches'} color="#d97706" />
           <Stat label="Low Stock" value={finishedGoods.filter(f=>f.status==='Low Stock').length} color="#dc2626" />
@@ -51,7 +51,7 @@ function MarketingDashboard() {
       {/* Manufacturing */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Manufacturing Orders</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Stat label="New" value={manufacturingOrders.filter(m=>m.status==='New').length} color="#2563eb" />
           <Stat label="In Production" value={manufacturingOrders.filter(m=>m.status==='In Production').length} color="#d97706" />
           <Stat label="Completed" value={manufacturingOrders.filter(m=>m.status==='Completed').length} color="#16a34a" />

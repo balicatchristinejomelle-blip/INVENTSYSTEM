@@ -242,15 +242,19 @@ export default function PMFinishedGoods() {
       ]} />
       <div className="filter-panel product-filter-panel">
           <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search product, grade, size, SDR / Thickness, length, barcode, batch, origin group, PO, MO, customer, status, or location" />
+        <div className="combined-product-filters">
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
         {(viewMode === 'By Batch' || viewMode === 'Individual Pipes') && <div className="product-operational-filters">
           <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
+          <label className="product-filter-field"><span className="field-label">Status</span>
           <SearchableDropdown
             className="app-select" aria-label="Status" value={status} onChange={e => { setStatus(e.target.value as Destination); resetPage(); }}
           >
             {DESTINATIONS.map(item => <option key={item}>{item}</option>)}
           </SearchableDropdown>
+          </label>
         </div>}
+        </div>
       </div>
         <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
       <CategoryTabs items={['Stock Levels', 'By Batch', 'Individual Pipes'] as const} value={viewMode} onChange={value => { setViewMode(value); resetPage(); }} label="Finished pipe inventory view" />

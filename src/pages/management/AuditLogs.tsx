@@ -155,7 +155,7 @@ export default function AuditLogs() {
               <th>Action</th>
               <th>Process Type</th>
               <th>Reference</th>
-              <th>Before / After</th>
+              <th className="narrative-cell">Before / After</th>
             </tr>
           </thead>
           <tbody>
@@ -172,7 +172,7 @@ export default function AuditLogs() {
                 <td>{log.action}</td>
                 <td>{log.processType}</td>
                 <td className="font-mono text-blue">{log.reference || '—'}</td>
-                <td>
+                <td className="narrative-cell">
                   {log.previousValue || log.newValue ? (
                     <>
                       <div>{log.previousValue || "—"}</div>

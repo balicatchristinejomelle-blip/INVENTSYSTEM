@@ -179,13 +179,13 @@ export default function RRRecords() {
     <div className="page-stack">
       <div className="toolbar">
         <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search RR number, supplier, grade, batch, reference…" />
-        <SearchableDropdown
+        <label className="product-filter-field"><span className="field-label">Pellet Type</span><SearchableDropdown
           className="app-select" value={pelletTypeFilter} onChange={e => { setPelletTypeFilter(e.target.value); setPage(1); }}
         >
           <option>All</option>
           <option>Virgin</option>
           <option>Recycled</option>
-        </SearchableDropdown>
+        </SearchableDropdown></label>
         <button className="btn-primary" onClick={() => setShowNew(true)}>New RR</button>
       </div>
       <div className="app-card table-scroll">
@@ -250,7 +250,7 @@ export default function RRRecords() {
             <strong>Automatic physical bag registration</strong>
             <div>Each bag is fixed at 25 kg. Saving this RR creates one inventory record and one permanent Code 128 barcode per bag.</div>
           </div>
-          <div className="form-grid">
+          <div className="form-grid receiving-form-grid">
             <LocationSelect value={form.storageLocation} onChange={storageLocation => setForm(value => ({ ...value, storageLocation }))} />
             <label>
               Pellet Type

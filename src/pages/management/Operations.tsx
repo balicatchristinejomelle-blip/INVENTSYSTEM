@@ -115,11 +115,11 @@ export default function Operations() {
   useEffect(() => setPage(1), [tab, materialCategory, productType, grade, pelletView, productionView, search, period.range.start, period.range.end]);
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade includeColor includeLocation /> : undefined} />
       </div>
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="report-tabs flex flex-wrap">
         {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)} style={{
             padding: '6px 14px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: tab === k ? 600 : 400,
@@ -176,8 +176,8 @@ export default function Operations() {
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
           <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); setPage(1); }} onLocationChange={value => { setMaterialLocation(value); setPage(1); }} />
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} />}
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" />}
+          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
+          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" groupLabel="Status" />}
           <div className="app-card" style={{ overflow: "hidden" }}>
             {materialCategory === "Colorants" ? (
               <table className="app-table">

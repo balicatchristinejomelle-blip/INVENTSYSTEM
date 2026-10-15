@@ -65,8 +65,8 @@ export default function RawMaterials() {
       </div>
       <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setSearch(''); setPage(1); }} label="Raw material category" />
       <div className="app-card detail-card page-stack">
-      {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={v => { setGrade(v); setPage(1); }} label={`${category} material grade`} displayLabel={materialGradeFilterLabel} />}
-      {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={v => { setLifecycle(v); setPage(1); }} label="Pellet lifecycle destination" />}
+      {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={v => { setGrade(v); setPage(1); }} label={`${category} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
+      {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={v => { setLifecycle(v); setPage(1); }} label="Pellet lifecycle destination" groupLabel="Status" />}
       {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={v => { setColorantType(v); setPage(1); }} label="Colorant usage type" />}
       <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
       <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />

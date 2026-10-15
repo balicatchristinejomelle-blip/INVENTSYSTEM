@@ -61,13 +61,13 @@ export default function Customers() {
     <div className="page-stack">
       <div className="toolbar">
         <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search customer name, code, contact, address…" />
-        <SearchableDropdown
+        <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
           className="app-select" value={status} onChange={e => { setStatus(e.target.value); resetPage(); }}
         >
           <option>All</option>
           <option>Active</option>
           <option>Inactive</option>
-        </SearchableDropdown>
+        </SearchableDropdown></label>
         <button className="btn-primary" onClick={() => setShowAdd(true)}>Add Customer</button>
       </div>
       <div className="app-card table-scroll">

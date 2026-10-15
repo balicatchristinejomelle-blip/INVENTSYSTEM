@@ -564,9 +564,11 @@ export default function PlantManagerReports() {
           <FinishedGoodsMetrics pipes={filteredFinished} />
           <div className="filter-panel product-filter-panel">
             <input className="app-input record-search" type="search" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, product, grade, size, origin group, PO, or customer order" />
+            <div className="combined-product-filters">
             <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={finishedGrade} onGradeChange={value => { setFinishedGrade(value); resetPage(); }} includeColor includeLocation includeLength />
             <div className="product-operational-filters">
               <StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} />
+              <label className="product-filter-field"><span className="field-label">Status</span>
               <SearchableDropdown
                 className="app-select"
                 value={finishedStatus}
@@ -587,6 +589,8 @@ export default function PlantManagerReports() {
                   <option key={item}>{item}</option>
                 ))}
               </SearchableDropdown>
+              </label>
+            </div>
             </div>
           </div>
           <div className="app-card table-scroll">

@@ -122,14 +122,14 @@ export default function Transactions() {
       <div className="toolbar">
         <input className={`app-input${category === 'Finished Pipe' ? ' record-search' : ''}`} type="search" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
         {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation />}
-        <SearchableDropdown
+        <label className="product-filter-field"><span className="field-label">Transaction Type</span><SearchableDropdown
           className="app-select" aria-label="Transaction type" value={type} onChange={event => { setType(event.target.value); setPage(1); }}
         >
           {types.map((item) => (
             <option key={item}>{item}</option>
           ))}
-        </SearchableDropdown>
-        <input className="app-input" aria-label="Movement date" type="date" value={date} onChange={event => { setDate(event.target.value); setPage(1); }} />
+        </SearchableDropdown></label>
+        <label className="date-filter-field"><span className="field-label">Movement Date (optional)</span><input className="app-input" aria-label="Movement date" type="date" value={date} onChange={event => { setDate(event.target.value); setPage(1); }} /></label>
       </div>
       <div className="app-card table-scroll">
         <table className="app-table">

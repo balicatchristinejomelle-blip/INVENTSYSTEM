@@ -825,7 +825,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Compact centered operational content; navigation, auth, charts and printed documents retain their intentional layouts. */
 .operational-content { --operational-gap: 10px; }
 .operational-content .page-stack { gap: var(--operational-gap); }
-.operational-content .app-card:not(:has(.print-document)) { text-align: center; }
 .operational-content .product-filter-panel.mb-4 { margin-bottom: 0; }
 .operational-content :is(.detail-card, .record-context-card, .mo-section) { padding: 12px; }
 .operational-content :is(.section-title, .table-title, .field-label, .field-value, .helper-text, .page-intro, .kpi-card, .confirm-copy, .empty-state, .mobile-record-card) { text-align: center; }
@@ -833,7 +832,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .operational-content .app-table td > .button-group { justify-content: center; }
 .operational-content :is(.form-grid, .block-label, .confirm-panel, .product-filter-field) label,
 .operational-content :is(.form-grid label, label.block-label, .confirm-panel label, .product-filter-field) { text-align: center; }
-.operational-content :is(.app-input:not(textarea), .app-select, .searchable-combobox-option) { text-align: center; }
+.operational-content :is(.app-select, .app-input[type="number"], .app-input[type="date"], .app-input[type="time"], .searchable-combobox-option) { text-align: center; }
 .operational-content .searchable-select { padding-left: 58px; }
 .operational-content :is(.responsive-grid, .form-grid, .mobile-record-grid) { gap: var(--operational-gap); }
 .operational-content .report-grid { gap: var(--operational-gap); }
@@ -1092,12 +1091,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .operational-content .record-filter-bar { grid-template-columns: minmax(0, 1fr); }
 .operational-content :is(.toolbar, .filter-row) > :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select) { grid-column: 1 / -1; }
 .operational-content :is(.toolbar, .filter-row) > :is(button, .button-group, .product-view-actions, .action-row) { grid-column: 1 / -1; justify-self: end; }
-.operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select) {
+.record-search:not(.searchable-select), .operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select) {
   text-align: left !important; height: 36px; min-height: 36px; width: 100%; max-width: 100%;
   padding-left: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.8'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
   background-position: 10px center; background-size: 14px; background-repeat: no-repeat;
 }
-.operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select)::placeholder { text-align: left; }
+.record-search:not(.searchable-select)::placeholder, .operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select)::placeholder { text-align: left; }
 .searchable-select { height: 36px; min-height: 36px; }
 .searchable-combobox:not(.is-open) .searchable-select { text-align: center; }
 .searchable-combobox:not(.is-open):not(:has(.searchable-combobox-clear)) .searchable-select { padding-left: 32px; padding-right: 32px !important; }
@@ -1159,4 +1158,84 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 @media (max-width: 480px) {
   .kpi-grid, .operational-content .inventory-metrics { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Complete UI audit: scoped controls, attached date labels and related filter groups. */
+.operational-content .app-input:not(.searchable-select):not([type="number"]):not([type="date"]):not([type="time"]) { text-align: left; }
+.operational-content .product-filter-field, .operational-content .date-filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: center; }
+.operational-content :is(.product-filter-field, .date-filter-field) > .field-label { margin: 0; line-height: 1.4; }
+.operational-content .app-input:not(textarea) { min-height: 36px; }
+.operational-content .form-grid label { min-width: 0; }
+.operational-content .form-grid label .app-input { margin-top: 0; }
+.operational-content label:has(> .searchable-combobox, > .searchable-dropdown), .operational-content label:has(+ .searchable-combobox) { text-align: center; }
+.record-status-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.record-status-filters:has(> :only-child) { grid-template-columns: minmax(0, 220px); }
+.operational-content .reprint-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.reprint-filters > input { grid-column: 1 / -1; }
+.operational-content .record-filter-bar { grid-template-columns: minmax(0, 1fr); justify-content: start; align-items: end; }
+.record-filter-bar:has(> .record-search:only-child) { grid-template-columns: minmax(0, 1fr); }
+.app-main .form-actions:has(> :nth-child(2):last-child) { justify-content: space-between; }
+.app-main .form-actions:has(> .btn-secondary:only-child) { justify-content: flex-start; }
+.record-filter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; min-width: 0; }
+.record-filter-controls > .product-filter-controls { flex: 0 0 100%; }
+.record-filter-controls > :is(.product-filter-field, .date-filter-field) { flex: 0 1 220px; width: 220px; max-width: 100%; }
+.operational-content .record-filter-bar:not(:has(.record-search, .product-filter-controls, .product-filter-field)) { width: fit-content; max-width: 100%; }
+.operational-content .record-filter-bar .date-filter { max-width: none; justify-self: stretch; }
+.date-filter-field { margin: 0; }
+.date-filter .app-input { min-height: 36px; padding-right: 62px; }
+.attendance-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+.attendance-toolbar > .date-filter-field { flex: 0 1 220px; width: 220px; max-width: 100%; }
+.shift-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.shift-filter-group button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; }
+.combined-product-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 10px; min-width: 0; }
+.operational-content .combined-product-filters > :is(.product-filter-controls, .product-operational-filters) { display: contents; }
+.combined-product-filters:has(> .product-operational-filters) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The combined grid owns placement; nested six/seven-field variants must not retain spans. */
+.operational-content .combined-product-filters > :is(.product-filter-controls, .product-operational-filters) > :nth-child(n) { grid-column: auto; }
+.operational-content :is(.category-tabs, .tab-strip, .report-tabs) { min-width: 0; max-width: 100%; gap: 6px; margin-block: 0; overscroll-behavior-inline: contain; }
+.operational-content .category-tab { flex: 0 0 auto; justify-content: center; }
+.category-tab-group, .filter-chip-group { min-width: 0; max-width: 100%; }
+.filter-chip-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-chip-group > .field-label { margin: 0; text-align: left; }
+.operational-content :is(.category-tab-group, .filter-chip-group) + :is(.category-tab-group, .filter-chip-group) { margin-top: 8px; }
+.operational-content .page-stack > :is(.category-tab-group, .filter-chip-group) + :is(.category-tab-group, .filter-chip-group) { margin-top: 0; }
+.operational-content :is(.tab-strip, .report-tabs) > button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 12px; }
+.operational-content :is(.alert-info, .alert-warning, .alert-error, .alert-success) { min-height: 0; height: auto; width: 100%; padding: 10px 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.operational-content .page-stack > :is(.alert-info, .alert-warning, .alert-error, .alert-success) { margin-block: 0; }
+.operational-content .statistic-card { display: grid; grid-template-rows: subgrid; grid-row: span 3; row-gap: 5px; min-width: 0; text-align: center; align-content: start; }
+.statistic-card > :nth-child(n) { min-width: 0; margin-block: 0 !important; overflow-wrap: anywhere; }
+.statistic-card > :first-child { grid-row: 1; align-self: center; line-height: 1.4; }
+.statistic-card > :nth-child(2) { grid-row: 2; align-self: center; }
+.statistic-card > :nth-child(3) { grid-row: 3; }
+.statistic-title { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.production-output-card { display: flex; flex-direction: column; align-items: stretch; gap: 5px; text-align: center; }
+.production-output-card > :nth-child(2) { justify-content: center; }
+.operational-content .app-table :is(th, td).narrative-cell, .operational-content .app-table .narrative-cell .helper-text { text-align: left !important; white-space: normal; overflow-wrap: anywhere; }
+.operational-content .app-table .narrative-cell { min-width: 180px; }
+.operational-content .receiving-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.operational-content :is(.toolbar, .filter-row) { align-items: end; }
+.operational-content .toolbar:has(> .date-filter-field), .operational-content .filter-row:has(> input):has(> .product-filter-field) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operational-content :is(.modal-box, .detail-card, .filter-panel, .record-filter-controls) > :is(.form-actions, .action-row) { width: 100%; grid-column: 1 / -1; }
+@container (max-width: 860px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 440px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child), .operational-content .receiving-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child), .operational-content .receiving-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .record-status-filters, .record-status-filters:has(> :only-child), .operational-content .reprint-filters { grid-template-columns: minmax(0, 1fr); }
+  .record-filter-controls > :is(.product-filter-field, .date-filter-field) { flex-basis: 100%; width: 100%; }
+  .operational-content .record-filter-bar:not(:has(.record-search, .product-filter-controls, .product-filter-field)) { width: 100%; }
+  .attendance-toolbar { align-items: stretch; flex-direction: column; }
+  .app-main .form-actions { align-items: stretch; flex-direction: column; gap: 8px; }
+  .app-main .form-actions > button { width: 100%; }
+  .operational-content .toolbar:has(> .date-filter-field), .operational-content .filter-row:has(> input):has(> .product-filter-field) { grid-template-columns: minmax(0, 1fr); }
+  .attendance-toolbar > .date-filter-field { flex-basis: auto; width: 100%; }
+  .shift-filter-group { margin-left: 0; width: 100%; }
+  .shift-filter-group button { flex: 1 1 auto; min-height: var(--button-touch-height); }
 }

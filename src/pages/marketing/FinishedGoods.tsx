@@ -119,8 +119,9 @@ export default function MarketingFG() {
       ]} />
       <div className="filter-panel product-filter-panel">
         <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
+        <div className="combined-product-filters">
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
-        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><SearchableDropdown
+        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
           <option>Available</option>
@@ -128,7 +129,8 @@ export default function MarketingFG() {
           <option>Temporary Storage</option>
           <option>Ready for Release</option>
           <option>Shipped Out / Released</option>
-        </SearchableDropdown></div>}
+        </SearchableDropdown></label></div>}
+        </div>
       </div>
       <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
       {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={selectedGroup} />}

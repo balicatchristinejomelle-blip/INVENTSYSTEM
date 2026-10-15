@@ -46,7 +46,7 @@ function MachineConditionDot({ condition }: { condition: string }) {
 
 function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div>
+    <div className="page-stack">
       <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
         {label}
       </div>
@@ -96,7 +96,7 @@ function PMShiftTurnover() {
     <div>
       <PeriodSelector period={period} compact />
       {pendingCount > 0 && (
-        <div className="alert-warning mb-4" style={{ fontSize: 12 }}>
+        <div className="alert-warning" style={{ fontSize: 12 }}>
           <strong>
             {pendingCount} shift turnover{pendingCount > 1 ? "s" : ""} pending
             acceptance.
@@ -106,7 +106,7 @@ function PMShiftTurnover() {
       )}
 
       {/* Tab filters */}
-      <div className="report-tabs flex gap-1 mb-4">
+      <div className="report-tabs flex gap-1">
         {TABS.map(tab => (
           <button
             key={tab}

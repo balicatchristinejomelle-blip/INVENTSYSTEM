@@ -84,20 +84,20 @@ export default function Employees() {
             onChange={event => { setSearch(event.target.value); resetPage(); }}
             placeholder="Search employee name, ID, username, or shift..."
           />
-          <SearchableDropdown
+          <label className="product-filter-field"><span className="field-label">Shift</span><SearchableDropdown
             className="app-select" value={shiftFilter} onChange={event => { setShiftFilter(event.target.value as typeof shiftFilter); resetPage(); }}
           >
             <option value="All">All Shifts</option>
             <option value="Day">Day Shift</option>
             <option value="Night">Night Shift</option>
-          </SearchableDropdown>
-          <SearchableDropdown
+          </SearchableDropdown></label>
+          <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
             className="app-select" value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); resetPage(); }}
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-          </SearchableDropdown>
+          </SearchableDropdown></label>
         </div>
       </div>
 

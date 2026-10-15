@@ -88,26 +88,25 @@ function PMAttendance() {
   )?.poNo || '—';
 
   return (
-    <div>
+    <div className="page-stack">
       {/* View-only notice */}
-      <div className="alert-info mb-4" style={{ fontSize: 12 }}>
+      <div className="alert-info" style={{ fontSize: 12 }}>
         <strong>View Only.</strong> This page displays shift attendance records. Attendance entries are recorded by production employees at clock-in and clock-out.
       </div>
-      <PeriodSelector period={period} compact />
 
       {/* Filters row */}
-      <div className="flex items-center gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
-        <div className="flex items-center gap-2">
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Specific Date (optional)</label>
+      <div className="attendance-toolbar">
+        <PeriodSelector period={period} compact />
+        <label className="date-filter-field">
+          <span className="field-label">Specific Date (optional)</span>
           <input
             type="date"
             className="app-input"
-            style={{ fontSize: 12, padding: '5px 10px' }}
             value={dateFilter}
             onChange={e => setDateFilter(e.target.value)}
           />
-        </div>
-        <div className="flex gap-1" style={{ marginLeft: 'auto' }}>
+        </label>
+        <div className="shift-filter-group" role="group" aria-label="Shift filter">
           {TABS.map(tab => (
             <button
               key={tab}
@@ -131,14 +130,14 @@ function PMAttendance() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div className="kpi-grid">
         {[
           { label: 'Clocked In Now', value: activeCount, color: '#16a34a' },
           { label: 'Clocked Out Today', value: clockedOutCount, color: 'var(--text-primary)' },
           { label: 'Day Shift Active', value: dayCount, color: 'var(--accent-blue)' },
           { label: 'Night Shift Active', value: nightCount, color: '#7c3aed' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="app-card" style={{ padding: '12px 14px' }}>
+          <div key={label} className="app-card statistic-card" style={{ padding: '12px 14px' }}>
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
               {label}
             </div>

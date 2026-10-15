@@ -361,7 +361,7 @@ export default function Pellets() {
       <div className="app-card detail-card page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, batch, product, PO, reference, or location..." />
         <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setPage(1); }} label="Production material category" />
-        {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); setPage(1); }} label="Pellet lifecycle destination" />}
+        {category !== 'Colorants' && <CategoryTabs items={['Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); setPage(1); }} label="Pellet lifecycle destination" groupLabel="Status" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); setPage(1); }} label="Colorant usage type" />}
         <MaterialLocationFilters grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
       </div>

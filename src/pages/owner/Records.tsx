@@ -369,24 +369,24 @@ export default function OwnerRecords() {
       {productArea && <LegacyBarcodeNotice query={search} pipes={app.finishedGoods} />}
       <CategoryTabs items={SECTIONS[area]} value={section as never} onChange={value => { setSection(value); resetFilters(); }} label={`${area} record type`} />
       <div className="filter-panel">
-        <div className="filter-row">
-          <SearchableDropdown
+        <div className="record-status-filters">
+          <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
             className="app-select" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}
           >
             <option>All Statuses</option>
             {statuses.map((item) => (
               <option key={item}>{item}</option>
             ))}
-          </SearchableDropdown>
+          </SearchableDropdown></label>
           {inventoryArea && !productArea && (
-            <SearchableDropdown
+            <label className="product-filter-field"><span className="field-label">Material Grade</span><SearchableDropdown
               className="app-select" value={grade} onChange={event => { setGrade(event.target.value); setPage(1); }}
             >
               <option value="All Grades">All Material Grades</option>
               {grades.map((item) => (
                 <option key={item}>{item}</option>
               ))}
-            </SearchableDropdown>
+            </SearchableDropdown></label>
           )}
         </div>
         {inventoryArea && !productArea && <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
