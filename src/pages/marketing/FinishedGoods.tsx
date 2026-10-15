@@ -151,7 +151,7 @@ export default function MarketingFG() {
               <thead>
                 <tr>
                   <th>Batch / Origin Group</th>
-                  <th>PO / MO</th>
+                  <th className="po-column">PO / MO</th>
                   <th>Product</th>
                   <th>Grade / Specifications</th>
                   <th>Produced / Good / Rejected</th>
@@ -178,7 +178,7 @@ export default function MarketingFG() {
                   return (
                     <tr key={group.item.batch}>
                       <td className="font-mono"><RecordReference value={group.item.batch} /><br /><small>{trace.groupType} · <RecordReference value={trace.originGroup} /></small></td>
-                      <td className="font-mono">
+                      <td className="font-mono po-column">
                         <RecordReference value={group.item.poRef} />
                         <br />
                         <small>{moFor(group.item)}</small>
@@ -245,7 +245,7 @@ export default function MarketingFG() {
                   <th>Product</th>
                   <th>Specifications</th>
                   <th>Location</th>
-                  <th>PO</th>
+                  <th className="po-column">PO</th>
                   <th>Status</th>
                   <th data-actions>Action</th>
                 </tr>
@@ -261,7 +261,7 @@ export default function MarketingFG() {
                       {item.length}
                     </td>
                     <td>{item.currentLocation || "Not Yet Assigned"}</td>
-                    <td className="font-mono"><RecordReference value={item.poRef} /></td>
+                    <td className="font-mono po-column"><RecordReference value={item.poRef} /></td>
                     <td>
                       <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                     </td>

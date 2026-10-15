@@ -145,7 +145,7 @@ export default function ProductionRecycling() {
             <thead>
               <tr>
                 <th>Rejection ID</th>
-                <th>PO</th>
+                <th className="po-column">PO</th>
                 <th>Product</th>
                 <th>Qty</th>
                 <th>Weight</th>
@@ -158,7 +158,7 @@ export default function ProductionRecycling() {
               {pageRecords(filteredRejected, page).map((record) => (
                 <tr key={record.id}>
                   <td className="font-mono">{record.rejectionId}</td>
-                  <td><RecordReference value={record.poRef} /></td>
+                  <td className="po-column"><RecordReference value={record.poRef} /></td>
                   <td>{record.product}</td>
                   <td>{record.quantity}</td>
                   <td>
@@ -185,7 +185,7 @@ export default function ProductionRecycling() {
             <thead>
               <tr>
                 <th>Batch</th>
-                <th>Source PO</th>
+                <th className="po-column">Source PO</th>
                 <th>Original Weight</th>
                 <th>Cut Weight</th>
                 <th>Cutting Loss</th>
@@ -197,7 +197,7 @@ export default function ProductionRecycling() {
               {pageRecords(filteredBatches, page).map((batch) => (
                 <tr key={batch.id}>
                   <td className="font-mono"><RecordReference value={batch.batchNo} /></td>
-                  <td>{batch.sourcePO || "—"}</td>
+                  <td className="po-column">{batch.sourcePO || "—"}</td>
                   <td>{batch.originalKg.toFixed(1)} kg</td>
                   <td>
                     {batch.cutMaterialKg == null ? '—' : `${batch.cutMaterialKg.toFixed(1)} kg`}

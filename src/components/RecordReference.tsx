@@ -26,9 +26,10 @@ export function RelatedRecords({ record, references = [] }: { record?: object; r
 export default function RecordReference({ value }: { value: React.ReactNode }) {
   const index = useReferenceIndex(), [open, setOpen] = useState(false), [page, setPage] = useState(1);
   const matches = typeof value === 'string' ? referenceTargets(index, value) : [];
-  if (!matches.length) return <>{value}</>;
+  const isPO = typeof value === 'string' && /^PO-/.test(value);
+  if (!matches.length) return isPO ? <span className="po-reference">{value}</span> : <>{value}</>;
   const legacy = matches.map(result => legacyReferenceMessage(result.record, String(value))).find(Boolean);
-  return <><button type="button" className="record-reference" title={legacy || `View authorized record: ${value}`} onClick={event => { event.stopPropagation(); setPage(1); setOpen(true); }}>{value}</button>
+  return <><button type="button" className={isPO ? "record-reference po-reference" : "record-reference"} title={legacy || `View authorized record: ${value}`} onClick={event => { event.stopPropagation(); setPage(1); setOpen(true); }}>{value}</button>
     <Modal open={open} title={`Related record · ${value}`} onClose={() => setOpen(false)} width="720px">
       <div className="page-stack">
         {legacy && <div className="alert-warning" role="status">{legacy} The old physical label is obsolete. This is read-only record traceability.</div>}

@@ -102,7 +102,7 @@ function RejectedRecycling() {
             <tr>
               <th>Rejection ID</th>
               <th>Date</th>
-              <th>PO</th>
+              <th className="po-column">PO</th>
               <th>Product</th>
               <th>Employee</th>
               <th>Qty</th>
@@ -123,7 +123,7 @@ function RejectedRecycling() {
                   <tr key={record.id}>
                     <td>{record.rejectionId}</td>
                     <td>{record.date}</td>
-                    <td>{record.poRef}</td>
+                    <td className="po-column">{record.poRef}</td>
                     <td>{record.product}</td>
                     <td>{record.employee}</td>
                     <td>{record.quantity}</td>
@@ -145,7 +145,7 @@ function RejectedRecycling() {
           <thead>
             <tr>
               <th>Batch</th>
-              <th>Source PO</th>
+              <th className="po-column">Source PO</th>
               <th>Product</th>
               <th>Original Weight</th>
               <th>Cut Weight</th>
@@ -166,7 +166,7 @@ function RejectedRecycling() {
                 render={(batch) => (
                   <tr key={batch.id}>
                     <td>{batch.batchNo}</td>
-                    <td>{batch.sourcePO || "—"}</td>
+                    <td className="po-column">{batch.sourcePO || "—"}</td>
                     <td>{batch.product || "—"}</td>
                     <td>{batch.originalKg.toFixed(1)} kg</td>
                     <td>

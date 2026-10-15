@@ -74,7 +74,7 @@ function MOTracking() {
                 <td>
                   <StatusBadge status={mo.status} size="sm" />
                 </td>
-                <td style={{ fontSize: 11, color: mo.poRef ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+                <td className="po-column" style={{ fontSize: 11, color: mo.poRef ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
                   {mo.poRef || "—"}
                 </td>
                 <td onClick={e => e.stopPropagation()}>

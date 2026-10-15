@@ -19,7 +19,8 @@
     "check:ui-complete": "node scripts/check-complete-ui.mjs",
     "check:ux": "node scripts/check-ux.mjs",
     "check:dates": "node scripts/check-date-periods.mjs",
-    "qa:dates:browser": "node scripts/check-date-periods-browser.mjs"
+    "qa:dates:browser": "node scripts/check-date-periods-browser.mjs",
+    "qa:po:browser": "node scripts/check-po-references-browser.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

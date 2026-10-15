@@ -92,7 +92,7 @@ function MaterialUsage() {
                   <th>Batch</th>
                   <th>Item</th>
                   <th>Qty Used (kg)</th>
-                  <th>PO Reference</th>
+                  <th className="po-column">PO Reference</th>
                   <th>Employee</th>
                   <th>Status</th>
                 </tr>
@@ -118,7 +118,7 @@ function MaterialUsage() {
                         {tx.quantity.toFixed(2)}
                       </span>
                     </td>
-                        <td>
+                        <td className="po-column">
                           <span className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)' }}>
                             {tx.productionOrderRef}
                           </span>

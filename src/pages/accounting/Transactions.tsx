@@ -163,7 +163,7 @@ export default function Transactions() {
                     <br />
                     <small>{item.time}</small>
                   </td>
-                  <td>
+                  <td className="po-column">
                     <span className="font-mono reference-link">
                       {item.reference || item.poRef || item.txId}
                     </span>

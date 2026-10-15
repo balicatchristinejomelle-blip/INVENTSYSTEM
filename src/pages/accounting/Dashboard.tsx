@@ -120,7 +120,7 @@ function AccountingDashboard() {
                     {tx.qtyChanged > 0 ? "+" : ""}
                     {tx.qtyChanged} {tx.item.includes("Pellet") ? "kg" : "pcs"}
                   </td>
-                  <td style={{ fontSize: 11, color: "var(--accent-blue)" }}>
+                  <td className="po-column" style={{ fontSize: 11, color: "var(--accent-blue)" }}>
                     {tx.reference}
                   </td>
                   <td>

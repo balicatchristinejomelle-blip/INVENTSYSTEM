@@ -466,7 +466,7 @@ function Reports() {
             <table className="app-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
-                  <th>PO</th>
+                  <th className="po-column">PO</th>
                   <th>Material Type</th>
                   <th>Material</th>
                   <th>Quantity</th>
@@ -478,7 +478,7 @@ function Reports() {
               <TableBody>
                 {pageRecords(periodUsage, detailPage).map((transaction) => (
                   <tr key={transaction.id}>
-                    <td className="font-mono">
+                    <td className="font-mono po-column">
                       {transaction.productionOrderRef}
                     </td>
                     <td>{transaction.materialType.replace(/_/g, " ")}</td>
@@ -816,7 +816,7 @@ function Reports() {
                         {t.incomingShift}
                       </span>
                     </td>
-                    <td className="font-mono"><RecordReference value={t.poRef} /></td>
+                    <td className="font-mono po-column"><RecordReference value={t.poRef} /></td>
                     <td className="font-mono">{t.completedThisShift}</td>
                     <td>
                       <span className={t.status === 'Pending' ? 'badge-amber' : 'badge-green'}>
@@ -970,7 +970,7 @@ function Reports() {
                 {pageRecords(filteredQuality, detailPage).map((r) => (
                   <tr key={r.id} className="table-row-hover">
                     <td className="font-mono">{r.rejectionId}</td>
-                    <td className="font-mono"><RecordReference value={r.poRef} /></td>
+                    <td className="font-mono po-column"><RecordReference value={r.poRef} /></td>
                     <td>{r.product}</td>
                     <td className="font-mono">{r.quantity}</td>
                     <td className="font-mono">{r.weightKg} kg</td>

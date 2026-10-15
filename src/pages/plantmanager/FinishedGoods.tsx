@@ -319,7 +319,7 @@ export default function PMFinishedGoods() {
               <thead>
                 <tr>
                   <th>Batch / Origin Group</th>
-                  <th>PO / MO</th>
+                  <th className="po-column">PO / MO</th>
                   <th>Product Type</th>
                   <th>Grade</th>
                   <th>Size / SDR-Thickness / Length</th>
@@ -342,7 +342,7 @@ export default function PMFinishedGoods() {
                   return (
                     <tr key={group.item.batch}>
                       <td className="font-mono"><RecordReference value={group.item.batch} /><br /><small>{trace.groupType} · <RecordReference value={trace.originGroup} /></small></td>
-                      <td>
+                      <td className="po-column">
                         <span className="font-mono"><RecordReference value={group.item.poRef} /></span>
                         <br />
                         <small>{manufacturingOrderFor(group.item)}</small>
@@ -389,7 +389,7 @@ export default function PMFinishedGoods() {
                   <th>Purpose</th>
                   <th>Status</th>
                   <th>Location</th>
-                  <th>PO</th>
+                  <th className="po-column">PO</th>
                   <th>Customer Order</th>
                   <th>Print</th>
                   <th data-actions>Actions</th>
@@ -408,7 +408,7 @@ export default function PMFinishedGoods() {
                       <StatusBadge status={f.releaseStatus === 'Released' ? 'Shipped Out' : f.status}/>
                     </td>
                     <td>{f.currentLocation || "Not Yet Assigned"}</td>
-                    <td className="font-mono"><RecordReference value={f.poRef} /></td>
+                    <td className="font-mono po-column"><RecordReference value={f.poRef} /></td>
                     <td className="font-mono">
                       {f.reservedForOrderRef || "—"}
                     </td>
@@ -520,7 +520,7 @@ export default function PMFinishedGoods() {
                         <th>Size / SDR-Thickness / Length</th>
                         <th>Color / Stripe</th>
                         <th>Unit Weight</th>
-                        <th>PO / MO</th>
+                        <th className="po-column">PO / MO</th>
                         <th>Quality</th>
                         <th>Inventory Status</th>
                         <th>Location</th>
@@ -548,7 +548,7 @@ export default function PMFinishedGoods() {
                               ? `${pipe.unitWeightKg} kg`
                               : "—"}
                           </td>
-                          <td>
+                          <td className="po-column">
                             <span className="font-mono"><RecordReference value={pipe.poRef} /></span>
                             <br />
                             <small>{manufacturingOrderFor(pipe)}</small>

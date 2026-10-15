@@ -510,7 +510,7 @@ export default function PlantManagerReports() {
               <TableBody>
                 {pageRecords(filteredMaterials, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.reference}</td>
+                    <td className="font-mono po-column">{item.reference}</td>
                     <td>{item.category}</td>
                     <td>{item.grade}</td>
                     <td>
@@ -603,7 +603,7 @@ export default function PlantManagerReports() {
                   <th>Size / SDR-Thickness / Length</th>
                   <th>Status</th>
                   <th>Location</th>
-                  <th>PO</th>
+                  <th className="po-column">PO</th>
                   <th>Customer Order</th>
                 </tr>
               </thead>
@@ -626,7 +626,7 @@ export default function PlantManagerReports() {
                       />
                     </td>
                     <td>{item.currentLocation}</td>
-                    <td className="font-mono"><RecordReference value={item.poRef} /></td>
+                    <td className="font-mono po-column"><RecordReference value={item.poRef} /></td>
                     <td className="font-mono">
                       {item.reservedForOrderRef || "—"}
                     </td>
@@ -675,7 +675,7 @@ export default function PlantManagerReports() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Production Order</th>
+                  <th className="po-column">Production Order</th>
                   <th>MO</th>
                   <th>Product Type</th>
                   <th>Grade / Size</th>
@@ -687,7 +687,7 @@ export default function PlantManagerReports() {
               <TableBody>
                 {pageRecords(filteredProduction, page).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono"><RecordReference value={item.poNo} /></td>
+                    <td className="font-mono po-column"><RecordReference value={item.poNo} /></td>
                     <td className="font-mono"><RecordReference value={item.moRef} /></td>
                     <td>{normalizedProductType(item.product)}</td>
                     <td>
@@ -738,7 +738,7 @@ export default function PlantManagerReports() {
               <thead>
                 <tr>
                   <th>Transaction</th>
-                  <th>PO</th>
+                  <th className="po-column">PO</th>
                   <th>Material Type</th>
                   <th>Material</th>
                   <th>Employee</th>
@@ -750,7 +750,7 @@ export default function PlantManagerReports() {
                 {pageRecords(filteredUsage, page).map((item) => (
                   <tr key={item.id}>
                     <td className="font-mono">{item.transactionId}</td>
-                    <td className="font-mono">{item.productionOrderRef}</td>
+                    <td className="font-mono po-column">{item.productionOrderRef}</td>
                     <td>{item.materialType.replace(/_/g, " ")}</td>
                     <td>{item.materialName}</td>
                     <td>{item.employeeName}</td>
@@ -791,7 +791,7 @@ export default function PlantManagerReports() {
               <thead>
                 <tr>
                   <th>Batch</th>
-                  <th>Source PO</th>
+                  <th className="po-column">Source PO</th>
                   <th>Product</th>
                   <th>Input kg</th>
                   <th>Recovered kg</th>
@@ -803,7 +803,7 @@ export default function PlantManagerReports() {
                 {pageRecords(filteredRecycling, page).map((item) => (
                   <tr key={item.id}>
                     <td className="font-mono"><RecordReference value={item.batchNo} /></td>
-                    <td className="font-mono">{item.sourcePO || "—"}</td>
+                    <td className="font-mono po-column">{item.sourcePO || "—"}</td>
                     <td>{item.product || "—"}</td>
                     <td>{item.originalKg.toFixed(3)}</td>
                     <td>{item.recoveredKg?.toFixed(3) || "—"}</td>

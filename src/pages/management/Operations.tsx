@@ -266,7 +266,7 @@ export default function Operations() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>PO No.</th>
+                  <th className="po-column">PO No.</th>
                   <th>Product</th>
                   <th>Target</th>
                   <th>Completed</th>
@@ -282,7 +282,7 @@ export default function Operations() {
 
                   return (
                     <tr key={po.id} className="table-row-hover">
-                      <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
+                      <td className="font-mono po-column" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
                         <RecordReference value={po.poNo} />
                       </td>
                       <td style={{ fontSize: 12 }}>

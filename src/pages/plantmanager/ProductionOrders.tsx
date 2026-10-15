@@ -199,7 +199,7 @@ export default function PMProductionOrders() {
           <table className="app-table">
             <thead>
               <tr>
-                <th>PO No.</th>
+                <th className="po-column">PO No.</th>
                 <th>MO Ref</th>
                 <th>Product</th>
                 <th>Progress</th>
@@ -216,7 +216,7 @@ export default function PMProductionOrders() {
 
                 return (
                   <tr key={po.id} className="table-row-hover" onClick={() => setViewId(po.id)}>
-                    <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
+                    <td className="font-mono po-column" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
                       <RecordReference value={po.poNo} />
                     </td>
                     <td style={{ fontSize: 11, color: "var(--accent-blue)" }}>

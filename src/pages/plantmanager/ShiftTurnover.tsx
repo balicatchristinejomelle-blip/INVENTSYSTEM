@@ -152,7 +152,7 @@ function PMShiftTurnover() {
               <th>Date / Time</th>
               <th>Outgoing Employee</th>
               <th>Shift</th>
-              <th>PO Reference</th>
+              <th className="po-column">PO Reference</th>
               <th>Completed / Total</th>
               <th>Machine Condition</th>
               <th>Status</th>
@@ -204,7 +204,7 @@ function PMShiftTurnover() {
                         {rec.incomingShift}
                       </span>
                     </td>
-                    <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)' }}>
+                    <td className="font-mono po-column" style={{ fontSize: 11, color: 'var(--accent-blue)' }}>
                       {rec.poRef}
                     </td>
                     <td>

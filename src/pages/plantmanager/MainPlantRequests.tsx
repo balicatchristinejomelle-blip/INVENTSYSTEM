@@ -212,7 +212,7 @@ export default function MainPlantRequests() {
               <th>Category</th>
               <th>Material</th>
               <th>Requested Quantity</th>
-              <th>PO</th>
+              <th className="po-column">PO</th>
               <th>Destination</th>
               <th>Status</th>
               <th data-actions>Action</th>
@@ -236,7 +236,7 @@ export default function MainPlantRequests() {
                   <td className="font-mono">
                     {requestType === 'Colorant' ? `${request.requestedKg} kg` : `${request.requestedBags ?? request.requestedKg / 25} bags · ${request.requestedKg} kg`}
                   </td>
-                  <td className="font-mono">
+                  <td className="font-mono po-column">
                     {request.poRef || "Not PO-based"}
                   </td>
                   <td>{request.destination || "Branch Plant"}</td>

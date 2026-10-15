@@ -415,7 +415,7 @@ export default function OwnerRecords() {
             {pageRecords(rows, page).map((item) => (
               <tr key={`${item.module}-${item.id}`}>
                 <td>{item.date}</td>
-                <td className="font-mono"><RecordReference value={item.reference} /></td>
+                <td className="font-mono po-column"><RecordReference value={item.reference} /></td>
                 <td>{item.module}</td>
                 <td>{item.detail}</td>
                 <td>{item.material && item.module === 'Colorant' ? `${locationQuantity(item.material, productArea ? productFilters.value.location || 'All' : location).toFixed(3)} kg` : item.quantity}</td>

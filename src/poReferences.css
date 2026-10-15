@@ -1,0 +1,30 @@
+/* PO identities stay intact; wide inventory tables scroll at every viewport size. */
+.app-table .po-reference,
+.app-table :is(th, td).po-column,
+.app-table .po-column :is(a, button, span),
+.app-table td:has(.po-reference) {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+.app-table .po-reference { max-width: none !important; }
+.app-table :is(th, td).po-column,
+.app-table td:has(.po-reference) {
+  min-width: 150px;
+  padding-inline: 12px;
+}
+.app-table:has(.po-column),
+.app-table:has(.po-reference) {
+  display: table;
+  table-layout: auto;
+  min-width: 100% !important;
+  width: 100% !important;
+  max-width: none;
+  overflow: visible;
+}
+.table-scroll,
+.app-card:has(> .app-table) {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+}

@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 @import './datePeriods.css';
+@import './poReferences.css';
 
 .product-filter-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-column: 1 / -1; gap: 12px; width: 100%; align-items: start; }
 .product-filter-field { min-width: 0; max-width: 100%; }

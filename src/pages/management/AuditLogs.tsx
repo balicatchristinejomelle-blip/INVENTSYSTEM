@@ -173,7 +173,7 @@ export default function AuditLogs() {
                 <td>{log.role}</td>
                 <td>{log.action}</td>
                 <td>{log.processType}</td>
-                <td className="font-mono text-blue">{log.reference || '—'}</td>
+                <td className="font-mono text-blue po-column">{log.reference || '—'}</td>
                 <td className="narrative-cell">
                   {log.previousValue || log.newValue ? (
                     <>

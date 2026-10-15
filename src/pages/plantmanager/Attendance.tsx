@@ -204,7 +204,7 @@ function PMAttendance() {
                     <td>
                       <StatusBadge status={rec.status === 'Active' ? 'Clocked In' : 'Clocked Out'} size="sm" />
                     </td>
-                    <td className="font-mono">
+                    <td className="font-mono po-column">
                       {rec.status === "Active" ? activePOFor(rec) : "—"}
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
