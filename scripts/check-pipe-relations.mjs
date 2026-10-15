@@ -5,6 +5,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
+import { restoreCompleteUIFile } from './complete-ui-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
 let count = 0;
@@ -128,7 +129,7 @@ try {
   check('Actual existing storage action accepts originating buyer and retains general availability zero', () => { const outcome = simulateStorage(stateForMovement, [pipe.id, 'G', 'Customer Order', order.id]); assert.equal(outcome.success, true); assert.equal(outcome.state.finishedGoods[0].availableQty, 0); assert.equal(outcome.state.finishedGoods[0].currentLocation, 'G'); assert.equal(outcome.state.finishedGoods[0].reservedForOrderId, order.id); });
   check('Actual existing stock storage action makes only confirmed general stock available', () => { const waiting = { ...stock, storageStatus: 'Not Stored', locationStatus: 'Awaiting Storage', currentLocation: 'Production Area / Awaiting Storage', availableQty: 0 }; const outcome = simulateStorage({ ...data, currentUser: plantmanager, finishedGoods: [waiting] }, [stock.id, 'B', 'General Inventory']); assert.equal(outcome.success, true); assert.equal(outcome.state.finishedGoods[0].availableQty, 1); assert.equal(outcome.state.finishedGoods[0].inventoryPurpose, 'General Inventory'); });
   const previous = '0a783f9995b51ed7145212e6c7cfb307f96342cf';
-  for (const file of ['src/reprintWorkflow.ts', 'src/components/PrintAction.tsx', 'src/components/ReprintApprovals.tsx', 'src/components/DocumentPrintButton.tsx', 'src/components/NotificationPanel.tsx', 'src/components/BarcodeLabel.tsx']) check(`Prior reprint workflow unchanged: ${file}`, () => assert.equal(fs.readFileSync(file, 'utf8').replace(/\r/g, ''), execFileSync('git', ['show', `${previous}:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
+  for (const file of ['src/reprintWorkflow.ts', 'src/components/PrintAction.tsx', 'src/components/ReprintApprovals.tsx', 'src/components/DocumentPrintButton.tsx', 'src/components/NotificationPanel.tsx', 'src/components/BarcodeLabel.tsx']) check(`Prior reprint workflow unchanged outside exact reviewed UI labels: ${file}`, () => assert.equal(restoreCompleteUIFile(file, fs.readFileSync(file, 'utf8')), execFileSync('git', ['show', `${previous}:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
   console.log(`Completed ${count} finished-pipe relationship, storage-source, identity, sample, hydration and regression checks.`);
   console.log(`Buyer sample: ${pipe.fgId} → ${result.po.poNo} → ${mo.moNo} → ${order.orderNo} (${order.customerName})`);
   console.log(`Stock sample: ${stock.fgId} → ${replenishment.po.poNo} → ${replenishment.originGroup} → ${stock.batch}`);

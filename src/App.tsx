@@ -5,6 +5,8 @@ import Header from './components/Header';
 import AccessRestricted from './components/AccessRestricted';
 import type { Role } from './types';
 import { ReprintRequestDialog } from './components/ReprintApprovals';
+import { ViewStateScope } from './uiViewState';
+import { RecordReferenceProvider } from './components/RecordReference';
 
 // Pages
 import Login from './pages/Login';
@@ -172,7 +174,7 @@ function AppShell() {
 export default function App() {
   return (
     <AppProvider>
-      <AppShell />
+      <ViewStateScope><RecordReferenceProvider><AppShell /></RecordReferenceProvider></ViewStateScope>
     </AppProvider>
   );
 }

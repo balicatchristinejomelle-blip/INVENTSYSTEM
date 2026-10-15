@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -96,7 +99,7 @@ function SalesOverviewTab({ period }: { period: PeriodRange }) {
 function OrdersTab({ period }: { period: PeriodRange }) {
   const { orders } = useSearchableApp()
 
-  const [filter, setFilter] = useState<OrderFilter>("All")
+  const [filter, setFilter] = useViewState<OrderFilter>("marketing/Reports:filter", "All")
 
   const periodOrders = orders.filter(item => dateInPeriod(item.orderDate, period));
 
@@ -142,7 +145,7 @@ function OrdersTab({ period }: { period: PeriodRange }) {
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {
               <RecordRows
                 records={filtered}
@@ -173,7 +176,7 @@ function OrdersTab({ period }: { period: PeriodRange }) {
                 </td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
     </div>
@@ -224,7 +227,7 @@ function ProductionStatusTab() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div>
                   <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {p.poNo}
+                    <RecordReference value={p.poNo} />
                   </span>
                   <span style={{ marginLeft: 10, display: "inline-block" }}>
                     <StatusBadge status={p.status} />
@@ -318,7 +321,7 @@ function FinishedGoodsTab() {
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {
               <RecordRows
                 records={finishedGoods}
@@ -348,7 +351,7 @@ function FinishedGoodsTab() {
                 )}
               />
             }
-          </tbody>
+          </TableBody>
         </table>
       </div>
     </div>
@@ -356,7 +359,7 @@ function FinishedGoodsTab() {
 }
 
 function MarketingReports() {
-  const [activeTab, setActiveTab] = useState<Tab>('sales');
+  const [activeTab, setActiveTab] = useViewState<Tab>("marketing/Reports:activeTab", 'sales');
   const period = usePeriod('month');
 
   return (

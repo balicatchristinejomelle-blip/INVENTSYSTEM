@@ -1,7 +1,12 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { ActiveFilters, LastUpdated } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
+import MetricCards from '../../components/MetricCards';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -34,22 +39,22 @@ export default function MarketingFG() {
   const app = useApp();
   const { finishedGoods } = app;
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("marketing/FinishedGoods:productType", 'All');
 
-  const [status, setStatus] = useState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>('Available');
+  const [status, setStatus] = useViewState<'Available' | 'Reserved' | 'Temporary Storage' | 'Ready for Release' | 'Shipped Out / Released'>("marketing/FinishedGoods:status", 'Available');
 
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
-  const [grade, setGrade] = useState("All")
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("marketing/FinishedGoods:purpose", 'All');
+  const [grade, setGrade] = useViewState("marketing/FinishedGoods:grade", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("marketing/FinishedGoods:search", "")
 
-  const [viewMode, setViewMode] = useState<ViewMode>('By Batch');
+  const [viewMode, setViewMode] = useViewState<ViewMode>("marketing/FinishedGoods:viewMode", 'By Batch');
 
   const [selected, setSelected] = useState<FinishedGood | null>(null);
 
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("marketing/FinishedGoods:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const [batchPipePage, setBatchPipePage] = useState(1)
@@ -105,28 +110,24 @@ export default function MarketingFG() {
 
   return (
     <div className="page-stack">
+      <LastUpdated records={finishedGoods} />
+      <ActiveFilters items={[["Search", search], ["Storage Purpose", purpose]]} clearLabel="Clear search and purpose" onClear={() => { setSearch(''); setPurpose('All'); resetPage(); }} />
       <div>
         <div className="section-title">Finished Goods Availability</div>
         <div className="helper-text">Read-only stock visibility calculated from individual physical pipe records.</div>
       </div>
-      <div className="kpi-grid">
-        {[
-        ['Available General Inventory', inventory.available],
-        ['Reserved General Inventory', inventory.reserved],
-        ['Temporary Buyer Stock', inventory.temporary], ['On Hand', inventory.onHand],
-        ['Ready for Ship Out', inventory.ready],
-      ].map(([label, value]) => (
-          <div className="app-card kpi-card" key={label}>
-            <div>{label}</div>
-            <strong>{value}</strong>
-            <small>individual physical pipes</small>
-          </div>
-        ))}
-      </div>
+      <MetricCards inventory label="Finished Goods inventory summary" items={[
+        ['Available', inventory.available, 'individual physical pipes'],
+        ['Reserved', inventory.reserved, 'individual physical pipes'],
+        ['Temporary Storage', inventory.temporary, 'individual physical pipes'],
+        ['Ready for Ship Out', inventory.ready, 'individual physical pipes'],
+        ['On Hand', inventory.onHand, 'individual physical pipes'],
+      ]} />
       <div className="filter-panel product-filter-panel">
         <input className="app-input record-search" type="search" aria-label="Search finished goods" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder="Search barcode, batch, origin group, PO, MO, order, or product" />
+        <div className="combined-product-filters">
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation />
-        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><SearchableDropdown
+        {viewMode !== 'Stock Levels' && <div className="product-operational-filters"><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); resetPage(); }} /><label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
           className="app-select" value={status} onChange={event => { setStatus(event.target.value as typeof status); resetPage(); }}
         >
           <option>Available</option>
@@ -134,7 +135,8 @@ export default function MarketingFG() {
           <option>Temporary Storage</option>
           <option>Ready for Release</option>
           <option>Shipped Out / Released</option>
-        </SearchableDropdown></div>}
+        </SearchableDropdown></label></div>}
+        </div>
       </div>
       <LegacyBarcodeNotice query={search} pipes={finishedGoods} />
       {viewMode === 'Stock Levels' && <LocationStockBreakdown pipes={selectedGroup} />}
@@ -159,7 +161,7 @@ export default function MarketingFG() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentBatches.map((group) => {
                   const available = finishedGoodsSummary(group.pipes, app).available;
 
@@ -173,9 +175,9 @@ export default function MarketingFG() {
 
                   return (
                     <tr key={group.item.batch}>
-                      <td className="font-mono">{group.item.batch}<br /><small>{trace.groupType} · {trace.originGroup}</small></td>
+                      <td className="font-mono"><RecordReference value={group.item.batch} /><br /><small>{trace.groupType} · <RecordReference value={trace.originGroup} /></small></td>
                       <td className="font-mono">
-                        {group.item.poRef}
+                        <RecordReference value={group.item.poRef} />
                         <br />
                         <small>{moFor(group.item)}</small>
                       </td>
@@ -198,7 +200,7 @@ export default function MarketingFG() {
                     </tr>
                   )
                 })}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <div className="mobile-record-list">
@@ -210,7 +212,7 @@ export default function MarketingFG() {
               return (
                 <article className="app-card mobile-record-card" key={group.item.batch}>
                   <div className="mobile-record-heading">
-                    <strong className="font-mono">{group.item.batch}</strong>
+                    <strong className="font-mono"><RecordReference value={group.item.batch} /></strong>
                     <StatusBadge status={batchStatus(group.pipes)} />
                   </div>
                   <div className="mobile-record-grid">
@@ -246,18 +248,18 @@ export default function MarketingFG() {
                   <th data-actions>Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {currentPipes.map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono">{item.fgId}</td>
-                    <td className="font-mono">{item.barcode}</td>
+                    <td className="font-mono"><RecordReference value={item.fgId} /></td>
+                    <td className="font-mono"><RecordReference value={item.barcode} /></td>
                     <td>{normalizedProductType(item.product)}</td>
                     <td>
                       {item.grade} · {item.diameter} · {item.sdr} ·{" "}
                       {item.length}
                     </td>
                     <td>{item.currentLocation || "Not Yet Assigned"}</td>
-                    <td className="font-mono">{item.poRef}</td>
+                    <td className="font-mono"><RecordReference value={item.poRef} /></td>
                     <td>
                       <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                     </td>
@@ -266,14 +268,14 @@ export default function MarketingFG() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           </div>
           <div className="mobile-record-list">
             {currentPipes.map((item) => (
               <article className="app-card mobile-record-card" key={item.id}>
                 <div className="mobile-record-heading">
-                  <strong className="font-mono">{item.barcode}</strong>
+                  <strong className="font-mono"><RecordReference value={item.barcode} /></strong>
                   <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                 </div>
                 <div className="mobile-record-grid">
@@ -315,7 +317,7 @@ export default function MarketingFG() {
               {pageRecords(openBatch.pipes, batchPipePage).map((item) => (
                 <article className="app-card mobile-record-card" key={item.id}>
                   <div className="mobile-record-heading">
-                    <strong className="font-mono">{item.barcode}</strong>
+                    <strong className="font-mono"><RecordReference value={item.barcode} /></strong>
                     <StatusBadge status={item.releaseStatus === 'Released' ? 'Shipped Out' : item.status} />
                   </div>
                   <div className="mobile-record-grid">
@@ -341,10 +343,10 @@ export default function MarketingFG() {
                     <th data-actions>Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <TableBody>
                   {pageRecords(openBatch.pipes, batchPipePage).map((item) => (
                     <tr key={item.id}>
-                      <td className="font-mono">{item.barcode}</td>
+                      <td className="font-mono"><RecordReference value={item.barcode} /></td>
                       <td>
                         {normalizedProductType(item.product)} · {item.grade}
                       </td>
@@ -361,7 +363,7 @@ export default function MarketingFG() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </TableBody>
               </table>
             </div>
             <Pagination page={batchPipePage} totalRecords={openBatch.pipes.length} onPageChange={setBatchPipePage} noun="pipes" />

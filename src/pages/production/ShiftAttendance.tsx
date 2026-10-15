@@ -1,3 +1,4 @@
+import ActionButton from '../../components/ActionButton';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../store';
 import hpaiLogo from '../../assets/hpai-logo.png';
@@ -94,7 +95,7 @@ export default function ShiftAttendance() {
         {shiftMismatch && !error && <div className="alert-warning mb-4"><strong>SHIFT NOT YET ACTIVE</strong><div>Your assigned {assignedShift} Shift begins at {assignedShift === 'Day' ? '6:00 AM' : '6:00 PM'}. The current active shift is {shift} Shift.</div></div>}
         {error && <div className="alert-error mb-4" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
 
-        <button
+        <ActionButton
           className="btn-primary"
           style={{ width: '100%' }}
           onClick={() => {
@@ -105,7 +106,7 @@ export default function ShiftAttendance() {
           disabled={!employeeName.trim() || shiftMismatch}
         >
           CLOCK IN
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

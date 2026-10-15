@@ -7,6 +7,7 @@ import React from 'react';
 import ts from 'typescript';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
+import { restoreUXFile } from './ux-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
 const originalWindow = globalThis.window;
@@ -118,7 +119,7 @@ try {
   check('Standalone group listing component is removed; shared origin utilities remain', () => { assert.equal(fs.existsSync('src/components/FinishedGoodGroups.tsx'), false); assert.equal(typeof groups.buildProductionGroups, 'function'); assert.equal(typeof groups.productionGroupSummary, 'function'); assert.equal(typeof relations.productionOriginGroup, 'function'); });
   check('Batch seasonality renders only for a genuine true configured value', () => { memory.set('hpai:product-specifications-v1', JSON.stringify([{ ...configured, seasonal: true }])); assert.ok(render(React.createElement(BatchTrace, { pipes: [moPipe] })).includes('SEASONAL')); memory.set('hpai:product-specifications-v1', JSON.stringify([{ ...configured, seasonal: false }])); assert.ok(!render(React.createElement(BatchTrace, { pipes: [moPipe] })).includes('SEASONAL')); memory.delete('hpai:product-specifications-v1'); });
   check('Canonical Product Barcode is identical across MO and replenishment origins', () => { const barcode = `PEP-1031|${moPipe.product}|${moPipe.diameter}x${moPipe.length}|${moPipe.sdr}`; const coded = { ...moPipe, itemCode: 'PEP-1031', productBarcode: barcode }; const moTrace = relations.resolveFinishedPipe(coded, data); const stockTrace = relations.resolveFinishedPipe({ ...coded, source: 'Stock Replenishment', productionOrderId: stockPO.id, poRef: stockPO.poNo, originGroup: stockPipe.originGroup }, data); assert.equal(moTrace.productBarcode, barcode); assert.equal(stockTrace.productBarcode, barcode); assert.notEqual(moTrace.originGroup, stockTrace.originGroup); assert.equal(stockTrace.pipe.barcode, moPipe.barcode); });
-  const poPageSource = fs.readFileSync('src/pages/plantmanager/ProductionOrders.tsx', 'utf8').replace(/\r/g, '');
+  const poPageSource = restoreUXFile('src/pages/plantmanager/ProductionOrders.tsx', fs.readFileSync('src/pages/plantmanager/ProductionOrders.tsx', 'utf8'));
   const newAction = '        <div className="product-view-actions">\n          <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>\n        </div>';
   check('Replenishment spacing changes only the filter/action wrapper, not any handlers or business code', () => { const restored = poPageSource.replace('className="filter-panel product-filter-panel mb-4"', 'className="record-filter-bar"').replace(newAction, '        <button className="btn-primary" onClick={() => setShowReplenishment(true)}>Create Stock Replenishment PO</button>'); assert.equal(restored, execFileSync('git', ['show', '6edbaa0:src/pages/plantmanager/ProductionOrders.tsx'], { encoding: 'utf8' }).replace(/\r/g, '')); });
   const POPage = (await server.ssrLoadModule('/src/pages/plantmanager/ProductionOrders.tsx')).default;

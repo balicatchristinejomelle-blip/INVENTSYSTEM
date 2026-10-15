@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -46,7 +48,7 @@ function MachineConditionDot({ condition }: { condition: string }) {
 
 function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div>
+    <div className="page-stack">
       <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>
         {label}
       </div>
@@ -77,7 +79,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 function PMShiftTurnover() {
   const { turnovers } = useSearchableApp()
 
-  const [activeTab, setActiveTab] = useState<Tab>("All")
+  const [activeTab, setActiveTab] = useViewState<Tab>("plantmanager/ShiftTurnover:activeTab", "All")
 
   const [viewRec, setViewRec] = useState<ShiftTurnover | null>(null);
 
@@ -96,7 +98,7 @@ function PMShiftTurnover() {
     <div>
       <PeriodSelector period={period} compact />
       {pendingCount > 0 && (
-        <div className="alert-warning mb-4" style={{ fontSize: 12 }}>
+        <div className="alert-warning" style={{ fontSize: 12 }}>
           <strong>
             {pendingCount} shift turnover{pendingCount > 1 ? "s" : ""} pending
             acceptance.
@@ -106,7 +108,7 @@ function PMShiftTurnover() {
       )}
 
       {/* Tab filters */}
-      <div className="report-tabs flex gap-1 mb-4">
+      <div className="report-tabs flex gap-1">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -157,7 +159,7 @@ function PMShiftTurnover() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '24px 0' }}>
@@ -229,7 +231,7 @@ function PMShiftTurnover() {
                 )}
               />
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -337,9 +339,14 @@ function PMShiftTurnover() {
               <DetailField label="Recycled Bags / Weight" value={`${viewRec.recycledBagsUsed ?? 0} / ${viewRec.recycledWeightUsed ?? 0} kg`} mono />
               <DetailField label="Base Colorant" value={`${viewRec.baseColorantUsed ?? 0} kg · ${viewRec.baseColorantTypes?.join(', ') || 'None recorded'}`} />
               <DetailField label="Stripe Colorant" value={viewRec.stripeColorantTypes?.length ? `${viewRec.stripeColorantUsed ?? 0} kg · ${viewRec.stripeColorantTypes.join(', ')}` : 'Not Required / None recorded'} />
-              <DetailField label="Total Colorant Weight" value={`${viewRec.totalColorantWeight ?? viewRec.colorantUsed ?? 0} kg`} mono />
-              <DetailField label="Total Pellet Weight" value={`${viewRec.totalPelletWeight ?? viewRec.pelletUsed} kg`} mono />
-              <DetailField label="Total Material Weight" value={`${viewRec.totalMaterialWeight ?? viewRec.pelletUsed} kg`} mono />
+            </div>
+            <div className="material-usage-group material-summary">
+              <SectionHeader>Summary</SectionHeader>
+              <div className="material-summary-metrics">
+                <DetailField label="Total Pellet Weight" value={`${viewRec.totalPelletWeight ?? viewRec.pelletUsed} kg`} mono />
+                <DetailField label="Total Colorant Weight" value={`${viewRec.totalColorantWeight ?? viewRec.colorantUsed ?? 0} kg`} mono />
+                <DetailField label="Total Material Weight" value={`${viewRec.totalMaterialWeight ?? viewRec.pelletUsed} kg`} mono />
+              </div>
             </div>
           </div>
 

@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -17,13 +19,13 @@ type Shift = "Day" | "Night"
 export default function Employees() {
   const { employees, attendance, assignEmployeeShift } = useApp();
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("management/Employees:search", "")
 
-  const [shiftFilter, setShiftFilter] = useState<'All' | Shift>('All');
+  const [shiftFilter, setShiftFilter] = useViewState<'All' | Shift>("management/Employees:shiftFilter", 'All');
 
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('Active');
+  const [statusFilter, setStatusFilter] = useViewState<'All' | 'Active' | 'Inactive'>("management/Employees:statusFilter", 'Active');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("management/Employees:page", 1)
 
   const [pending, setPending] = useState<{ id: string; shift: Shift } | null>(null);
 
@@ -84,20 +86,20 @@ export default function Employees() {
             onChange={event => { setSearch(event.target.value); resetPage(); }}
             placeholder="Search employee name, ID, username, or shift..."
           />
-          <SearchableDropdown
+          <label className="product-filter-field"><span className="field-label">Shift</span><SearchableDropdown
             className="app-select" value={shiftFilter} onChange={event => { setShiftFilter(event.target.value as typeof shiftFilter); resetPage(); }}
           >
             <option value="All">All Shifts</option>
             <option value="Day">Day Shift</option>
             <option value="Night">Night Shift</option>
-          </SearchableDropdown>
-          <SearchableDropdown
+          </SearchableDropdown></label>
+          <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
             className="app-select" value={statusFilter} onChange={event => { setStatusFilter(event.target.value as typeof statusFilter); resetPage(); }}
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-          </SearchableDropdown>
+          </SearchableDropdown></label>
         </div>
       </div>
 
@@ -113,7 +115,7 @@ export default function Employees() {
               <th data-actions>New Shift</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(productionEmployees, page).map((employee) => {
               const activeAttendance = activeAttendanceFor(employee.employeeId);
 
@@ -164,7 +166,7 @@ export default function Employees() {
                 </tr>
               )
             })}
-          </tbody>
+          </TableBody>
         </table>
         {!productionEmployees.length && (
           <div className="empty-state empty-state-action">

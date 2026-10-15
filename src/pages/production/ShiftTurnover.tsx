@@ -1,3 +1,5 @@
+import ActionButton from '../../components/ActionButton';
+import { DismissButton } from '../../components/ActionButton';
 import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useEffect, useState } from "react"
@@ -127,7 +129,7 @@ export default function ProductionShiftTurnover() {
           <Field label="Important Instructions" value={pendingTurnover.importantInstructions || 'No special instructions.'} />
         </div>
         <div className="action-row">
-          <button className="btn-success" onClick={() => { acceptTurnover(); navigate('prod-orders'); }}>Accept & Continue</button>
+          <ActionButton className="btn-success" onClick={() => { acceptTurnover(); navigate('prod-orders'); }}>Accept & Continue</ActionButton>
         </div>
       </div>
     )
@@ -285,13 +287,18 @@ export default function ProductionShiftTurnover() {
           <Field label="Base Colorant" value={currentMaterialUsage.baseColorantNames.join(', ') || 'None recorded'} />
           <Field label="Stripe Colorant Used" value={po.stripe === 'No Stripe' ? 'Not Required' : `${currentMaterialUsage.stripeColorantWeightKg} kg`} />
           <Field label="Stripe Colorant" value={po.stripe === 'No Stripe' ? 'Not Required' : currentMaterialUsage.stripeColorantNames.join(', ') || 'None recorded'} />
-          <Field label="Total Pellet Weight" value={`${currentMaterialUsage.totalPelletWeightKg} kg`} />
-          <Field label="Total Colorant Weight" value={`${currentMaterialUsage.colorantWeightKg} kg`} />
           <Field label="Pellet Loaded This Shift" value={`${pelletLoadedThisShift.toFixed(3)} kg`} />
           <Field label="WIP Pellet Remaining" value={`${pelletWipRemaining.toFixed(3)} kg`} />
           <Field label="Pellet Consumed This Shift" value={`${currentMaterialUsage.totalPelletWeightKg.toFixed(3)} kg`} />
           <Field label="Process Loss This Shift" value={`${processLossThisShift.toFixed(3)} kg`} />
-          <Field label="Total Material Weight" value={`${currentMaterialUsage.totalMaterialWeightKg} kg`} />
+        </div>
+        <div className="material-usage-group material-summary">
+          <div className="section-title">Summary</div>
+          <div className="material-summary-metrics">
+            <Field label="Total Pellet Weight" value={`${currentMaterialUsage.totalPelletWeightKg} kg`} />
+            <Field label="Total Colorant Weight" value={`${currentMaterialUsage.colorantWeightKg} kg`} />
+            <Field label="Total Material Weight" value={`${currentMaterialUsage.totalMaterialWeightKg} kg`} />
+          </div>
         </div>
       </section>
       {materialUsageIncomplete && (
@@ -396,8 +403,8 @@ export default function ProductionShiftTurnover() {
           </div>
           <div className="alert-warning">Submit this Shift Turnover and Clock Out? The Clock Out timestamp will be captured only after confirmation.</div>
           <div className="form-actions">
-            <button className="btn-secondary" onClick={() => setConfirming(false)}>Back to Edit</button>
-            <button className="btn-primary" onClick={confirm}>Confirm Turnover & Clock Out</button>
+            <DismissButton className="btn-secondary" onClick={() => setConfirming(false)}>Back to Edit</DismissButton>
+            <ActionButton className="btn-primary" onClick={confirm}>Confirm Turnover & Clock Out</ActionButton>
           </div>
         </div>
       </Modal>

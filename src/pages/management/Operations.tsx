@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState, useFilterChangeEffect } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { withPrintSearch } from '../../printableRecords';
 import MaterialLocationFilters from '../../components/MaterialLocationFilters';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
@@ -35,23 +38,23 @@ export default function Operations() {
   const app = useApp();
   const { productionOrders, pellets, colorants, materialUsageTransactions, finishedGoods, attendance } = app;
 
-  const [tab, setTab] = useState<'inventory' | 'production' | 'orders' | 'attendance' | 'reprints'>('inventory');
+  const [tab, setTab] = useViewState<'inventory' | 'production' | 'orders' | 'attendance' | 'reprints'>("management/Operations:tab", 'inventory');
 
-  const [materialCategory, setMaterialCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
+  const [materialCategory, setMaterialCategory] = useViewState<MaterialCategoryTab>("management/Operations:materialCategory", 'Virgin Pellets');
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("management/Operations:productType", 'All');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("management/Operations:grade", "All")
 
-  const [pelletView, setPelletView] = useState<PelletView>('All');
+  const [pelletView, setPelletView] = useViewState<PelletView>("management/Operations:pelletView", 'All');
 
-  const [productionView, setProductionView] = useState<ProductionView>('Active / Ready');
+  const [productionView, setProductionView] = useViewState<ProductionView>("management/Operations:productionView", 'Active / Ready');
 
-  const [search, setSearch] = useState("")
-  const [materialLocation, setMaterialLocation] = useState('All');
-  const [materialColor, setMaterialColor] = useState('');
+  const [search, setSearch] = useViewState("management/Operations:search", "")
+  const [materialLocation, setMaterialLocation] = useViewState("management/Operations:materialLocation", 'All');
+  const [materialColor, setMaterialColor] = useViewState("management/Operations:materialColor", '');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("management/Operations:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
@@ -112,14 +115,14 @@ export default function Operations() {
 
   const consumedKg = (type: 'VIRGIN_PELLET' | 'RECYCLED_PELLET' | 'COLORANT') => materialUsageTransactions.filter(item => item.materialType === type && dateInPeriod(item.dateTime, period.range)).reduce((sum, item) => sum + item.quantity, 0);
 
-  useEffect(() => setPage(1), [tab, materialCategory, productType, grade, pelletView, productionView, search, period.range.start, period.range.end]);
+  useFilterChangeEffect(() => setPage(1), [tab, materialCategory, productType, grade, pelletView, productionView, search, period.range.start, period.range.end]);
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={setSearch} onDateChange={() => setPage(1)} placeholder="Search authorized records..." filters={(tab === 'production' || tab === 'orders') ? <ProductFilters value={productFilters.value} onChange={productFilters.change} product={tab === 'orders' ? productType : ''} onProductChange={tab === 'orders' ? value => { setProductType(value as 'All' | PipeProductType); setPage(1); } : undefined} includeProduct={tab === 'production'} includeGrade includeColor includeLocation /> : undefined} />
       </div>
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="report-tabs flex flex-wrap">
         {[['inventory', 'Inventory'], ['production', 'Production'], ['orders', 'Orders'], ['attendance', 'Attendance'], ['reprints', 'Reprint Approvals']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)} style={{
             padding: '6px 14px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: tab === k ? 600 : 400,
@@ -176,8 +179,8 @@ export default function Operations() {
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
           <MaterialLocationFilters color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); setPage(1); }} onLocationChange={value => { setMaterialLocation(value); setPage(1); }} />
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} />}
-          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" />}
+          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={setGrade} label={`${materialCategory} material grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
+          {materialCategory !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={pelletView} onChange={setPelletView} label="Pellet lifecycle" groupLabel="Status" />}
           <div className="app-card" style={{ overflow: "hidden" }}>
             {materialCategory === "Colorants" ? (
               <table className="app-table">
@@ -191,7 +194,7 @@ export default function Operations() {
                     <th>Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <TableBody>
                   {pageRecords(selectedColorants, page).map((item) => (
                     <tr key={item.id}>
                       <td className="font-mono">{item.colorantId}</td>
@@ -208,7 +211,7 @@ export default function Operations() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </TableBody>
               </table>
             ) : (
               <table className="app-table">
@@ -223,7 +226,7 @@ export default function Operations() {
                     <th>Location</th>
                   </tr>
                 </thead>
-                <tbody>
+                <TableBody>
                   {pageRecords(selectedPellets, page).map((p, i) => (
                     <tr key={i} className="table-row-hover">
                       <td>
@@ -232,7 +235,7 @@ export default function Operations() {
                         </span>
                       </td>
                       <td className="font-mono" style={{ fontSize: 11 }}>
-                        {p.batchNo}
+                        <RecordReference value={p.batchNo} />
                       </td>
                       <td style={{ fontSize: 12 }}>{p.grade}</td>
                       <td style={{ fontSize: 12 }}>{p.color}</td>
@@ -243,7 +246,7 @@ export default function Operations() {
                       <td>{inventoryLocationLabel(p)}</td>
                     </tr>
                   ))}
-                </tbody>
+                </TableBody>
               </table>
             )}
             {materialCategory !== "Colorants" && !selectedPellets.length && (
@@ -273,14 +276,14 @@ export default function Operations() {
                   <th data-actions>Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(selectedProductionOrders, page).map((po) => {
                   const pct = po.targetQty > 0 ? Math.round(po.completedQty / po.targetQty * 100) : 0;
 
                   return (
                     <tr key={po.id} className="table-row-hover">
                       <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                        {po.poNo}
+                        <RecordReference value={po.poNo} />
                       </td>
                       <td style={{ fontSize: 12 }}>
                         {po.product} {po.diameter}
@@ -310,7 +313,7 @@ export default function Operations() {
                     </tr>
                   )
                 })}
-              </tbody>
+              </TableBody>
             </table>
             {!selectedProductionOrders.length && (
               <div className="empty-state">
@@ -337,11 +340,11 @@ export default function Operations() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(selectedFinishedGoods, page).map((fg) => (
                   <tr key={fg.id} className="table-row-hover">
                     <td className="font-mono" style={{ fontSize: 11, color: '#16a34a' }}>
-                      {fg.fgId}
+                      <RecordReference value={fg.fgId} />
                     </td>
                     <td style={{ fontSize: 12 }}>{fg.product}</td>
                     <td style={{ fontSize: 12 }}>
@@ -361,7 +364,7 @@ export default function Operations() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={page} totalRecords={selectedFinishedGoods.length} onPageChange={setPage} />
           </div>
@@ -382,7 +385,7 @@ export default function Operations() {
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {pageRecords(selectedAttendance, page).map((a) => (
                 <tr key={a.id} className="table-row-hover">
                   <td style={{ fontSize: 13, fontWeight: 500 }}>
@@ -408,7 +411,7 @@ export default function Operations() {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
           <Pagination page={page} totalRecords={selectedAttendance.length} onPageChange={setPage} />
         </div>

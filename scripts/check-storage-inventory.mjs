@@ -4,6 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
+import { restoreUXFile } from './ux-baseline.mjs';
 import { namedDeclarations, storageBaselineFile, restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles, restoreStorageOutput } from './storage-inventory-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
@@ -117,6 +118,6 @@ try {
   check('Types only add storage compatibility/fulfillment/FG event quantity', () => assert.equal(restorePreStorageTypes(fs.readFileSync('src/types.ts', 'utf8')), storageBaselineFile('src/types.ts')));
   check('CSS changes are scoped operational additions; prior responsive/layout code preserved', () => { const css = fs.readFileSync('src/index.css', 'utf8'); assert.equal(restorePreStorageStyles(css), storageBaselineFile('src/index.css')); assert.ok(css.includes('.operational-content .page-stack')); assert.ok(css.includes('.operational-content .app-table')); assert.ok(!css.includes('* {\n  text-align: center')); assert.ok(css.includes('padding-left: 58px')); });
   check('Production storage is genuinely read-only; obsolete no-op storage form is removed', () => { const scanner = fs.readFileSync('src/pages/production/BarcodeScanner.tsx', 'utf8'); const pipes = fs.readFileSync('src/pages/production/FinishedPipes.tsx', 'utf8'); assert.ok(scanner.includes('Inspect Finished Pipe Storage')); assert.ok(scanner.includes('Plant Manager confirms compatible physical locations')); assert.ok(!scanner.includes('setStoragePurpose')); assert.ok(!scanner.includes('updateFinishedGoodStorage')); assert.ok(!pipes.includes('RecordStorageModal')); });
-  for (const file of ['src/productMaster.ts', 'src/components/SearchableSelect.tsx', 'src/components/Sidebar.tsx', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx', 'src/components/Pagination.tsx']) check(`Protected behavior unchanged: ${file}`, () => assert.equal(fs.readFileSync(file, 'utf8').replace(/\r/g, ''), storageBaselineFile(file)));
+  for (const file of ['src/productMaster.ts', 'src/components/SearchableSelect.tsx', 'src/components/Sidebar.tsx', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx', 'src/components/Pagination.tsx']) check(`Protected behavior unchanged outside reviewed UX: ${file}`, () => assert.equal(restoreUXFile(file, fs.readFileSync(file, 'utf8')), storageBaselineFile(file)));
   console.log(`Completed ${checks} storage, physical-bucket, mixed fulfillment, movement, six-role and preservation checks. Browser/mobile/theme visual QA is not represented by SSR.`);
 } finally { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; await server.close(); }

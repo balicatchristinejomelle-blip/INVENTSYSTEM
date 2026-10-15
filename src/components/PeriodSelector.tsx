@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useViewState } from '../uiViewState';
+import { ActiveFilters } from './UXFeedback';
 
 export interface PeriodRange {
   start: string;
@@ -12,7 +14,7 @@ export const dateInPeriod = (value: string | undefined, range: PeriodRange) =>
   !range.start || normalizedDate(value) === range.start;
 
 export function usePeriod(_legacyDefault?: string) {
-  const [date, setDate] = useState('');
+  const [date, setDate] = useViewState('period-date', '');
   const range = useMemo<PeriodRange>(() => ({
     start: date,
     end: date,
@@ -53,24 +55,30 @@ export default function PeriodSelector({
           aria-label="Search authorized records"
         />
       )}
-      {filters}
-      <div className="date-filter">
-        <input
-          className="app-input"
-          type="date"
-          value={period.date}
-          onChange={event => {
-            period.setDate(event.target.value);
-            onDateChange?.(event.target.value);
-          }}
-          aria-label="Filter by date"
-          title="Date (MM/DD/YYYY)"
-        />
-        {period.date && (
-          <button className="date-filter-clear" onClick={() => { period.setDate(''); onDateChange?.(''); }} aria-label="Clear date filter" title="Clear date">
-            ×
-          </button>
-        )}
+      <ActiveFilters items={[["Search", search], ["Date", period.date]]} onClear={() => { onSearchChange?.(''); period.setDate(''); onDateChange?.(''); }} clearLabel="Clear search and date" />
+      <div className="record-filter-controls">
+        {filters}
+        <label className="date-filter-field">
+          <span className="field-label">Date (optional)</span>
+          <div className="date-filter">
+            <input
+              className="app-input"
+              type="date"
+              value={period.date}
+              onChange={event => {
+                period.setDate(event.target.value);
+                onDateChange?.(event.target.value);
+              }}
+              aria-label="Filter by date"
+              title="Date (MM/DD/YYYY)"
+            />
+            {period.date && (
+              <button className="date-filter-clear" onClick={() => { period.setDate(''); onDateChange?.(''); }} aria-label="Clear date filter" title="Clear date">
+                ×
+              </button>
+            )}
+          </div>
+        </label>
       </div>
     </div>
   );

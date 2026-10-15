@@ -1,3 +1,6 @@
+import { TableBody } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -108,7 +111,7 @@ function RejectedRecycling() {
               <th>Recycling Batch</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {periodRejected.length === 0 ? (
               <tr>
                 <td colSpan={9} className="empty-state">No rejected materials found.</td>
@@ -133,7 +136,7 @@ function RejectedRecycling() {
                 )}
               />
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
       <div className="app-card table-scroll">
@@ -152,7 +155,7 @@ function RejectedRecycling() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {periodBatches.length === 0 ? (
               <tr>
                 <td colSpan={9} className="empty-state">No recycling batches found.</td>
@@ -186,7 +189,7 @@ function RejectedRecycling() {
                 )}
               />
             )}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -242,8 +245,8 @@ function RejectedRecycling() {
               <DetailField label="Cutting Loss" value={`${(confirmation.cuttingLossKg || 0).toFixed(1)} kg`} />
             </div>
             <div className="form-actions">
-          <button className="btn-secondary" onClick={() => setConfirmId(null)}>Cancel</button>
-          <button className="btn-primary" onClick={() => { if (confirmRecyclingForCrushing(confirmation.id)) { setConfirmId(null); setDetailId(null); } }}>Confirm for Crushing</button>
+          <DismissButton className="btn-secondary" onClick={() => setConfirmId(null)}>Cancel</DismissButton>
+          <ActionButton className="btn-primary" onClick={() => { if (confirmRecyclingForCrushing(confirmation.id)) { setConfirmId(null); setDetailId(null); } }}>Confirm for Crushing</ActionButton>
         </div>
           </div>
         </Modal>

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react"
+import { useViewState } from '../uiViewState';
 
 import { useApp } from "../store"
 
@@ -15,11 +16,11 @@ export default function NotificationsPage() {
 
   const stockNotifications = useInventoryStockNotifications()
 
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useViewState<'all' | 'unread'>('notifications:filter', 'all');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState('notifications:search', "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState('notifications:page', 1)
 
   const myNotifications = useMemo(() => notificationsForRole([...stockNotifications.notifications, ...notifications], currentUser?.role, currentUser?.employeeId), [notifications, currentUser?.role, currentUser?.employeeId, stockNotifications.notifications]);
 

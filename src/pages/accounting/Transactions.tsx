@@ -1,3 +1,5 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productFilterRecord } from '../../productFilters';
@@ -30,15 +32,15 @@ export default function Transactions() {
   const app = useApp();
   const { transactions, navigate } = app;
 
-  const [category, setCategory] = useState<Category>("All")
+  const [category, setCategory] = useViewState<Category>("accounting/Transactions:category", "All")
 
-  const [type, setType] = useState("All")
+  const [type, setType] = useViewState("accounting/Transactions:type", "All")
 
-  const [date, setDate] = useState("")
+  const [date, setDate] = useViewState("accounting/Transactions:date", "")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("accounting/Transactions:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/Transactions:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const types = useMemo(() => ['All', ...Array.from(new Set(transactions.map(item => item.transactionType)))], [transactions]);
@@ -122,14 +124,14 @@ export default function Transactions() {
       <div className="toolbar">
         <input className={`app-input${category === 'Finished Pipe' ? ' record-search' : ''}`} type="search" aria-label="Search inventory movements" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search Barcode, PO, product, batch, reference, or employee" />
         {category === 'Finished Pipe' && <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation />}
-        <SearchableDropdown
+        <label className="product-filter-field"><span className="field-label">Transaction Type</span><SearchableDropdown
           className="app-select" aria-label="Transaction type" value={type} onChange={event => { setType(event.target.value); setPage(1); }}
         >
           {types.map((item) => (
             <option key={item}>{item}</option>
           ))}
-        </SearchableDropdown>
-        <input className="app-input" aria-label="Movement date" type="date" value={date} onChange={event => { setDate(event.target.value); setPage(1); }} />
+        </SearchableDropdown></label>
+        <label className="date-filter-field"><span className="field-label">Movement Date (optional)</span><input className="app-input" aria-label="Movement date" type="date" value={date} onChange={event => { setDate(event.target.value); setPage(1); }} /></label>
       </div>
       <div className="app-card table-scroll">
         <table className="app-table">
@@ -148,7 +150,7 @@ export default function Transactions() {
               <th data-actions>Action</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(visible, page).map((item) => {
               const unit = unitFor(item)
 
@@ -211,7 +213,7 @@ export default function Transactions() {
                 </td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={visible.length} onPageChange={setPage} noun="movements" />
       </div>

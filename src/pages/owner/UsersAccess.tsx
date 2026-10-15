@@ -1,3 +1,4 @@
+import { TableBody } from '../../components/UXFeedback';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -70,7 +71,7 @@ function UsersAccess() {
               <th>Last Login</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filteredAccounts, accountPage).map((user) => (
               <tr key={user.id}>
                 <td className="font-mono">{user.employeeId}</td>
@@ -84,7 +85,7 @@ function UsersAccess() {
                 <td>{user.lastLogin || "Never"}</td>
               </tr>
             ))}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination
           page={accountPage}
@@ -106,7 +107,7 @@ function UsersAccess() {
               <th data-actions>Access Action</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(employees, workforcePage).map((employee) => (
               <tr key={employee.id}>
                 <td className="font-mono">{employee.employeeId}</td>
@@ -126,7 +127,7 @@ function UsersAccess() {
                 </td>
               </tr>
             ))}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={workforcePage} totalRecords={employees.length} onPageChange={setWorkforcePage} />
       </div>

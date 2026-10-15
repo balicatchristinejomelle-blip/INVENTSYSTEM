@@ -1,3 +1,7 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import ActionButton from '../../components/ActionButton';
 import RecordList from "../../components/RecordList"
 
 import { matchesRecord } from "../../components/RecordSearch"
@@ -35,24 +39,24 @@ export default function PelletInventory() {
   const printable = printableRecords(app);
   const printRecord = (id: string) => printable.find(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && record.recordId === id);
 
-  const [category, setCategory] = useState<MaterialCategoryTab>('Virgin Pellets');
+  const [category, setCategory] = useViewState<MaterialCategoryTab>("plantmanager/PelletInventory:category", 'Virgin Pellets');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("plantmanager/PelletInventory:grade", "All")
 
-  const [recycledView, setRecycledView] = useState<'All' | 'Complete 25 kg Bags' | 'Loose Recycled Pellet'>('All');
+  const [recycledView, setRecycledView] = useViewState<'All' | 'Complete 25 kg Bags' | 'Loose Recycled Pellet'>("plantmanager/PelletInventory:recycledView", 'All');
 
-  const [lifecycle, setLifecycle] = useState<'All' | 'Available' | 'Open / WIP' | 'Fully Consumed'>('All');
+  const [lifecycle, setLifecycle] = useViewState<'All' | 'Available' | 'Open / WIP' | 'Fully Consumed'>("plantmanager/PelletInventory:lifecycle", 'All');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("plantmanager/PelletInventory:search", "")
 
-  const [location, setLocation] = useState("All")
-  const [color, setColor] = useState('');
+  const [location, setLocation] = useViewState("plantmanager/PelletInventory:location", "All")
+  const [color, setColor] = useViewState("plantmanager/PelletInventory:color", '');
 
-  const [colorantType, setColorantType] = useState<'All' | 'Base Colorant' | 'Stripe Colorant'>('All');
+  const [colorantType, setColorantType] = useViewState<'All' | 'Base Colorant' | 'Stripe Colorant'>("plantmanager/PelletInventory:colorantType", 'All');
 
-  const [stockFilter, setStockFilter] = useState<'All' | 'Normal' | 'Low Stock' | 'Out of Stock' | 'Request Pending'>('All');
+  const [stockFilter, setStockFilter] = useViewState<'All' | 'Normal' | 'Low Stock' | 'Out of Stock' | 'Request Pending'>("plantmanager/PelletInventory:stockFilter", 'All');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("plantmanager/PelletInventory:page", 1)
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [moveLocation, setMoveLocation] = useState('');
@@ -179,6 +183,7 @@ export default function PelletInventory() {
           <CategoryTabs items={['All', 'Normal', 'Low Stock', 'Out of Stock', 'Request Pending'] as const} value={stockFilter} onChange={value => { setStockFilter(value); resetPage(); }} label="Material stock target state" />
           {
             <RecordList
+              emptyMessage={false}
               records={visibleMaterialStockRows}
               query={search + stockFilter}
               render={({ target, current, openRequest, stockStatus }) => {
@@ -212,10 +217,10 @@ export default function PelletInventory() {
       <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setSearch(''); resetPage(); }} counts={counts} label="Material inventory category" />
 
       <div className="app-card detail-card page-stack">
-        {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); resetPage(); }} label={`${category} grade`} displayLabel={materialGradeFilterLabel} />}
+        {category !== 'Colorants' && <CategoryTabs items={['All', ...MATERIAL_GRADES] as const} value={grade} onChange={value => { setGrade(value); resetPage(); }} label={`${category} grade`} displayLabel={materialGradeFilterLabel} groupLabel="Material Grade" />}
         {category === 'Recycled Pellets' && <CategoryTabs items={['All', 'Complete 25 kg Bags', 'Loose Recycled Pellet'] as const} value={recycledView} onChange={value => { setRecycledView(value); resetPage(); }} label="Recycled pellet form" />}
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); resetPage(); }} label="Colorant usage type" />}
-        {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" />}
+        {category !== 'Colorants' && <CategoryTabs items={['All', 'Available', 'Open / WIP', 'Fully Consumed'] as const} value={lifecycle} onChange={value => { setLifecycle(value); resetPage(); }} label="Pellet lifecycle destination" groupLabel="Status" />}
         <div className="filter-panel">
           <input className="app-input" value={search} onChange={event => { setSearch(event.target.value); resetPage(); }} placeholder={category === 'Colorants' ? 'Search color or colorant ID' : 'Search barcode, batch, or grade'} />
           <MaterialLocationFilters color={color} location={location} onColorChange={value => { setColor(value); resetPage(); }} onLocationChange={value => { setLocation(value); resetPage(); }} />
@@ -244,7 +249,7 @@ export default function PelletInventory() {
                 <th>Location</th><th>Source</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {currentColorants.map((item) => (
                 <tr key={item.id}>
                   <td className="font-mono">{item.colorantId}</td>
@@ -264,7 +269,7 @@ export default function PelletInventory() {
                   <td>{inventoryLocationLabel(item)}</td><td className="font-mono">{item.sourceReference || "—"}</td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
           <Pagination page={page} totalRecords={visibleColorants.length} onPageChange={setPage} />
         </div>
@@ -286,12 +291,12 @@ export default function PelletInventory() {
                 <th data-actions>Action</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {currentPellets.map((item) => (
                 <tr key={item.id}>
-                  <td className="font-mono">{item.barcode}</td>
+                  <td className="font-mono"><RecordReference value={item.barcode} /></td>
                   <td className="font-mono">{item.bagNo}</td>
-                  <td className="font-mono">{item.batchNo}</td>
+                  <td className="font-mono"><RecordReference value={item.batchNo} /></td>
                   <td>{item.grade}</td>
                   <td className="font-mono">
                     {(item.originalKg || 25).toFixed(3)} /{" "}
@@ -313,14 +318,14 @@ export default function PelletInventory() {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
           <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
         </div>
       )}
 
       {selected && (
-        <Modal open title={`Pellet Bag — ${selected.bagNo}`} onClose={() => setSelectedId(null)} width="620px">
+        <Modal draft={{ moveLocation, moveReason }} open title={`Pellet Bag — ${selected.bagNo}`} onClose={() => setSelectedId(null)} width="620px">
           <div className="page-stack">
             <BarcodeLabel
           value={selected.barcode}
@@ -347,7 +352,7 @@ export default function PelletInventory() {
               <LocationSelect value={moveLocation} onChange={setMoveLocation} />
               <input className="app-input" aria-label="Movement reason" value={moveReason} onChange={event => setMoveReason(event.target.value)} placeholder="Movement reason" />
               {moveError && <div className="alert-warning">{moveError}</div>}
-              <button className="btn-secondary" onClick={() => { if (!moveLocation) { setMoveError('Storage Location is required.'); return; } if (!moveReason.trim()) { setMoveError('Movement reason is required.'); return; } if (!app.relocatePhysicalItem('Pellet', selected.id, moveLocation, moveReason)) { setMoveError('Movement could not be saved.'); return; } setMoveError(''); setMoveLocation(''); setMoveReason(''); }}>Confirm Internal Movement (quantity unchanged)</button>
+              <ActionButton className="btn-primary" confirmMessage={moveLocation && moveReason.trim() ? `Move ${selected.barcode} to Location ${moveLocation}? Inventory quantity will not change.` : undefined} onClick={() => { if (!moveLocation) { setMoveError('Storage Location is required.'); return; } if (!moveReason.trim()) { setMoveError('Movement reason is required.'); return; } if (!app.relocatePhysicalItem('Pellet', selected.id, moveLocation, moveReason)) { setMoveError('Movement could not be saved.'); return; } setMoveError(''); setMoveLocation(''); setMoveReason(''); }}>Confirm Internal Movement (quantity unchanged)</ActionButton>
             </div>}
             {!!selected.locationHistory?.length && <div className="app-card detail-card"><div className="section-title">Location History</div>{selected.locationHistory.map((movement, index) => <div key={index} className="helper-text">{movement.from} → {movement.to} · {movement.action} · {movement.dateTime} · {movement.employee}</div>)}</div>}
           </div>

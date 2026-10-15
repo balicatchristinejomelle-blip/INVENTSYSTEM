@@ -1,3 +1,7 @@
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -19,11 +23,11 @@ export default function Customers() {
 
   const [error, setError] = useState("")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("marketing/Customers:search", "")
 
-  const [status, setStatus] = useState("All")
+  const [status, setStatus] = useViewState("marketing/Customers:status", "All")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("marketing/Customers:page", 1)
 
   const [form, setForm] = useState({ name: '', code: '', contact: '', address: '', email: '' });
 
@@ -61,13 +65,13 @@ export default function Customers() {
     <div className="page-stack">
       <div className="toolbar">
         <input className="app-input" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} placeholder="Search customer name, code, contact, address…" />
-        <SearchableDropdown
+        <label className="product-filter-field"><span className="field-label">Status</span><SearchableDropdown
           className="app-select" value={status} onChange={e => { setStatus(e.target.value); resetPage(); }}
         >
           <option>All</option>
           <option>Active</option>
           <option>Inactive</option>
-        </SearchableDropdown>
+        </SearchableDropdown></label>
         <button className="btn-primary" onClick={() => setShowAdd(true)}>Add Customer</button>
       </div>
       <div className="app-card table-scroll">
@@ -83,7 +87,7 @@ export default function Customers() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((c) => (
               <tr key={c.id} className="table-row-hover" onClick={() => setViewId(c.id)}>
                 <td className="font-mono" style={{ fontSize: 11 }}>
@@ -110,7 +114,7 @@ export default function Customers() {
                 <td colSpan={7} className="empty-state">No records match the selected search or filters.</td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
@@ -127,7 +131,7 @@ export default function Customers() {
         </Modal>
       )}
       {showAdd && (
-        <Modal open title="Add Customer" onClose={() => setShowAdd(false)}>
+        <Modal draft={form} open title="Add Customer" onClose={() => setShowAdd(false)}>
           <div className="page-stack">
             {error && <div className="alert-error">{error}</div>}
             <div className="form-grid">
@@ -142,8 +146,8 @@ export default function Customers() {
               ))}
             </div>
             <div className="form-actions">
-              <button className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="btn-primary" onClick={saveCustomer}>Add Customer</button>
+              <DismissButton className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</DismissButton>
+              <ActionButton className="btn-primary" onClick={saveCustomer}>Add Customer</ActionButton>
             </div>
           </div>
         </Modal>

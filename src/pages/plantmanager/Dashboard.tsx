@@ -28,11 +28,11 @@ function Card({ label, value, color, sub, onClick }: { label: string; value: str
   )
 
   return onClick ? (
-    <button type="button" className="app-card" style={{ padding: '12px 14px', textAlign: 'left', cursor: 'pointer', width: '100%' }} onClick={onClick}>
+    <button type="button" className="app-card statistic-card" style={{ padding: '12px 14px', cursor: 'pointer', width: '100%' }} onClick={onClick}>
       {content}
     </button>
   ) : (
-    <div className="app-card" style={{ padding: "12px 14px" }}>
+    <div className="app-card statistic-card" style={{ padding: "12px 14px" }}>
       {content}
     </div>
   )
@@ -79,7 +79,7 @@ function PMDashboard() {
   const rejColor = totalRejectedKg >= 50 ? '#dc2626' : totalRejectedKg >= 40 ? '#d97706' : '#2563eb';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="page-stack">
       {/* Alerts */}
       {totalRejectedKg >= 40 && (
         <div className={`alert-${totalRejectedKg >= 50 ? 'error' : 'warning'}`} style={{ fontSize: 12 }}>
@@ -93,7 +93,7 @@ function PMDashboard() {
       {/* Production */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Production</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Card label="Active POs" value={productionOrders.filter(p => p.status === 'In Production').length} color="#2563eb" />
           <Card label="Target" value={activePO?.targetQty || 0} />
           <Card label="Completed" value={activePO?.completedQty || 0} color="#16a34a" />
@@ -104,7 +104,7 @@ function PMDashboard() {
       {/* Pellets */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Pellet Inventory</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <Card label="Virgin Pellet" value={`${virgin.toFixed(0)} kg`} color={virgin < 300 ? '#dc2626' : '#2563eb'} sub={virgin < 300 ? 'LOW STOCK' : undefined} />
           <Card label="Recycled Pellet" value={`${recycled.toFixed(1)} kg`} color="#7c3aed" />
           <Card label="Actual Loaded (Active)" value={activePO ? `${activePO.loadedKg.toFixed(0)} kg` : '—'} />

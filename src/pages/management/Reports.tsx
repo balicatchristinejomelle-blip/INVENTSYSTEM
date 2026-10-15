@@ -1,3 +1,7 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import MetricCards from '../../components/MetricCards';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -45,19 +49,19 @@ function Reports() {
     employees,
   } = useSearchableApp()
 
-  const [activeTab, setActiveTab] = useState<Tab>('Executive Overview');
+  const [activeTab, setActiveTab] = useViewState<Tab>("management/Reports:activeTab", 'Executive Overview');
 
-  const [viewByBatch, setViewByBatch] = useState(false)
+  const [viewByBatch, setViewByBatch] = useViewState("management/Reports:viewByBatch", false)
 
   const qualitySearch = useRecordQuery()
 
-  const [qualityStaff, setQualityStaff] = useState('All Staff');
+  const [qualityStaff, setQualityStaff] = useViewState("management/Reports:qualityStaff", 'All Staff');
 
-  const [qualityProduct, setQualityProduct] = useState('All Products');
+  const [qualityProduct, setQualityProduct] = useViewState("management/Reports:qualityProduct", 'All Products');
 
-  const [qualityResult, setQualityResult] = useState('All Results');
+  const [qualityResult, setQualityResult] = useViewState("management/Reports:qualityResult", 'All Results');
 
-  const [detailPage, setDetailPage] = useState(1)
+  const [detailPage, setDetailPage] = useViewState("management/Reports:detailPage", 1)
 
   useSearchPaginationReset(setDetailPage)
 
@@ -298,7 +302,7 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 <tr className="table-row-hover">
                   <td>Production</td>
                   <td>Active PO Completion</td>
@@ -359,7 +363,7 @@ function Reports() {
                   </span>
                   </td>
                 </tr>
-              </tbody>
+              </TableBody>
             </table>
           </div>
 
@@ -471,7 +475,7 @@ function Reports() {
                   <th>Date / Time</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(periodUsage, detailPage).map((transaction) => (
                   <tr key={transaction.id}>
                     <td className="font-mono">
@@ -489,7 +493,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={periodUsage.length} onPageChange={setDetailPage} />
           </div>
@@ -527,10 +531,14 @@ function Reports() {
             <div className="app-card kpi-card">
               <div>Finished Pipes — Current Balance</div>
               <strong>{inventory.onHand} pcs On Hand</strong>
-              <small>{fgAvailable} available · {fgReserved} reserved · {inventory.temporary} temporary · {inventory.ready} ready · {inventory.awaiting + inventory.qualityPending} awaiting/quality pending</small>
+              <small>{inventory.awaiting + inventory.qualityPending} awaiting/quality pending</small>
             </div>
           </div>
 
+          <MetricCards inventory label="Finished Goods inventory summary" items={[
+            ['Available', fgAvailable], ['Reserved', fgReserved], ['Temporary Storage', inventory.temporary],
+            ['Ready for Ship Out', inventory.ready], ['On Hand', inventory.onHand],
+          ]} />
           {/* Charts row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="app-card" style={{ padding: 14 }}>
@@ -568,10 +576,10 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-                <tbody>
+                <TableBody>
                   {pageRecords(pellets, detailPage).map((p) => (
                     <tr key={p.id} className="table-row-hover">
-                      <td className="font-mono">{p.batchNo}</td>
+                      <td className="font-mono"><RecordReference value={p.batchNo} /></td>
                       <td>
                         <span className={p.type === 'Recycled' ? 'badge-blue' : 'badge-green'}>
                           {p.type}
@@ -587,7 +595,7 @@ function Reports() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </TableBody>
               </table>
               <Pagination page={detailPage} totalRecords={pellets.length} onPageChange={setDetailPage} />
             </div>
@@ -608,7 +616,7 @@ function Reports() {
                   <th>Last Updated</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(colorants, detailPage).map((colorant) => (
                   <tr key={colorant.id}>
                     <td className="font-mono">{colorant.colorantId}</td>
@@ -627,7 +635,7 @@ function Reports() {
                     <td>{colorant.lastUpdated}</td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={colorants.length} onPageChange={setDetailPage} />
           </div>
@@ -647,10 +655,10 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(finishedGoods, detailPage).map((fg) => (
                   <tr key={fg.id} className="table-row-hover">
-                    <td className="font-mono">{fg.fgId}</td>
+                    <td className="font-mono"><RecordReference value={fg.fgId} /></td>
                     <td>{fg.product}</td>
                     <td style={{ fontSize: 11, color: "var(--text-muted)" }}>
                       {fg.diameter} {fg.length} {fg.sdr}
@@ -667,7 +675,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={finishedGoods.length} onPageChange={setDetailPage} />
           </div>
@@ -700,7 +708,7 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(attendance, detailPage).map((a) => (
                   <tr key={a.id} className="table-row-hover">
                     <td>{a.employeeName}</td>
@@ -720,7 +728,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={attendance.length} onPageChange={setDetailPage} />
           </div>
@@ -739,7 +747,7 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(employees, detailPage).map((e) => (
                   <tr key={e.id} className="table-row-hover">
                     <td>
@@ -758,7 +766,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={employees.length} onPageChange={setDetailPage} />
           </div>
@@ -793,7 +801,7 @@ function Reports() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(turnovers, detailPage).map((t) => (
                   <tr key={t.id} className="table-row-hover">
                     <td className="font-mono">{t.turnoverNo}</td>
@@ -808,7 +816,7 @@ function Reports() {
                         {t.incomingShift}
                       </span>
                     </td>
-                    <td className="font-mono">{t.poRef}</td>
+                    <td className="font-mono"><RecordReference value={t.poRef} /></td>
                     <td className="font-mono">{t.completedThisShift}</td>
                     <td>
                       <span className={t.status === 'Pending' ? 'badge-amber' : 'badge-green'}>
@@ -817,7 +825,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             <Pagination page={detailPage} totalRecords={turnovers.length} onPageChange={setDetailPage} />
           </div>
@@ -958,11 +966,11 @@ function Reports() {
                   <th>Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filteredQuality, detailPage).map((r) => (
                   <tr key={r.id} className="table-row-hover">
                     <td className="font-mono">{r.rejectionId}</td>
-                    <td className="font-mono">{r.poRef}</td>
+                    <td className="font-mono"><RecordReference value={r.poRef} /></td>
                     <td>{r.product}</td>
                     <td className="font-mono">{r.quantity}</td>
                     <td className="font-mono">{r.weightKg} kg</td>
@@ -978,7 +986,7 @@ function Reports() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
             {!filteredQuality.length && (
               <div className="empty-state">

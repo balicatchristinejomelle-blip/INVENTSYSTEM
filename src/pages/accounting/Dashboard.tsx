@@ -1,3 +1,4 @@
+import { TableBody } from '../../components/UXFeedback';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -9,7 +10,7 @@ import StatusBadge from "../../components/StatusBadge"
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="app-card" style={{ padding: "14px 16px" }}>
+    <div className="app-card statistic-card" style={{ padding: "14px 16px" }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
         {label}
       </div>
@@ -58,7 +59,7 @@ function AccountingDashboard() {
       {/* Raw Material Inventory */}
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Raw Material Inventory</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div className="kpi-grid">
           <StatCard label="Total Pellets" value={`${totalKg.toFixed(0)} kg`} />
           <StatCard label="Virgin Pellet" value={`${virginKg.toFixed(0)} kg`} color="var(--accent-blue)" />
           <StatCard label="Recycled Pellet" value={`${recycledKg.toFixed(1)} kg`} color="#7c3aed" />
@@ -70,7 +71,7 @@ function AccountingDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         <section>
           <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Branch Requests</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="kpi-grid">
             <StatCard label="New" value={reqNew} color="#2563eb" />
             <StatCard label="Pending" value={reqPending} color="#d97706" />
             <StatCard label="Approved" value={reqApproved} color="#16a34a" />
@@ -79,7 +80,7 @@ function AccountingDashboard() {
         </section>
         <section>
           <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Transfers</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div className="kpi-grid">
             <StatCard label="Preparing" value={trPreparing} color="#d97706" />
             <StatCard label="In Transit" value={trTransit} color="#2563eb" />
             <StatCard label="Received" value={trReceived} color="#16a34a" />
@@ -106,7 +107,7 @@ function AccountingDashboard() {
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <TableBody>
               {transactions.slice(0, 5).map((tx) => (
                 <tr key={tx.id} className="table-row-hover">
                   <td className="font-mono" style={{ fontSize: 11 }}>
@@ -127,7 +128,7 @@ function AccountingDashboard() {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </TableBody>
           </table>
         </div>
       </section>

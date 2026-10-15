@@ -1,3 +1,5 @@
+import RecordReference from '../../components/RecordReference';
+import ActionButton from '../../components/ActionButton';
 import React, { useEffect, useMemo, useState } from 'react';
 import { formatProductionTime, useApp } from '../../store';
 
@@ -48,7 +50,7 @@ export default function ClockOut() {
         {activePO && (
           <div style={{ background: 'var(--app-bg)', borderRadius: 8, padding: '12px 14px', marginBottom: 20 }}>
             <div className="responsive-grid">
-              <div><div className="field-label">Production Order</div><div className="field-value text-blue">{activePO.poNo}</div></div>
+              <div><div className="field-label">Production Order</div><div className="field-value text-blue"><RecordReference value={activePO.poNo} /></div></div>
               <div><div className="field-label">Product</div><div className="field-value">{`${activePO.product} ${activePO.diameter} ${activePO.length}`}</div></div>
               <div><div className="field-label">Target</div><div className="field-value">{activePO.targetQty}</div></div>
               <div><div className="field-label">Completed</div><div className="field-value text-success">{activePO.completedQty}</div></div>
@@ -84,7 +86,7 @@ export default function ClockOut() {
         </div>
         <div className="form-actions">
           <button className="btn-secondary" onClick={() => navigate('production-dashboard')}>Cancel</button>
-          <button className="btn-warning" onClick={() => clockOut()}>Confirm Clock Out</button>
+          <ActionButton className="btn-warning" onClick={() => clockOut()}>Confirm Clock Out</ActionButton>
         </div>
       </div>
     </div>

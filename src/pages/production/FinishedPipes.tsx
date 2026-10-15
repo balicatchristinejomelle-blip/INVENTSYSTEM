@@ -1,4 +1,8 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
+import MetricCards from '../../components/MetricCards';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
@@ -62,7 +66,7 @@ function DetailModal({ fg, onClose }: { fg: FinishedGood | null; onClose: () => 
       <div className="page-stack">
         <div className="app-card detail-card">
           <div className="section-title">Barcode</div>
-          <div className="field-value font-mono">{fg.barcode}</div>
+          <div className="field-value font-mono"><RecordReference value={fg.barcode} /></div>
           <div className="helper-text">The system assigned this barcode after Quality Pass. Use Barcode Scanner for storage and release operations.</div>
         </div>
 
@@ -93,19 +97,19 @@ export default function FinishedPipes() {
     .filter(fg => fg.status === 'Released')
     .reduce((s, fg) => s + fg.quantity, 0);
 
-  const [activeTab, setActiveTab] = useState<FilterTab>('Awaiting Label / Storage');
+  const [activeTab, setActiveTab] = useViewState<FilterTab>("production/FinishedPipes:activeTab", 'Awaiting Label / Storage');
 
-  const [productType, setProductType] = useState<'All' | PipeProductType>('All');
+  const [productType, setProductType] = useViewState<'All' | PipeProductType>("production/FinishedPipes:productType", 'All');
 
-  const [grade, setGrade] = useState("All")
+  const [grade, setGrade] = useViewState("production/FinishedPipes:grade", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("production/FinishedPipes:search", "")
 
   const [detailFG, setDetailFG] = useState<FinishedGood | null>(null);
 
-  const [purpose, setPurpose] = useState<StoragePurposeSelection>('All');
+  const [purpose, setPurpose] = useViewState<StoragePurposeSelection>("production/FinishedPipes:purpose", 'All');
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("production/FinishedPipes:page", 1)
   const productFilters = useProductFilters(() => setPage(1));
 
   const period = usePeriod()
@@ -138,26 +142,13 @@ export default function FinishedPipes() {
       </div>
 
       {/* Summary cards */}
-      <div className="kpi-grid">
-        {[
-          { label: 'Physical On-Hand', value: totalUnits, color: 'var(--text-primary)' },
-          { label: 'Total Available', value: totalAvailable, color: '#16a34a' },
-          { label: 'Total Reserved', value: totalReserved, color: '#2563eb' },
-          { label: 'Temporary Buyer Stock', value: inventory.temporary, color: 'var(--text-primary)' },
-          { label: 'Ready for Ship Out', value: inventory.ready, color: 'var(--text-primary)' },
-          { label: 'Total Released', value: totalReleased, color: 'var(--text-muted)' },
-        ].map((card) => (
-          <div key={card.label} className="app-card" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-              {card.label}
-            </div>
-            <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: card.color, lineHeight: 1 }}>
-              {card.value}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>units</div>
-          </div>
-        ))}
-      </div>
+      <MetricCards inventory label="Finished Goods inventory summary" items={[
+        ['Available', <span style={{ color: '#16a34a' }}>{totalAvailable}</span>, 'units'],
+        ['Reserved', <span style={{ color: '#2563eb' }}>{totalReserved}</span>, 'units'],
+        ['Temporary Storage', inventory.temporary, 'units'], ['Ready for Ship Out', inventory.ready, 'units'],
+        ['On Hand', totalUnits, 'units'],
+      ]} />
+      <div className="helper-text">Total Released: <strong>{totalReleased}</strong> units</div>
 
       <div className="app-card detail-card page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<><ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation /><StoragePurposeFilter value={purpose} onChange={value => { setPurpose(value); setPage(1); }} /></>} />
@@ -222,7 +213,7 @@ export default function FinishedPipes() {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <TableBody>
                 {pageRecords(filtered, page).map((fg) => (
                   <tr
                     key={fg.id}
@@ -232,12 +223,12 @@ export default function FinishedPipes() {
                   >
                     <td>
                       <span className="font-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-blue)' }}>
-                        {fg.fgId}
+                        <RecordReference value={fg.fgId} />
                       </span>
                     </td>
                     <td>
                       <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {fg.barcode}
+                        <RecordReference value={fg.barcode} />
                       </span>
                     </td>
                     <td style={{ fontSize: 13 }}>{fg.product}</td>
@@ -271,7 +262,7 @@ export default function FinishedPipes() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           )}
         </div>

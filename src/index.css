@@ -825,7 +825,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Compact centered operational content; navigation, auth, charts and printed documents retain their intentional layouts. */
 .operational-content { --operational-gap: 10px; }
 .operational-content .page-stack { gap: var(--operational-gap); }
-.operational-content .app-card:not(:has(.print-document)) { text-align: center; }
 .operational-content .product-filter-panel.mb-4 { margin-bottom: 0; }
 .operational-content :is(.detail-card, .record-context-card, .mo-section) { padding: 12px; }
 .operational-content :is(.section-title, .table-title, .field-label, .field-value, .helper-text, .page-intro, .kpi-card, .confirm-copy, .empty-state, .mobile-record-card) { text-align: center; }
@@ -833,7 +832,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .operational-content .app-table td > .button-group { justify-content: center; }
 .operational-content :is(.form-grid, .block-label, .confirm-panel, .product-filter-field) label,
 .operational-content :is(.form-grid label, label.block-label, .confirm-panel label, .product-filter-field) { text-align: center; }
-.operational-content :is(.app-input:not(textarea), .app-select, .searchable-combobox-option) { text-align: center; }
+.operational-content :is(.app-select, .app-input[type="number"], .app-input[type="date"], .app-input[type="time"], .searchable-combobox-option) { text-align: center; }
 .operational-content .searchable-select { padding-left: 58px; }
 .operational-content :is(.responsive-grid, .form-grid, .mobile-record-grid) { gap: var(--operational-gap); }
 .operational-content .report-grid { gap: var(--operational-gap); }
@@ -1056,12 +1055,222 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .production-dashboard .po-progress-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .production-dashboard .po-progress-grid > :last-child { grid-column: 1 / -1; }
 }
-/* Equal desktop thirds, including a centered final pair; responsive controls stay inside their row. */
-.product-filter-controls > * { min-width: 0; }
+/* UI consistency pass: presentation only. Count-aware grids, natural-height summaries and separated controls. */
+.product-filter-controls > *, .product-operational-filters > *, .kpi-grid > * { min-width: 0; }
+.filter-panel, .record-filter-bar, .toolbar { container-type: inline-size; }
 @media (min-width: 901px) {
-  :is(.product-filter-controls, .product-operational-filters):has(> :last-child:nth-child(3n+2)) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  :is(.product-filter-controls, .product-operational-filters):has(> :last-child:nth-child(3n+2)) > * { grid-column: span 2; }
-  :is(.product-filter-controls, .product-operational-filters):has(> :last-child:nth-child(3n+2)) > :nth-last-child(2) { grid-column: 2 / span 2; }
-  :is(.product-filter-controls, .product-operational-filters) > :last-child:nth-child(3n+1):not(:first-child) { grid-column: 2; }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(1):last-child)) { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(2):last-child)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(3):last-child)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(4):last-child)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(6):last-child)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(8):last-child)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(9):last-child)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(5):last-child)) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(5):last-child)) > * { grid-column: span 2; }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(5):last-child)) > :nth-last-child(2) { grid-column: 2 / span 2; }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(7):last-child)) { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(7):last-child)) > * { grid-column: span 2; }
+  .operational-content :is(.product-filter-controls, .product-operational-filters, .kpi-grid):where(:has(> :nth-child(7):last-child)) > :nth-last-child(3) { grid-column: 2 / span 2; }
 }
-@media (max-width: 900px) { .product-filter-controls > * { grid-column: auto; } }
+/* A four-filter row falls back to 2×2 when its actual container cannot accommodate readable controls. */
+@container (max-width: 860px) {
+  .operational-content :is(.product-filter-controls, .product-operational-filters):where(:has(> :nth-child(4):last-child), :has(> :nth-child(8):last-child)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters):where(:has(> :nth-child(4):last-child), :has(> :nth-child(8):last-child)) > :nth-child(n) { grid-column: auto; }
+}
+@container (max-width: 600px) {
+  .operational-content :is(.product-filter-controls, .product-operational-filters) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content :is(.product-filter-controls, .product-operational-filters) > :nth-child(n) { grid-column: auto; }
+}
+@container (max-width: 440px) {
+  .operational-content :is(.product-filter-controls, .product-operational-filters) { grid-template-columns: minmax(0, 1fr); }
+}
+.operational-content .product-filter-field { display: flex; flex-direction: column; gap: 4px; }
+.operational-content .product-filter-field > .field-label { margin: 0; line-height: 1.4; }
+.operational-content :is(.filter-panel, .product-filter-panel) { height: auto; min-height: 0; }
+.operational-content .record-filter-bar { grid-template-columns: minmax(0, 1fr); }
+.operational-content :is(.toolbar, .filter-row) > :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select) { grid-column: 1 / -1; }
+.operational-content :is(.toolbar, .filter-row) > :is(button, .button-group, .product-view-actions, .action-row) { grid-column: 1 / -1; justify-self: end; }
+.record-search:not(.searchable-select), .operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select) {
+  text-align: left !important; height: 36px; min-height: 36px; width: 100%; max-width: 100%;
+  padding-left: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.8'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
+  background-position: 10px center; background-size: 14px; background-repeat: no-repeat;
+}
+.record-search:not(.searchable-select)::placeholder, .operational-content :is(.record-search, input[type="search"], input[placeholder*="search" i]):not(.searchable-select)::placeholder { text-align: left; }
+.searchable-select { height: 36px; min-height: 36px; }
+.searchable-combobox:not(.is-open) .searchable-select { text-align: center; }
+.searchable-combobox:not(.is-open):not(:has(.searchable-combobox-clear)) .searchable-select { padding-left: 32px; padding-right: 32px !important; }
+.operational-content .searchable-combobox:not(.is-open):not(:has(.searchable-combobox-clear)) .searchable-select { padding-left: 32px; }
+.searchable-combobox.is-open .searchable-select { text-align: left !important; padding-left: 12px !important; }
+.searchable-combobox.is-open .searchable-select::placeholder { text-align: left; }
+/* Menus are portaled to body, so options need their own shared alignment. */
+.searchable-combobox-menu .searchable-combobox-option { text-align: center; white-space: normal; overflow-wrap: anywhere; }
+
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions) { justify-content: flex-end; align-items: center; gap: 10px; }
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions):has(> :nth-child(2):last-child) { justify-content: space-between; }
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions):has(> .btn-secondary:only-child) { justify-content: flex-start; }
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions) > .btn-secondary { order: 0; }
+.operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions) > :is(.btn-primary, .btn-success, .btn-danger, .btn-warning) { order: 1; }
+.operational-content :is(.app-table th, .app-table td) .button-group { justify-content: center; }
+.operational-content .kpi-card { display: flex; flex-direction: column; align-items: stretch; gap: 5px; text-align: center; }
+.operational-content .kpi-card > :first-child { flex: 1; display: flex; align-items: center; justify-content: center; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
+.operational-content .kpi-card > strong { margin: 0; }
+.operational-content .owner-metric { display: flex; flex-direction: column; gap: 5px; align-items: center; text-align: center; }
+.operational-content .owner-metric > span { flex: 1; display: flex; align-items: center; justify-content: center; line-height: 1.4; }
+.operational-content .owner-metric > strong { margin: 0; overflow-wrap: anywhere; }
+.operational-content .inventory-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin-top: 8px; }
+.operational-content .inventory-metrics > :nth-child(n) { grid-column: auto; }
+.operational-content .inventory-summary { gap: 8px; }
+.operational-content .plant-stat-grid { align-items: stretch; row-gap: 6px; }
+.operational-content .plant-stat-cell { grid-template-rows: subgrid; grid-row: span 2; }
+.operational-content .plant-stat-label { min-height: 0; max-height: none; overflow: visible; line-height: 1.4; }
+.operational-content .plant-stat-value { line-height: 1.5; }
+
+.material-usage-heading { margin-bottom: 10px; }
+.material-usage-grid { align-items: stretch; gap: 10px; }
+.material-usage-grid > .material-usage-group { display: flex; flex-direction: column; gap: 4px; height: auto; padding: 10px; text-align: center; }
+.material-usage-grid > .material-usage-group > :nth-child(3) { flex: 1; }
+.material-usage-grid .section-title { margin-bottom: 6px; }
+.material-usage-grid .field-label.mt-3 { margin-top: 8px; }
+.material-summary { margin-top: 10px; padding: 10px; width: 100%; height: auto; text-align: center; }
+.material-summary > .section-title { margin-bottom: 8px; }
+.material-summary-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.material-summary-metrics > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.material-summary-metrics .field-label { flex: 1; margin: 0; }
+.material-usage-note { margin-top: 8px; }
+.scanner-context { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.scanner-context-status { display: grid; gap: 4px; min-width: 0; text-align: left; }
+.operational-content .scanner-context-status .field-label { display: block; text-align: left; margin: 0; }
+.scanner-context-status strong { display: block; overflow-wrap: anywhere; }
+.scanner-context-control { min-width: 0; width: 100%; }
+
+@media (max-width: 900px) {
+  :is(.product-filter-controls, .product-operational-filters, .kpi-grid, .operational-content .inventory-metrics) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :is(.product-filter-controls, .product-operational-filters, .kpi-grid, .inventory-metrics) > * { grid-column: auto; }
+  .scanner-context { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+@media (max-width: 600px) {
+  .operational-content :is(.product-filter-controls, .product-operational-filters) { grid-template-columns: minmax(0, 1fr); }
+  .operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions) { align-items: stretch; flex-direction: column; gap: 8px; }
+  .operational-content :is(.action-row, .form-actions, .page-actions, .filter-actions, .product-view-actions) > button { width: 100%; }
+  .material-summary-metrics { grid-template-columns: minmax(0, 1fr); }
+  .production-dashboard .material-usage-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 480px) {
+  .kpi-grid, .operational-content .inventory-metrics { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Complete UI audit: scoped controls, attached date labels and related filter groups. */
+.operational-content .app-input:not(.searchable-select):not([type="number"]):not([type="date"]):not([type="time"]) { text-align: left; }
+.operational-content .product-filter-field, .operational-content .date-filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: center; }
+.operational-content :is(.product-filter-field, .date-filter-field) > .field-label { margin: 0; line-height: 1.4; }
+.operational-content .app-input:not(textarea) { min-height: 36px; }
+.operational-content .form-grid label { min-width: 0; }
+.operational-content .form-grid label .app-input { margin-top: 0; }
+.operational-content label:has(> .searchable-combobox, > .searchable-dropdown), .operational-content label:has(+ .searchable-combobox) { text-align: center; }
+.record-status-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.record-status-filters:has(> :only-child) { grid-template-columns: minmax(0, 220px); }
+.operational-content .reprint-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.reprint-filters > input { grid-column: 1 / -1; }
+.operational-content .record-filter-bar { grid-template-columns: minmax(0, 1fr); justify-content: start; align-items: end; }
+.record-filter-bar:has(> .record-search:only-child) { grid-template-columns: minmax(0, 1fr); }
+.app-main .form-actions:has(> :nth-child(2):last-child) { justify-content: space-between; }
+.app-main .form-actions:has(> .btn-secondary:only-child) { justify-content: flex-start; }
+.record-filter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; min-width: 0; }
+.record-filter-controls > .product-filter-controls { flex: 0 0 100%; }
+.record-filter-controls > :is(.product-filter-field, .date-filter-field) { flex: 0 1 220px; width: 220px; max-width: 100%; }
+.operational-content .record-filter-bar:not(:has(.record-search, .product-filter-controls, .product-filter-field)) { width: fit-content; max-width: 100%; }
+.operational-content .record-filter-bar .date-filter { max-width: none; justify-self: stretch; }
+.date-filter-field { margin: 0; }
+.date-filter .app-input { min-height: 36px; padding-right: 62px; }
+.attendance-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+.attendance-toolbar > .date-filter-field { flex: 0 1 220px; width: 220px; max-width: 100%; }
+.shift-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.shift-filter-group button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; }
+.combined-product-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 10px; min-width: 0; }
+.operational-content .combined-product-filters > :is(.product-filter-controls, .product-operational-filters) { display: contents; }
+.combined-product-filters:has(> .product-operational-filters) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The combined grid owns placement; nested six/seven-field variants must not retain spans. */
+.operational-content .combined-product-filters > :is(.product-filter-controls, .product-operational-filters) > :nth-child(n) { grid-column: auto; }
+.operational-content :is(.category-tabs, .tab-strip, .report-tabs) { min-width: 0; max-width: 100%; gap: 6px; margin-block: 0; overscroll-behavior-inline: contain; }
+.operational-content .category-tab { flex: 0 0 auto; justify-content: center; }
+.category-tab-group, .filter-chip-group { min-width: 0; max-width: 100%; }
+.filter-chip-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-chip-group > .field-label { margin: 0; text-align: left; }
+.operational-content :is(.category-tab-group, .filter-chip-group) + :is(.category-tab-group, .filter-chip-group) { margin-top: 8px; }
+.operational-content .page-stack > :is(.category-tab-group, .filter-chip-group) + :is(.category-tab-group, .filter-chip-group) { margin-top: 0; }
+.operational-content :is(.tab-strip, .report-tabs) > button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 12px; }
+.operational-content :is(.alert-info, .alert-warning, .alert-error, .alert-success) { min-height: 0; height: auto; width: 100%; padding: 10px 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.operational-content .page-stack > :is(.alert-info, .alert-warning, .alert-error, .alert-success) { margin-block: 0; }
+.operational-content .statistic-card { display: grid; grid-template-rows: subgrid; grid-row: span 3; row-gap: 5px; min-width: 0; text-align: center; align-content: start; }
+.statistic-card > :nth-child(n) { min-width: 0; margin-block: 0 !important; overflow-wrap: anywhere; }
+.statistic-card > :first-child { grid-row: 1; align-self: center; line-height: 1.4; }
+.statistic-card > :nth-child(2) { grid-row: 2; align-self: center; }
+.statistic-card > :nth-child(3) { grid-row: 3; }
+.statistic-title { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.production-output-card { display: flex; flex-direction: column; align-items: stretch; gap: 5px; text-align: center; }
+.production-output-card > :nth-child(2) { justify-content: center; }
+.operational-content .app-table :is(th, td).narrative-cell, .operational-content .app-table .narrative-cell .helper-text { text-align: left !important; white-space: normal; overflow-wrap: anywhere; }
+.operational-content .app-table .narrative-cell { min-width: 180px; }
+.operational-content .receiving-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.operational-content :is(.toolbar, .filter-row) { align-items: end; }
+.operational-content .toolbar:has(> .date-filter-field), .operational-content .filter-row:has(> input):has(> .product-filter-field) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operational-content :is(.modal-box, .detail-card, .filter-panel, .record-filter-controls) > :is(.form-actions, .action-row) { width: 100%; grid-column: 1 / -1; }
+@container (max-width: 860px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 440px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child), .operational-content .receiving-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .combined-product-filters, .combined-product-filters:has(> .product-operational-filters), .combined-product-filters:has(> .product-filter-controls > :nth-child(7):last-child), .operational-content .receiving-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .record-status-filters, .record-status-filters:has(> :only-child), .operational-content .reprint-filters { grid-template-columns: minmax(0, 1fr); }
+  .record-filter-controls > :is(.product-filter-field, .date-filter-field) { flex-basis: 100%; width: 100%; }
+  .operational-content .record-filter-bar:not(:has(.record-search, .product-filter-controls, .product-filter-field)) { width: 100%; }
+  .attendance-toolbar { align-items: stretch; flex-direction: column; }
+  .app-main .form-actions { align-items: stretch; flex-direction: column; gap: 8px; }
+  .app-main .form-actions > button { width: 100%; }
+  .operational-content .toolbar:has(> .date-filter-field), .operational-content .filter-row:has(> input):has(> .product-filter-field) { grid-template-columns: minmax(0, 1fr); }
+  .attendance-toolbar > .date-filter-field { flex-basis: auto; width: 100%; }
+  .shift-filter-group { margin-left: 0; width: 100%; }
+  .shift-filter-group button { flex: 1 1 auto; min-height: var(--button-touch-height); }
+}
+
+/* Frontend UX: view feedback, read-only traceability and safe action states. */
+.active-filter-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; grid-column: 1 / -1; min-width: 0; width: 100%; }
+.active-filter-summary > .field-label { margin: 0; }
+.active-filter-summary ul { display: flex; flex: 1 1 220px; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; min-width: 0; }
+.active-filter-summary li { padding: 4px 8px; border: 1px solid var(--card-border); border-radius: 6px; background: var(--app-bg); color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; max-width: 100%; }
+.active-filter-summary li strong { font-weight: 600; }
+.field-error, .action-error { color: var(--status-error); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.field-error { margin-top: 4px; text-align: left; }
+.action-error { flex-basis: 100%; }
+.app-main button[aria-busy="true"] { cursor: progress; }
+.record-reference { background: transparent; border: 0; color: var(--accent-blue); cursor: pointer; font: inherit; padding: 2px 0; max-width: 100%; overflow-wrap: anywhere; text-align: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.record-reference:hover { text-decoration-thickness: 2px; }
+.related-reference-section { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--card-border); padding-top: 10px; margin-top: 10px; }
+.related-reference-section .section-title { margin: 0; }
+.related-reference-list { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.reference-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.reference-detail-grid > div { min-width: 0; }
+.reference-detail-grid dt { text-transform: capitalize; color: var(--text-muted); font-size: 11px; }
+.reference-detail-grid dd { margin: 4px 0 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.last-updated { font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+.term-help { display: inline-block; margin-inline-start: 6px; vertical-align: middle; font-size: 11px; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.term-help summary { border: 1px solid var(--card-border); border-radius: 50%; color: var(--accent-blue); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 24px; min-height: 24px; list-style: none; font-weight: 600; }
+.term-help summary::-webkit-details-marker { display: none; }
+.term-help > div { margin-top: 6px; padding: 8px; border-radius: 6px; background: var(--app-bg); color: var(--text-secondary); line-height: 1.5; }
+.metric-label:has(.term-help) { flex-wrap: wrap; gap: 4px; }
+.term-help summary:focus-visible, .hardware-scanner-display:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.operational-content .app-input[readonly] { background: var(--app-bg); color: var(--text-primary); opacity: 1; cursor: default; }
+.form-actions:has(> .btn-danger):has(> .btn-primary) { border-top: 1px solid var(--card-border); padding-top: 12px; gap: 16px 32px; }
+@media (max-width: 600px) {
+  .active-filter-summary { align-items: stretch; flex-direction: column; }
+  .active-filter-summary ul { flex-basis: auto; }
+  .active-filter-summary > button { width: 100%; }
+  .reference-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}

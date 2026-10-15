@@ -135,15 +135,10 @@ export function HorizontalBar({ data }: { data: HBarData[] }) {
 // Stat card helper used in reports
 export function ReportCard({ label, value, sub, color, icon }: { label: string; value: string | number; sub?: string; color?: string; icon?: React.ReactNode }) {
   return (
-    <div className="app-card" style={{ padding: '12px 14px' }}>
-      <div className="flex items-start justify-between">
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
-          {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
-        </div>
-        {icon && <div style={{ color: color || 'var(--text-muted)', opacity: 0.6 }}>{icon}</div>}
-      </div>
+    <div className="app-card statistic-card" style={{ padding: '12px 14px' }}>
+      <div className="statistic-title" style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}{icon && <span style={{ color: color || 'var(--text-muted)', opacity: 0.6 }}>{icon}</span>}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }

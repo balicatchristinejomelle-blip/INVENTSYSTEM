@@ -93,12 +93,15 @@ function OwnerDashboard() {
         <div className="owner-metric-grid">
         <Metric label="PE80 Stock" value={`${pe80Kg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
         <Metric label="PE100 Stock" value={`${pe100Kg.toFixed(1)} kg`} tone="blue" onClick={goRecords} />
-        <Metric label="Available Finished Pipes" value={availablePipes} tone="green" onClick={goRecords} />
-        <Metric label="Reserved Finished Pipes" value={reserved} tone="amber" onClick={goRecords} />
-        <Metric label="Temporary Buyer Stock" value={inventory.temporary} tone="amber" onClick={goRecords} />
-        <Metric label="Physical On Hand" value={inventory.onHand} tone="blue" onClick={goRecords} />
         <Metric label="Active Production Orders" value={app.productionOrders.filter(item => !['Completed', 'Cancelled'].includes(item.status)).length} tone="blue" />
         <Metric label="Rejected Today" value={`${app.rejectedMaterials.filter(item => item.date === today).reduce((sum, item) => sum + item.quantity, 0)} pipes`} tone={app.rejectedMaterials.some(item => item.date === today) ? 'red' : 'green'} />
+      </div>
+      <div className="owner-metric-grid inventory-metrics" aria-label="Finished Goods inventory summary">
+        <Metric label="Available" value={availablePipes} tone="green" onClick={goRecords} />
+        <Metric label="Reserved" value={reserved} tone="amber" onClick={goRecords} />
+        <Metric label="Temporary Storage" value={inventory.temporary} tone="amber" onClick={goRecords} />
+        <Metric label="Ready for Ship Out" value={ready} tone="green" />
+        <Metric label="On Hand" value={inventory.onHand} tone="blue" onClick={goRecords} />
       </div>
       </section>
       <section className="app-card detail-card">
@@ -117,10 +120,6 @@ function OwnerDashboard() {
           <div>
             <div className="field-label">Colorant Stock</div>
             <div className="field-value">{colorantKg.toFixed(2)} kg</div>
-          </div>
-          <div>
-            <div className="field-label">Ready for Ship Out</div>
-            <div className="field-value">{ready}</div>
           </div>
           <div>
             <div className="field-label">Pending Turnovers</div>

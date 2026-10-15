@@ -14,7 +14,10 @@
     "check:groups": "node scripts/check-product-groups.mjs",
     "check:grades": "node scripts/check-material-grades.mjs",
     "check:storage": "node scripts/check-storage-inventory.mjs",
-    "check:barcodes": "node scripts/check-barcodes-locations.mjs"
+    "check:barcodes": "node scripts/check-barcodes-locations.mjs",
+    "check:ui": "node scripts/check-ui-layout.mjs",
+    "check:ui-complete": "node scripts/check-complete-ui.mjs",
+    "check:ux": "node scripts/check-ux.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

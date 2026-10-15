@@ -1,3 +1,5 @@
+import { TableBody } from '../../components/UXFeedback';
+import { useViewState } from '../../uiViewState';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -138,7 +140,7 @@ function InventoryTab() {
               <th>Received Date</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {
               <RecordRows
                 records={pellets}
@@ -161,7 +163,7 @@ function InventoryTab() {
                 )}
               />
             }
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -220,7 +222,7 @@ function TransfersTab({ period }: { period: PeriodRange }) {
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {
               <RecordRows
                 records={periodTransfers}
@@ -241,7 +243,7 @@ function TransfersTab({ period }: { period: PeriodRange }) {
                 )}
               />
             }
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -292,7 +294,7 @@ function RequestsTab({ period }: { period: PeriodRange }) {
               <th>Approved By</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {
               <RecordRows
                 records={periodRequests}
@@ -316,7 +318,7 @@ function RequestsTab({ period }: { period: PeriodRange }) {
                 )}
               />
             }
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -333,7 +335,7 @@ function RequestsTab({ period }: { period: PeriodRange }) {
 }
 
 function AccountingReports() {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useViewState<Tab>("accounting/Reports:activeTab", 'overview');
   const period = usePeriod('month');
 
   return (

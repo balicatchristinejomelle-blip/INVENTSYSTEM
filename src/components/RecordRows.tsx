@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import Pagination, { pageRecords } from "./Pagination"
 import { useRecordQuery } from "./RecordSearch"
+import { EmptyState } from './UXFeedback';
 
 /** Paginate record tables that previously rendered an unbounded map. */
 export default function RecordRows<T>({
@@ -23,6 +24,7 @@ export default function RecordRows<T>({
   const safePage = Math.min(page, Math.max(1, Math.ceil(records.length / 10)))
   return (
     <>
+      {!records.length && <tr><td colSpan={100}><EmptyState /></td></tr>}
       {pageRecords(records, safePage).map((record, index) =>
         render(record, (safePage - 1) * 10 + index),
       )}

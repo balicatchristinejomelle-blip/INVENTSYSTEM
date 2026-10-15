@@ -1,3 +1,8 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import ActionButton from '../../components/ActionButton';
+import { DismissButton } from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productionOriginGroup } from '../../finishedPipeRelations';
@@ -81,11 +86,11 @@ export default function ProdOrders() {
 
   const [reviewMaterials, setReviewMaterials] = useState(!!materialReviewRequest);
 
-  const [orderView, setOrderView] = useState<OrderView>('Ready');
+  const [orderView, setOrderView] = useViewState<OrderView>("production/ProductionOrders:orderView", 'Ready');
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("production/ProductionOrders:search", "")
 
-  const [pages, setPages] = useState<Record<OrderView, number>>({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
+  const [pages, setPages] = useViewState<Record<OrderView, number>>("production/ProductionOrders:pages", { Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
   const productFilters = useProductFilters(() => setPages({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 }));
 
   const [documentAction, setDocumentAction] = useState<{ id: string; autoPrint: boolean } | null>(null);
@@ -292,14 +297,14 @@ export default function ProdOrders() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filteredOrders, page).map((po) => {
               const pct = po.targetQty > 0 ? Math.round(po.completedQty / po.targetQty * 100) : 0;
 
               return (
                 <tr key={po.id} className="table-row-hover" onClick={() => setViewId(po.id)}>
                   <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                    {po.poNo}
+                    <RecordReference value={po.poNo} />
                   </td>
                   <td style={{ fontSize: 12 }}>
                     {po.product} {po.diameter} × {po.length}
@@ -332,7 +337,7 @@ export default function ProdOrders() {
                 </tr>
               )
             })}
-          </tbody>
+          </TableBody>
         </table>
         {!filteredOrders.length && (
           <div className="empty-state empty-state-action">
@@ -404,14 +409,14 @@ export default function ProdOrders() {
 
       {/* Record Output */}
       {showOutput && viewPO && (
-        <Modal open title="Record Production Output" onClose={closeOutput} width="720px">
+        <Modal draft={{ outputQty, rejectQty, rejections }} dirty={!saved && !!(outputQty || rejectQty || rejections.length)} open title="Record Production Output" onClose={closeOutput} width="720px">
           <section className="app-card detail-card mb-3">
             <div className="section-title">Production Order</div>
             <div className="responsive-grid">
               <div>
                 <div className="field-label">PO</div>
                 <div className="field-value font-mono text-blue">
-                  {viewPO.poNo}
+                  <RecordReference value={viewPO.poNo} />
                 </div>
               </div>
               <div>
@@ -627,7 +632,7 @@ export default function ProdOrders() {
               <div className="responsive-grid mb-3">
                 <div>
                   <div className="field-label">PO Number</div>
-                  <div className="field-value font-mono">{viewPO.poNo}</div>
+                  <div className="field-value font-mono"><RecordReference value={viewPO.poNo} /></div>
                 </div>
                 <div>
                   <div className="field-label">Shift</div>
@@ -650,7 +655,7 @@ export default function ProdOrders() {
                 </div>
               </div>
               <div className="button-group mb-3">
-              <button className="btn-primary btn-compact" onClick={loadPelletBags}>Load Pellet Bags</button>
+              <ActionButton className="btn-primary btn-compact" onClick={loadPelletBags}>Load Pellet Bags</ActionButton>
             </div>
               <div className="alert-info mb-3">Base and stripe colorants are selected from the PO and linked automatically with the first successful pellet-bag load.</div>
               <div className="button-group">
@@ -671,8 +676,8 @@ export default function ProdOrders() {
                 <strong>INSUFFICIENT MATERIAL</strong>
                 {error.split('|').slice(1).map(line => <div key={line}>{line}</div>)}
                 <div className="button-group mt-3">
-                  <button className="btn-secondary btn-compact" onClick={loadPelletBags}>Load More Materials</button>
-                  <button className="btn-secondary btn-compact" onClick={() => setError('')}>Cancel</button>
+                  <ActionButton className="btn-secondary btn-compact" onClick={loadPelletBags}>Load More Materials</ActionButton>
+                  <DismissButton className="btn-secondary btn-compact" onClick={() => setError('')}>Cancel</DismissButton>
                 </div>
               </div>
             ) : (
@@ -681,10 +686,10 @@ export default function ProdOrders() {
               </div>
             ))}
           <div className="form-actions">
-            <button className="btn-secondary" onClick={closeOutput}>Cancel</button>
-            <button className="btn-primary" disabled={submitting || !validMaterials} onClick={handleSaveOutput}>
+            <DismissButton className="btn-secondary" onClick={closeOutput}>Cancel</DismissButton>
+            <ActionButton className="btn-primary" disabled={submitting || !validMaterials} onClick={handleSaveOutput}>
               {submitting ? "Recording…" : "Record Output"}
-            </button>
+            </ActionButton>
           </div>
         </Modal>
       )}

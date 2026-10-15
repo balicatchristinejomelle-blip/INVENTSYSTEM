@@ -1,3 +1,9 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
+import { useCreatedRecordNotice } from '../../components/UXFeedback';
+import { DismissButton } from '../../components/ActionButton';
+import ActionButton from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import { matchesRecord } from "../../components/RecordSearch"
@@ -43,12 +49,13 @@ function nextRefNo(existing: { refNo: string }[]): string {
 export default function MainPlantRequests() {
   const app = useApp();
   const { materialRequests, productionOrders, addMaterialRequest, currentUser } = app;
+  const creationNotice = useCreatedRecordNotice(materialRequests, record => record.refNo);
 
-  const [tab, setTab] = useState<RequestTab>("All")
+  const [tab, setTab] = useViewState<RequestTab>("plantmanager/MainPlantRequests:tab", "All")
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewState("plantmanager/MainPlantRequests:search", "")
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("plantmanager/MainPlantRequests:page", 1)
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -181,6 +188,7 @@ export default function MainPlantRequests() {
 
   return (
     <div className="page-stack">
+      {creationNotice.message && <div className="alert-success" role="status">{creationNotice.message}</div>}
       <div className="category-panel-header">
         <div>
           <div className="section-title">Materials & Requests</div>
@@ -208,14 +216,14 @@ export default function MainPlantRequests() {
               <th data-actions>Action</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((request) => {
               const requestType = requestCategory(request)
 
               return (
                 <tr key={request.id}>
                   <td>
-                    <span className="font-mono">{request.refNo}</span>
+                    <span className="font-mono"><RecordReference value={request.refNo} /></span>
                     <br />
                     <small>{request.date}</small>
                   </td>
@@ -242,7 +250,7 @@ export default function MainPlantRequests() {
                 </tr>
               )
             })}
-          </tbody>
+          </TableBody>
         </table>
       </div>
       <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} noun="material requests" />
@@ -273,7 +281,7 @@ export default function MainPlantRequests() {
       <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
       {showNew && (
-        <Modal open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
+        <Modal draft={{ category, poId, grade, bags, usageType, color, quantityKg, notes }} open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
           <div className="page-stack">
             {replenishmentContext && (
               <div className="alert-warning">
@@ -299,7 +307,7 @@ export default function MainPlantRequests() {
                 <option value="">Manual request — no PO selected</option>
                 {activePOs.map((po) => (
                   <option key={po.id} value={po.id}>
-                    {po.poNo} · {po.product} · {po.grade}
+                    <RecordReference value={po.poNo} /> · {po.product} · {po.grade}
                   </option>
                 ))}
               </SearchableDropdown>
@@ -376,8 +384,8 @@ export default function MainPlantRequests() {
           </label>
             {error && <div className="alert-error">{error}</div>}
             <div className="form-actions">
-            <button className="btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
-            <button className="btn-primary" onClick={submit}>Submit Material Request</button>
+            <DismissButton className="btn-secondary" onClick={() => setShowNew(false)}>Cancel</DismissButton>
+            <ActionButton className="btn-primary" onStart={creationNotice.begin} onClick={submit}>Submit Material Request</ActionButton>
           </div>
           </div>
         </Modal>

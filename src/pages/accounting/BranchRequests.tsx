@@ -1,3 +1,6 @@
+import RecordReference from '../../components/RecordReference';
+import { useViewState } from '../../uiViewState';
+import { TableBody } from '../../components/UXFeedback';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import {
   withRecordSearch,
@@ -25,9 +28,9 @@ function BranchRequests() {
   const { materialRequests, approveMaterialRequest, rejectMaterialRequest } =
     useSearchableApp()
 
-  const [filter, setFilter] = useState("All")
+  const [filter, setFilter] = useViewState("accounting/BranchRequests:filter", "All")
 
-  const [category, setCategory] = useState<'All' | MaterialRequestCategory>('All');
+  const [category, setCategory] = useViewState<'All' | MaterialRequestCategory>("accounting/BranchRequests:category", 'All');
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -35,7 +38,7 @@ function BranchRequests() {
 
   const [viewId, setViewId] = useState<string | null>(null)
 
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useViewState("accounting/BranchRequests:page", 1)
 
   useSearchPaginationReset(setPage)
 
@@ -61,7 +64,7 @@ function BranchRequests() {
           <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: false })}>View Document</button>
           <DocumentPrintButton className="btn-primary" recordId={viewReq.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: viewReq.id, autoPrint: true })} />
           <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-            Material Request — {viewReq.refNo}
+            Material Request — <RecordReference value={viewReq.refNo} />
           </h2>
         </div>
         <div className="app-card" style={{ padding: 20 }}>
@@ -154,11 +157,11 @@ function BranchRequests() {
               <th data-actions>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <TableBody>
             {pageRecords(filtered, page).map((req) => (
               <tr key={req.id} className="table-row-hover" onClick={() => setViewId(req.id)}>
                 <td className="font-mono" style={{ fontSize: 11, color: 'var(--accent-blue)', fontWeight: 600 }}>
-                  {req.refNo}
+                  <RecordReference value={req.refNo} />
                 </td>
                 <td style={{ fontSize: 12 }}>{req.date}</td>
                 <td>{requestCategory(req)}</td>
@@ -191,7 +194,7 @@ function BranchRequests() {
                 <td colSpan={8} className="empty-state">No records match the selected filters.</td>
               </tr>
             )}
-          </tbody>
+          </TableBody>
         </table>
         <Pagination page={page} totalRecords={filtered.length} onPageChange={setPage} />
       </div>
