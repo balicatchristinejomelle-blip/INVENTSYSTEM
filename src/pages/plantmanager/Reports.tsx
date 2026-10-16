@@ -11,6 +11,7 @@ import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoods
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import { inventoryLocationLabel, matchesLocation, locationQuantity } from '../../locationMaster';
 import MaterialLocationFilters from '../../components/MaterialLocationFilters';
+import { pelletColorLabel } from '../../pelletColors';
 import { matchesInventoryColor } from '../../productFilters';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import React, { useMemo, useState } from "react"
@@ -245,7 +246,7 @@ export default function PlantManagerReports() {
 
               date: item.date,
               reference: item.batchNo,
-              color: 'Not specified',
+              color: item.color || 'Not specified',
 
               category: "Recycled · Loose Recycled Pellet",
 
@@ -260,7 +261,7 @@ export default function PlantManagerReports() {
 
               balance: `${(item.looseKg || 0).toFixed(3)} kg`,
 
-              searchable: `${item.batchNo} ${item.status} ${item.sourcePO || ""}`,
+              searchable: `${item.batchNo} ${item.status} ${item.color || ''} ${item.sourcePO || ""}`,
             }))
         : []
 
@@ -269,7 +270,7 @@ export default function PlantManagerReports() {
 
   const filteredMaterials = materialRecords.filter(
     (item) =>
-      dateInPeriod(item.date, period.range) && ((() => { const original = pellets.find(row => row.id === item.id) || colorants.find(row => row.id === item.id); return original ? matchesLocation(original, materialLocation) && matchesInventoryColor(original.color, materialColor) : materialLocation === 'All' && !materialColor; })()) &&
+      dateInPeriod(item.date, period.range) && ((() => { const original = pellets.find(row => row.id === item.id) || colorants.find(row => row.id === item.id); return original ? matchesLocation(original, materialLocation) && matchesInventoryColor(original.color, materialColor) : materialLocation === 'All' && matchesInventoryColor(item.color, materialColor); })()) &&
       (materialCategory === "Colorants" ||
         grade === "All" ||
         item.grade === grade) &&
@@ -471,7 +472,7 @@ export default function PlantManagerReports() {
               />
             )}
 
-            <MaterialLocationFilters status={lifecycle} onStatusChange={materialCategory === 'Colorants' ? undefined : value => { setLifecycle(value as Lifecycle); resetPage(); }} statusFor={item => item.inventoryStatus ? lifecycleForPellet(item.inventoryStatus) : item.status || ''} records={materialRecords.filter(item => dateInPeriod(item.date, period.range) && matchesRecord(item, search) && (materialCategory !== 'Recycled Pellets' || recycledForm === 'All' || (recycledForm === 'Complete 25 kg Bags' ? item.category.includes('Complete') : item.category.includes('Loose')))).map(item => pellets.find(record => record.id === item.id) || colorants.find(record => record.id === item.id) || {})} grade={grade} onGradeChange={materialCategory === 'Colorants' ? undefined : value => { setGrade(value); resetPage(); }} color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
+            <MaterialLocationFilters pelletType={materialCategory === 'Colorants' ? 'Colorant' : materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled'} status={lifecycle} onStatusChange={materialCategory === 'Colorants' ? undefined : value => { setLifecycle(value as Lifecycle); resetPage(); }} statusFor={item => item.inventoryStatus ? lifecycleForPellet(item.inventoryStatus) : item.status || ''} records={materialRecords.filter(item => dateInPeriod(item.date, period.range) && matchesRecord(item, search) && (materialCategory !== 'Recycled Pellets' || recycledForm === 'All' || (recycledForm === 'Complete 25 kg Bags' ? item.category.includes('Complete') : item.category.includes('Loose')))).map(item => pellets.find(record => record.id === item.id) || colorants.find(record => record.id === item.id) || {})} grade={grade} onGradeChange={materialCategory === 'Colorants' ? undefined : value => { setGrade(value); resetPage(); }} color={materialColor} location={materialLocation} onColorChange={value => { setMaterialColor(value); resetPage(); }} onLocationChange={value => { setMaterialLocation(value); resetPage(); }} />
           </div>
           <div className="app-card table-scroll">
             <div className="table-title">{materialCategory} Detail</div>
@@ -493,7 +494,7 @@ export default function PlantManagerReports() {
                     <td className="font-mono po-column">{item.reference}</td>
                     <td>{item.category}</td>
                     <td>{item.grade}</td>
-                    <td>{item.color}</td>
+                    <td>{item.category.includes('Colorant') ? item.color : pelletColorLabel(item.category.startsWith('Virgin') ? 'Virgin' : 'Recycled', item.color)}</td>
                     <td>
                       <StatusBadge status={item.status} />
                     </td>

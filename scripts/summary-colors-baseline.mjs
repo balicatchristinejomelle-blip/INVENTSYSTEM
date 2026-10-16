@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 
 export const SUMMARY_COLORS_BASELINE = '18703f4';
 export const reviewedSummaryColorsAdditions = {
@@ -34,7 +35,9 @@ export function summaryColorsBaseline(file) {
   return previous.get(file);
 }
 export function restoreSummaryColorsFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedSummaryColorsDeltas[file] && normalized === summaryColorsBaseline(file)) return normalized;
+  const source = restorePelletMasterFile(file, normalized);
   if (!reviewedSummaryColorsDeltas[file] || source === summaryColorsBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedSummaryColorsDeltas[file]) throw new Error('Unreviewed summary/color delta: ' + file);
   return summaryColorsBaseline(file);

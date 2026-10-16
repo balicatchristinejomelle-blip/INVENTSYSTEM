@@ -1,3 +1,4 @@
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 import { restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles } from './storage-inventory-baseline.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -74,7 +75,7 @@ try {
   });
   const helperNames = ['makePelletBags', 'normalizeBarcodeValue', 'nextAnnualSequence', 'makePermanentPelletBags', 'registryEntriesForPellets'];
   const helperCode = transpile(helperNames.map(name => `const ${name} = ${initializers.get(name)};`).join('\n'));
-  const helpers = new Function('isSupportedMaterialGrade', 'pelletColor', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade, pelletColors.pelletColor);
+  const helpers = new Function('isSupportedMaterialGrade', 'newPelletColor', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade, pelletColors.newPelletColor);
   function simulate(name, role, input) {
     let current = structuredClone({ ...baseline, currentUser: store.USERS.find(user => user.role === role), finishedGoods: [], materialRequests: [], productionOrders: [], transfers: [] });
     const dependencies = { ...inventory, ...locations, ...pelletColors, useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
@@ -95,6 +96,6 @@ try {
   check('Product barcode contains the same item/product/size/length/SDR regardless of material grade', () => { const pipe = baseline.finishedGoods[0]; const coded = { ...pipe, itemCode: 'PEP-1031' }; const pe80 = relations.resolveFinishedPipe({ ...coded, grade: 'PE80' }, baseline); const pe100 = relations.resolveFinishedPipe({ ...coded, grade: 'PE100' }, baseline); assert.equal(pe80.productBarcode, pe100.productBarcode); assert.ok(!pe80.productBarcode.includes('PE80')); assert.ok(!pe100.productBarcode.includes('PE100')); assert.equal(coded.barcode, pipe.barcode); });
   check('Legacy record search remains readable and no existing data is mutated by fixtures', () => { assert.ok(matchesRecord({ grade: 'CTS Grade' }, 'cts')); assert.equal(JSON.stringify(baseline), saved); });
   for (const [file, restore] of [['src/productMaster.ts', restorePreviousGradeMaster], ['src/store.tsx', source => restorePreviousGradeStore(restorePreStorageStore(source))], ['src/types.ts', source => restorePreviousGradeTypes(restorePreStorageTypes(source))]]) check(`${file}: only exact reviewed grade changes differ from pre-task main`, () => assert.equal(restore(fs.readFileSync(file, 'utf8')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
-  for (const file of ['src/index.css', 'src/components/SearchableSelect.tsx', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx']) check(`Non-grade behavior unchanged: ${file}`, () => assert.equal((file === 'src/index.css' ? restorePreStorageStyles(fs.readFileSync(file, 'utf8')) : fs.readFileSync(file, 'utf8').replace(/\r/g, '')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
+  for (const file of ['src/index.css', 'src/components/SearchableSelect.tsx', 'src/reprintWorkflow.ts', 'src/documentPrint.ts', 'src/components/BarcodeLabel.tsx']) check(`Non-grade behavior unchanged: ${file}`, () => assert.equal((file === 'src/index.css' ? restorePreStorageStyles(restorePelletMasterFile(file, fs.readFileSync(file, 'utf8'))) : restorePelletMasterFile(file, fs.readFileSync(file, 'utf8')).replace(/\r/g, '')), execFileSync('git', ['show', `f47fc9c:${file}`], { encoding: 'utf8' }).replace(/\r/g, '')));
   console.log(`Completed ${checks} active-grade, historical-preservation, six-role, callback and non-grade regression checks. SSR is not visual browser verification.`);
 } finally { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; await server.close(); }

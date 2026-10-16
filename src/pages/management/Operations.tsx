@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import RecordReference from '../../components/RecordReference';
 import { useViewState, useFilterChangeEffect } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -186,7 +187,7 @@ export default function Operations() {
             </div>
           </div>
           <CategoryTabs items={MATERIAL_CATEGORIES} value={materialCategory} onChange={setMaterialCategory} label="Management material category" />
-          <MaterialLocationFilters records={materialCategory === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && matchesRecord(item, query)) : pellets.filter(item => item.type === (materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled') && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, query))}
+          <MaterialLocationFilters pelletType={materialCategory === 'Colorants' ? 'Colorant' : materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled'} records={materialCategory === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && matchesRecord(item, query)) : pellets.filter(item => item.type === (materialCategory === 'Virgin Pellets' ? 'Virgin' : 'Recycled') && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, query))}
             grade={grade} onGradeChange={materialCategory === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }}
             status={pelletView} onStatusChange={materialCategory === 'Colorants' ? undefined : value => { setPelletView(value as PelletView); setPage(1); }}
             statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'}
@@ -248,7 +249,7 @@ export default function Operations() {
                         <RecordReference value={p.batchNo} />
                       </td>
                       <td style={{ fontSize: 12 }}>{p.grade}</td>
-                      <td style={{ fontSize: 12 }}>{p.color}</td>
+                      <td style={{ fontSize: 12 }}>{pelletColorLabel(p.type, p.color)}</td>
                       <td className="font-mono" style={{ fontWeight: 700, color: p.availableKg < 200 ? '#dc2626' : 'var(--text-primary)' }}>
                         {p.availableKg.toFixed(1)} kg
                       </td>

@@ -9,6 +9,7 @@ import type {
 } from './types';
 import type { DocumentField, PrintableDocument } from './components/DocumentViewer';
 import { requestCategory, transferCategory } from './inventoryCategories';
+import { pelletColorLabel } from './pelletColors';
 
 const fields = (values: Array<[string, unknown]>): DocumentField[] =>
   values
@@ -95,7 +96,7 @@ export const receivingReportDocument = (rr: RRRecord): PrintableDocument => ({
   sections: [
     { title: 'Receiving Information', fields: fields([
       ['RR Number', rr.rrNumber], ['Material Category', rr.material], ['Pellet Type', rr.pelletType],
-      ['Material Grade', rr.grade], ['Color', rr.color], ['Batch / Receiving Reference', rr.batchNo],
+      ['Material Grade', rr.grade], ['Color', pelletColorLabel(rr.pelletType, rr.color)], ['Batch / Receiving Reference', rr.batchNo],
       ['Supplier / Source', rr.supplier], ['Supplier Reference', rr.referenceNo],
     ]) },
     { title: 'Quantity', fields: fields([
@@ -118,7 +119,7 @@ export const materialRequestDocument = (request: MaterialRequest): PrintableDocu
       ['Requested By', request.requestedBy], ['Material Category', requestCategory(request)],
       ['Material Grade', requestCategory(request) === 'Colorant' ? undefined : request.grade],
       ['Pellet Type', requestCategory(request) === 'Colorant' ? undefined : request.pelletType],
-      ['Color / Usage', requestCategory(request) === 'Colorant' ? `${request.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe' : 'Base'} · ${request.color}` : request.color],
+      ['Color / Usage', requestCategory(request) === 'Colorant' ? `${request.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe' : 'Base'} · ${request.color}` : pelletColorLabel(request.pelletType, request.color)],
       ['Bag Quantity', request.requestedBags], ['Requested Weight', `${request.requestedKg} kg`],
       ['MO Reference', request.moRef], ['PO Reference', request.poRef], ['Notes', request.notes],
     ]) },
@@ -139,7 +140,7 @@ export const transferDocument = (transfer: Transfer): PrintableDocument => ({
     { title: 'Transfer Information', fields: fields([
       ['Transfer Number', transfer.refNo], ['From', transfer.source], ['To', transfer.destination],
       ['Material Category', transferCategory(transfer)], ['Material Grade', transfer.grade],
-      ['Pellet Type', transfer.pelletType], ['Color', transfer.color], ['Batch Number', transfer.batchNo],
+      ['Pellet Type', transfer.pelletType], ['Color', transferCategory(transfer) === 'Colorant' ? transfer.color : pelletColorLabel(transfer.pelletType, transfer.color)], ['Batch Number', transfer.batchNo],
       ['Related Request', transfer.requestRef],
     ]) },
     { title: 'Quantity & Receipt', fields: fields([
@@ -168,6 +169,7 @@ export const recyclingDocument = (batch: RecyclingBatch): PrintableDocument => (
       ['Cut Material Weight', batch.cutMaterialKg == null ? undefined : `${batch.cutMaterialKg} kg`],
       ['Cutting Loss', batch.cuttingLossKg == null ? undefined : `${batch.cuttingLossKg} kg`],
       ['Recovered Pellet Weight', batch.recoveredKg == null ? undefined : `${batch.recoveredKg} kg`],
+      ['Recycled Pellet Color', pelletColorLabel('Recycled', batch.color)],
       ['Complete 25 kg Bags', batch.completeBags], ['Loose Recycled Pellets', batch.looseKg == null ? undefined : `${batch.looseKg} kg`],
       ['Cut By', batch.cutBy], ['Cut At', batch.cutAt], ['Weighed By', batch.weighedBy], ['Weighed At', batch.weighedAt],
       ['Confirmed By', batch.confirmedBy], ['Confirmed At', batch.confirmedAt],

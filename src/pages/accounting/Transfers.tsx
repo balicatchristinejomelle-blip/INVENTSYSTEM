@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -78,7 +79,7 @@ function Transfers() {
             ['Date', viewTransfer.date],
             ['Material Category', transferCategory(viewTransfer)],
             [transferCategory(viewTransfer) === 'Colorant' ? 'Usage Type' : 'Material Grade', transferCategory(viewTransfer) === 'Colorant' ? (viewTransfer.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe Colorant' : 'Base Colorant') : viewTransfer.grade],
-            ['Color', viewTransfer.color],
+            ['Color', transferCategory(viewTransfer) === 'Colorant' ? viewTransfer.color : pelletColorLabel(viewTransfer.pelletType, viewTransfer.color)],
             ['Batch No.', viewTransfer.batchNo],
             ...(transferCategory(viewTransfer) === 'Colorant' ? [] : [['Number of Bags', viewTransfer.numberOfBags || Math.floor(viewTransfer.weightKg / 25)], ['Weight per Bag', '25 kg']]),
             ['Weight', `${viewTransfer.weightKg} kg`],
@@ -206,7 +207,7 @@ function Transfers() {
               <DismissButton className="btn-secondary" onClick={() => setShowCreate(false)}>Cancel</DismissButton>
               <ActionButton className="btn-primary" disabled={!requestId} onClick={() => {
             const result = createTransfer(requestId);
-            setMessage(result ? `Created or opened ${result}. The same transfer is visible to Plant Manager and Production.` : 'Transfer could not be created. Verify that the request is approved.');
+            setMessage(result ? `Created or opened ${result}. The same transfer is visible to Plant Manager and Production.` : 'Transfer could not be created. Verify approval and a valid pellet master color; legacy colors cannot create new bags.');
           }}>Confirm</ActionButton>
             </div>
           </div>

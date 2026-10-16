@@ -7,8 +7,8 @@ export function normalizeLocationMaster(stored: unknown): StorageLocation[] {
   return [...retained, ...SAMPLE_LOCATIONS.filter(sample => !retained.some(record => record.id === sample.id || record.code === sample.code || record.name === sample.name)).map(sample => ({ ...sample }))];
 }
 export function activeLocationCodes(locations: readonly StorageLocation[] = SAMPLE_LOCATIONS) { return LOCATION_CODES.filter(code => locations.some(location => location.status === 'Active' && (location.code || location.name) === code)); }
-/** Read-only filters include configured custom/historical physical locations, never production-stage placeholders. */
-export function filterLocationCodes(locations: readonly StorageLocation[] = SAMPLE_LOCATIONS) { return [...new Set(locations.flatMap(location => [location.code, location.name].filter((value): value is string => !!value)))]; }
+/** Active choices are canonical A–I codes only; saved legacy names remain readable. */
+export function filterLocationCodes(locations: readonly StorageLocation[] = SAMPLE_LOCATIONS) { return activeLocationCodes(locations); }
 export const physicalLocation = (record: { currentLocation?: string; storageLocation?: string; receivingLocation?: string }) => record.currentLocation || record.storageLocation || record.receivingLocation || '';
 export const matchesLocation = (record: { currentLocation?: string; storageLocation?: string; receivingLocation?: string; locationBalances?: Record<string, number> }, location: string) => !location || location === 'All' || location === 'All Locations' || (record.locationBalances ? (record.locationBalances[location] || 0) > 0 : physicalLocation(record) === location);
 export function locationQuantity(record: { availableKg: number; currentLocation?: string; locationBalances?: Record<string, number> }, location: string) { return location && location !== 'All' && location !== 'All Locations' ? record.locationBalances?.[location] ?? (record.currentLocation === location ? record.availableKg : 0) : record.availableKg; }

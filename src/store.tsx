@@ -16,7 +16,7 @@ import type {
 } from './types';
 import { colorCodeFromProductColor, colorCodeFromStripe, specificationKey, specificationKeyFromRecord, specificationLength, READABLE_MATERIAL_GRADES, isActiveMaterialGrade, MATERIAL_GRADES } from './productMaster';
 import { requestCategory, transferCategory } from './inventoryCategories';
-import { pelletColor, repairPelletColor, pelletDocumentColor } from './pelletColors';
+import { newPelletColor, normalizeRecycledPelletColor, incompatibleRecycledCarry, RECYCLED_PELLET_COLORS, repairPelletColor, pelletDocumentColor } from './pelletColors';
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ const makePelletBags = (
   const barcode = `PEL-${data.type === 'Virgin' ? 'V' : 'R'}-${batchSerial}-${serial}`;
   return {
     ...data,
-    color: pelletColor(data.type, data.color),
+    color: newPelletColor(data.type, data.color),
     id: `${data.batchNo}-bag-${serial}`,
     bagNo: `Bag ${serial}`,
     availableKg: available ? 25 : 0,
@@ -166,11 +166,11 @@ const INITIAL_PELLETS: PelletInventory[] = [
     type: 'Recycled',
     batchNo: 'TEST',
     grade: 'PE100',
-    color: 'Mixed',
+    color: 'Black',
     receivedDate: '2026-10-01',
     recyclingBatchRef: 'TEST-SEED-RECYCLED',
   }, { available: true, storageLocation: 'Recycled Pellet Storage' }).map((bag, index) =>
-    index < 3 ? { ...bag, color: ['Black', 'Blue', 'Green'][index] } : bag),
+    ({ ...bag, color: RECYCLED_PELLET_COLORS[index % RECYCLED_PELLET_COLORS.length] })),
 ];
 
 const makeFinishedPipes = (
@@ -254,6 +254,7 @@ const makePermanentPelletBags = (
   if (!isSupportedMaterialGrade(data.grade)) {
     throw new Error('INVALID PELLET GRADE — Select a supported material grade.');
   }
+  if (!newPelletColor(data.type, data.color)) throw new Error('Select a valid pellet color from the shared master.');
   const year = Number(data.receivedDate.slice(0, 4)) || new Date().getFullYear();
   const prefix = data.type === 'Virgin' ? 'PEL-V' : 'PEL-R';
   const permanentlyUsed = new Set([
@@ -627,7 +628,7 @@ interface AppContextValue extends AppState {
   rejectFinishedGood: (fgId: string, weightKg: number, reason: string) => { success: boolean; error?: string };
   releaseFinishedGood: (fgId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
   markFinishedGoodLoaded: (fgId: string) => boolean;
-  completeRecyclingBatch: (batchId: string, recoveredKg: number) => void;
+  completeRecyclingBatch: (batchId: string, recoveredKg: number, color: string) => void;
   updateRecyclingStage: (batchId: string, action: 'start-cutting' | 'complete-cutting' | 'submit-weight' | 'start-crushing' | 'complete-crushing' | 'start-pelletizing', weightKg?: number) => { success: boolean; error?: string };
   confirmRecyclingForCrushing: (batchId: string) => boolean;
 }
@@ -1510,7 +1511,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const numberOfBags = Math.max(0, Math.floor(data.numberOfBags));
       if (!activeLocationCodes(readStorageLocations()).includes(data.storageLocation as never)) return s;
       if (!numberOfBags || !isActiveMaterialGrade(normalizeMaterialGrade(data.grade))) return s;
-      if (data.pelletType === 'Recycled' && !data.color.trim()) return s;
+      const color = newPelletColor(data.pelletType, data.color);
+      if (!color) return s;
       const year = String(new Date().getFullYear());
       const currentYearNumbers = s.rrRecords
         .filter(item => item.rrNumber.startsWith(`RR-${year}-`))
@@ -1527,7 +1529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         material: 'HDPE Pellets',
         pelletType: data.pelletType,
         grade: normalizeMaterialGrade(data.grade),
-        color: pelletColor(data.pelletType, data.color),
+        color,
         batchNo,
         numberOfBags,
         weightPerBagKg: 25,
@@ -1574,6 +1576,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       transferNo = `MT-${year}-${String(next).padStart(4, '0')}`;
       const category = requestCategory(request);
       const isColorant = category === 'Colorant';
+      if (!isColorant && request.pelletType !== (category === 'Virgin Pellet' ? 'Virgin' : 'Recycled')) { transferNo = null; return s; }
+      const color = isColorant ? request.color : newPelletColor(request.pelletType, request.color);
+      if (!color) { transferNo = null; return s; }
       if (!isColorant && !isSupportedMaterialGrade(request.grade)) return s;
       const numberOfBags = isColorant ? undefined : Math.floor(request.requestedKg / 25);
       if (!isColorant && (!numberOfBags || numberOfBags < 1)) return s;
@@ -1588,7 +1593,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         materialCategory: category,
         pelletType: request.pelletType,
         grade: normalizeMaterialGrade(request.grade),
-        color: request.color,
+        color,
         colorantUsageType: request.colorantUsageType,
         colorantId: colorant?.id,
         batchNo,
@@ -1601,7 +1606,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         requestRef: request.refNo,
       };
       const bags = isColorant ? [] : makePermanentPelletBags(numberOfBags || 0, {
-        type: request.pelletType, batchNo, grade: normalizeMaterialGrade(request.grade), color: request.color,
+        type: request.pelletType, batchNo, grade: normalizeMaterialGrade(request.grade), color,
         receivedDate: '—', transferRef: transfer.refNo,
       }, s.barcodeRegistry, s.pellets, { available: false });
       return {
@@ -1990,7 +1995,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addMaterialRequest = useCallback((req: Omit<MaterialRequest, 'id'>) => {
     const category = requestCategory(req as MaterialRequest);
-    if (category === 'Recycled Pellet' && !req.color.trim()) return { success: false, error: 'Enter the recycled pellet color.' };
+    if (category !== 'Colorant' && req.pelletType !== (category === 'Virgin Pellet' ? 'Virgin' : 'Recycled')) return { success: false, error: 'Pellet Type must match the material category.' };
+    const color = category === 'Colorant' ? req.color : newPelletColor(req.pelletType, req.color);
+    if (!color) return { success: false, error: 'Select a valid recycled pellet color from the shared master.' };
     if (category !== 'Colorant' && !isActiveMaterialGrade(normalizeMaterialGrade(req.grade))) return { success: false, error: 'Select a supported material grade.' };
     let result: { success: boolean; requestRef?: string; error?: string } = { success: false, error: 'Unable to create Material Request.' };
     setState(s => {
@@ -2009,7 +2016,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return s;
       }
       const id = `mr${Date.now()}`;
-      const newReq: MaterialRequest = pelletDocumentColor({ ...req, grade: category === 'Colorant' ? req.grade : normalizeMaterialGrade(req.grade), id });
+      const newReq: MaterialRequest = { ...req, color, grade: category === 'Colorant' ? req.grade : normalizeMaterialGrade(req.grade), id };
       const notif: Notification = {
         id: `n${Date.now()}`, title: 'New Material Request',
         description: `${req.refNo} · ${category} · ${req.requestedKg} kg · ${req.destination || 'Branch Plant'} · Requested by ${req.requestedBy}`,
@@ -3073,14 +3080,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return released;
   }, []);
 
-  const completeRecyclingBatch = useCallback((batchId: string, recoveredKg: number) => {
+  const completeRecyclingBatch = useCallback((batchId: string, recoveredKg: number, outputColor: string) => {
     setState(s => {
+      const color = newPelletColor('Recycled', outputColor);
+      if (!color) return s;
       const batch = s.recyclingBatches.find(item => item.id === batchId);
       if (!batch || batch.status !== 'Pelletizing' || recoveredKg < 0 || recoveredKg > (batch.cutMaterialKg ?? batch.originalKg)) return s;
       const sourceGrade = normalizeMaterialGrade(
         s.productionOrders.find(item => item.poNo === batch.sourcePO)?.grade || 'PE100'
       );
       if (!isSupportedMaterialGrade(sourceGrade)) return s;
+      if (incompatibleRecycledCarry(s.recyclingBatches, batch, color, item => normalizeMaterialGrade(s.productionOrders.find(po => po.poNo === item.sourcePO)?.grade || 'PE100'))) return s;
       const carriedLooseKg = roundKg(s.recyclingBatches
         .filter(item =>
           item.id !== batchId
@@ -3095,13 +3105,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         recoveredKg,
       );
       const existingBags = s.pellets.filter(item => item.recyclingBatchRef === batch.batchNo);
+      if (existingBags.some(bag => normalizeRecycledPelletColor(bag.color) !== color)) return s;
       const bags = existingBags.length || !bagging.completeBags
         ? []
         : makePermanentPelletBags(bagging.completeBags, {
             type: 'Recycled',
             batchNo: batch.batchNo,
             grade: sourceGrade,
-            color: 'Mixed',
+            color,
             receivedDate: new Date().toISOString().slice(0, 10),
             recyclingBatchRef: batch.batchNo,
           }, s.barcodeRegistry, s.pellets);
@@ -3110,6 +3121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         recyclingBatches: s.recyclingBatches.map(item => item.id === batchId ? {
           ...item,
           status: 'Completed' as const,
+          color,
           recoveredKg: roundKg(recoveredKg),
           lossKg: metrics.recyclingProcessLossKg,
           recyclingProcessLossKg: metrics.recyclingProcessLossKg,

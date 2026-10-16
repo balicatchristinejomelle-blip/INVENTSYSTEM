@@ -26,6 +26,18 @@
 .inventory-bucket-table :is(th, td) { vertical-align: middle; }
 .operational-content .app-card:has(> .app-table) { min-width: 0; max-width: 100%; overflow-x: auto !important; }
 .record-filter-controls > .inventory-facet-panel { flex: 0 0 100%; }
+/* Only unbalanced 5/6/7/9-field grids; the working eight-field 4+4 stays intact. */
+@media (min-width: 1001px) {
+  @container (min-width: 741px) {
+    .operational-content .inventory-facet-grid:is([data-field-count="5"], [data-field-count="6"], [data-field-count="9"]) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .operational-content .inventory-facet-grid[data-field-count="5"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .operational-content .inventory-facet-grid[data-field-count="5"] > :nth-child(n) { grid-column: span 2; }
+    .operational-content .inventory-facet-grid[data-field-count="5"] > :nth-child(n + 4) { grid-column: span 3; }
+    .operational-content .inventory-facet-grid[data-field-count="7"] { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .operational-content .inventory-facet-grid[data-field-count="7"] > :nth-child(n) { grid-column: span 3; }
+    .operational-content .inventory-facet-grid[data-field-count="7"] > :nth-child(n + 5) { grid-column: span 4; }
+  }
+}
 @container (max-width: 740px) {
   .operational-content .inventory-facet-grid.product-filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inventory-facet-panel .active-filter-summary { grid-template-columns: minmax(0, 1fr) auto; }

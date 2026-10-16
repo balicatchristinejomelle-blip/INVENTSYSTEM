@@ -1,3 +1,4 @@
+import { reviewedPelletMasterAdditions } from './pellet-master-baseline.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -48,7 +49,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const oldWindow = globalThis.window, oldSession = globalThis.sessionStorage;
 try {
   // Audit all source files, not a hand-picked edit whitelist. Non-UI source is byte-guarded.
-  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file])) {
+  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file])) {
     const current = read(file), baseline = completeUIBaseline(file);
     if (current === baseline) check(`Unchanged source: ${file}`, () => assert.equal(current, baseline));
     else {

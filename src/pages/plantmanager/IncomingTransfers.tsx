@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
@@ -166,7 +167,7 @@ function IncomingTransfers() {
                         <td style={{ fontSize: 12 }}>{t.date}</td>
                         <td style={{ fontSize: 12 }}>{transferCategory(t)}</td>
                         <td style={{ fontSize: 12 }}>{t.grade}</td>
-                        <td style={{ fontSize: 12 }}>{t.color}</td>
+                        <td style={{ fontSize: 12 }}>{transferCategory(t) === 'Colorant' ? t.color : pelletColorLabel(t.pelletType, t.color)}</td>
                         <td>
                           <span className="font-mono" style={{ fontSize: 11 }}>
                             {t.batchNo}
@@ -220,7 +221,7 @@ function IncomingTransfers() {
               ['Date', detail.date],
               ['Material Category', transferCategory(detail)],
               [transferCategory(detail) === 'Colorant' ? 'Usage Type' : 'Grade', transferCategory(detail) === 'Colorant' ? (detail.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe Colorant' : 'Base Colorant') : detail.grade],
-              ['Color', detail.color],
+              ['Color', transferCategory(detail) === 'Colorant' ? detail.color : pelletColorLabel(detail.pelletType, detail.color)],
               ['Batch No.', detail.batchNo],
               ['Source', detail.source],
               ['Receiving Location', detail.receivingLocation || 'Not Yet Assigned'],

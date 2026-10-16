@@ -8,7 +8,7 @@ import { matchesRecord } from "../../components/RecordSearch"
 
 import React, { useState } from "react"
 
-import { calculateRecyclingMetrics, useApp } from '../../store';
+import { calculateRecyclingMetrics, normalizeMaterialGrade, useApp } from '../../store';
 
 import StatusBadge from "../../components/StatusBadge"
 
@@ -23,6 +23,8 @@ import Pagination, { pageRecords } from '../../components/Pagination';
 import DocumentViewer from "../../components/DocumentViewer"
 
 import { recyclingDocument } from "../../documentPrint"
+import PelletColorField from '../../components/PelletColorField';
+import { normalizeRecycledPelletColor, incompatibleRecycledCarry, pelletColorLabel } from '../../pelletColors';
 
 function BatchDetails({ batch }: { batch: RecyclingBatch }) {
   const metrics = batch.recoveredKg == null
@@ -38,6 +40,7 @@ function BatchDetails({ batch }: { batch: RecyclingBatch }) {
     ['Cut Material Weight', batch.cutMaterialKg == null ? '—' : `${batch.cutMaterialKg.toFixed(1)} kg`],
     ['Cutting Loss', batch.cuttingLossKg == null ? '—' : `${batch.cuttingLossKg.toFixed(1)} kg`],
     ['Recovered Pellet Weight', batch.recoveredKg == null ? '—' : `${batch.recoveredKg.toFixed(1)} kg`],
+    ['Recycled Pellet Color', pelletColorLabel('Recycled', batch.color)],
     ['Recycling Process Loss', metrics == null ? '—' : `${metrics.recyclingProcessLossKg.toFixed(1)} kg`],
     ['Total Recycling Loss', metrics == null ? '—' : `${metrics.totalRecyclingLossKg.toFixed(1)} kg`],
     ['Recovery Rate', metrics == null ? '—' : `${metrics.recoveryRate.toFixed(2)}%`],
@@ -72,6 +75,7 @@ export default function ProductionRecycling() {
   const [weightMode, setWeightMode] = useState<'cut' | 'recovered' | null>(null);
 
   const [weight, setWeight] = useState("")
+  const [outputColor, setOutputColor] = useState('');
 
   const [message, setMessage] = useState("")
 
@@ -119,7 +123,10 @@ export default function ProductionRecycling() {
       if (!result.success) return setMessage(result.error || 'The weight could not be submitted.');
     } else {
       if (value > (selected.cutMaterialKg ?? selected.originalKg)) return setMessage('Recovered weight cannot exceed the cut material weight.');
-      completeRecyclingBatch(selected.id, value);
+      if (!normalizeRecycledPelletColor(outputColor)) return setMessage('Select the actual recycled pellet color.');
+      if (incompatibleRecycledCarry(recyclingBatches, selected, outputColor, batch => normalizeMaterialGrade(app.productionOrders.find(po => po.poNo === batch.sourcePO)?.grade || 'PE100'))
+        || app.pellets.some(bag => bag.recyclingBatchRef === selected.batchNo && normalizeRecycledPelletColor(bag.color) !== outputColor)) return setMessage('Existing loose material or bags have a different or legacy color. Review the batch before completion; no material was recolored or regrouped.');
+      completeRecyclingBatch(selected.id, value, outputColor);
     }
     setWeight('');
     setWeightMode(null);
@@ -218,7 +225,7 @@ export default function ProductionRecycling() {
               {batch.status === 'Ready for Crushing' && <ActionButton className="btn-primary btn-compact" confirmMessage={`Start crushing batch ${batch.batchNo}? Confirm that the physical material and equipment are ready.`} onClick={() => runAction(batch.id, 'start-crushing')}>Start Crushing</ActionButton>}
               {batch.status === 'Crushing' && <ActionButton className="btn-primary btn-compact" confirmMessage={`Complete crushing batch ${batch.batchNo}? Confirm that physical crushing is finished.`} onClick={() => runAction(batch.id, 'complete-crushing')}>Complete Crushing</ActionButton>}
               {batch.status === 'Ready for Pelletizing' && <ActionButton className="btn-primary btn-compact" onClick={() => runAction(batch.id, 'start-pelletizing')}>Start Pelletizing</ActionButton>}
-              {batch.status === 'Pelletizing' && <button className="btn-primary btn-compact" onClick={() => { setSelectedId(batch.id); setWeightMode('recovered'); setWeight(''); }}>Complete Pelletizing</button>}
+              {batch.status === 'Pelletizing' && <button className="btn-primary btn-compact" onClick={() => { setSelectedId(batch.id); setWeightMode('recovered'); setWeight(''); setOutputColor(''); }}>Complete Pelletizing</button>}
             </div>
                   </td>
                 </tr>
@@ -236,7 +243,7 @@ export default function ProductionRecycling() {
       )}
 
       {selected && (
-        <Modal open title={`Recycling Batch — ${selected.batchNo}`} onClose={() => { setSelectedId(null); setWeightMode(null); setMessage(''); }} width="720px">
+        <Modal draft={{ weight, outputColor }} open title={`Recycling Batch — ${selected.batchNo}`} onClose={() => { setSelectedId(null); setWeightMode(null); setMessage(''); }} width="720px">
           <div className="page-stack">
             <div>
               <StatusBadge status={selected.status} />
@@ -254,6 +261,10 @@ export default function ProductionRecycling() {
           <input className="app-input" type="number" min="0.1" max={selected.cutMaterialKg ?? selected.originalKg} step="0.1" value={weight} onChange={event => setWeight(event.target.value)} />
           <span className="helper-text">Every complete 25 kg bag receives one barcode. Loose pellets remain unbarcoded.</span>
         </label>}
+            {weightMode === 'recovered' && <label className="block-label">Recycled Pellet Color
+              <PelletColorField type="Recycled" value={outputColor} onChange={setOutputColor} />
+              <span className="helper-text">A different or unknown carry-over color requires review. Existing bagging and loss calculations are unchanged.</span>
+            </label>}
             {message && <div className="alert-error">{message}</div>}
             <div className="form-actions">
               <button className="btn-secondary" onClick={() => setDocumentAction({ id: selected.id, autoPrint: false })}>View Document</button>

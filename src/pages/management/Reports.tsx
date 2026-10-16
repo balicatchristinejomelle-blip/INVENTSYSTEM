@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -591,7 +592,7 @@ function Reports() {
                       <td className="font-mono">
                         {p.availableKg.toFixed(1)} kg
                       </td>
-                      <td>{p.color}</td>
+                      <td>{pelletColorLabel(p.type, p.color)}</td>
                       <td>
                         <span className="badge-green">Available</span>
                       </td>

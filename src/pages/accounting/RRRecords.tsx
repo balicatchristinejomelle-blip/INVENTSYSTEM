@@ -30,6 +30,8 @@ import { MATERIAL_GRADES } from "../../inventoryCategories"
 import DocumentViewer from "../../components/DocumentViewer"
 
 import { receivingReportDocument } from '../../documentPrint';
+import PelletColorField from '../../components/PelletColorField';
+import { newPelletColor, pelletColorLabel } from '../../pelletColors';
 
 export default function RRRecords() {
   const app = useApp();
@@ -81,7 +83,7 @@ export default function RRRecords() {
   )
 
   const submitRR = () => {
-    if (form.pelletType === 'Recycled' && !form.color.trim()) { setFormError('Enter the recycled pellet color.'); return; }
+    if (!newPelletColor(form.pelletType, form.color)) { setFormError('Select a valid recycled pellet color.'); return; }
     if (!form.storageLocation) { setFormError('Storage Location is required.'); return; }
     const numberOfBags = Number(form.numberOfBags);
     if (!Number.isInteger(numberOfBags) || numberOfBags < 1 || !form.supplier.trim() || !form.referenceNo.trim()) {
@@ -158,7 +160,7 @@ export default function RRRecords() {
           )}
           <div className="app-card" style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {[['RR Number', viewRR.rrNumber], ['Date', viewRR.date], ['Material', viewRR.material], ['Pellet Type', viewRR.pelletType], ['Grade', viewRR.grade], ['Color', viewRR.color], ['Batch/Lot No.', viewRR.batchNo], ['Number of Bags', viewRR.numberOfBags || viewRR.weightKg / 25], ['Weight per Bag', `${viewRR.weightPerBagKg || 25} kg`], ['Total Weight', `${viewRR.weightKg} kg`], ['Supplier/Vendor', viewRR.supplier], ['Reference No.', viewRR.referenceNo], ['Destination', viewRR.destination], ['Storage Location', viewRR.receivingLocation || 'Not Yet Assigned'], ['Status', null]].map(([label, value]) => (
+              {[['RR Number', viewRR.rrNumber], ['Date', viewRR.date], ['Material', viewRR.material], ['Pellet Type', viewRR.pelletType], ['Grade', viewRR.grade], ['Color', pelletColorLabel(viewRR.pelletType, viewRR.color)], ['Batch/Lot No.', viewRR.batchNo], ['Number of Bags', viewRR.numberOfBags || viewRR.weightKg / 25], ['Weight per Bag', `${viewRR.weightPerBagKg || 25} kg`], ['Total Weight', `${viewRR.weightKg} kg`], ['Supplier/Vendor', viewRR.supplier], ['Reference No.', viewRR.referenceNo], ['Destination', viewRR.destination], ['Storage Location', viewRR.receivingLocation || 'Not Yet Assigned'], ['Status', null]].map(([label, value]) => (
                 <div key={label}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
                     {label}
@@ -285,7 +287,7 @@ export default function RRRecords() {
             </label>
             <label>
               Color
-              <input className="app-input" value={form.color} readOnly={form.pelletType === 'Virgin'} required placeholder="Enter actual recycled color" onChange={e => setForm({ ...form, color: e.target.value })} />
+              <PelletColorField type={form.pelletType} value={form.color} onChange={color => setForm({ ...form, color })} />
             </label>
             <label>
               Number of 25 kg Bags

@@ -8,7 +8,7 @@ import SearchableDropdown from "../../components/SearchableDropdown"
 
 import React, { useEffect, useMemo, useState } from "react"
 import { DEFAULT_STORAGE_LOCATIONS, STORAGE_LOCATION_TYPES, finishedGoodsSummary } from '../../finishedGoodsInventory';
-import { normalizeLocationMaster } from '../../locationMaster';
+import { normalizeLocationMaster, LOCATION_CODES } from '../../locationMaster';
 
 import { useApp } from "../../store"
 
@@ -194,8 +194,10 @@ export default function Settings() {
   };
 
   const createLocation = () => {
-    if (!locationForm.name.trim()) return notifySaved('Location Name is required.');
-    const item: StorageLocation = { id: `loc-${Date.now()}`, ...locationForm, name: locationForm.name.trim(), status: 'Active' };
+    const code = locationForm.name.trim().toUpperCase();
+    if (!LOCATION_CODES.includes(code as never)) return notifySaved('Select a canonical Storage Location from A–I.');
+    if (locations.some(location => (location.code || location.name) === code)) return notifySaved('That Storage Location already exists.');
+    const item: StorageLocation = { id: `loc-${Date.now()}`, ...locationForm, name: code, code, status: 'Active' };
     setLocations(items => [item, ...items]); setShowLocationForm(false); notifySaved(`Storage Location ${item.name} created.`);
   };
 
@@ -417,10 +419,10 @@ export default function Settings() {
                     <td>{location.locationType}</td>
                     <td>{location.description || "—"}</td>
                     <td>
-                      <StatusBadge status={location.status} />
+                      <StatusBadge status={LOCATION_CODES.includes((location.code || location.name) as never) ? location.status : 'Legacy (read-only)'} />
                     </td>
                     <td>
-                      {location.status === 'Active' && <button className="btn-secondary btn-compact" onClick={() => setDeactivate({ kind: 'location', id: location.id, label: location.name })}>Deactivate</button>}
+                      {location.status === 'Active' && LOCATION_CODES.includes((location.code || location.name) as never) && <button className="btn-secondary btn-compact" onClick={() => setDeactivate({ kind: 'location', id: location.id, label: location.name })}>Deactivate</button>}
                     </td>
                   </tr>
                 ))}
@@ -630,7 +632,7 @@ export default function Settings() {
         <div className="form-grid">
           <label>
             Location Name *
-            <input className="app-input" value={locationForm.name} onChange={event => setLocationForm(value => ({ ...value, name: event.target.value }))} />
+            <SearchableDropdown className="app-select" value={locationForm.name} onChange={event => setLocationForm(value => ({ ...value, name: event.target.value }))}><option value="">Select A–I</option>{LOCATION_CODES.map(code => <option key={code}>{code}</option>)}</SearchableDropdown>
           </label>
           <label>
             Plant *
