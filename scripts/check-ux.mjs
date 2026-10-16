@@ -1,3 +1,4 @@
+import { reviewedPelletMasterAdditions } from './pellet-master-baseline.mjs';
 import { restoreDatePeriodFile } from './date-period-baseline.mjs';
 import { reviewedSummaryColorsAdditions } from './summary-colors-baseline.mjs';
 import assert from 'node:assert/strict';
@@ -85,7 +86,7 @@ const check = (label, fn) => { fn(); count++; console.log(`PASS ${label}`); };
 const server = await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'});
 const oldWindow = globalThis.window, oldSession = globalThis.sessionStorage;
 try {
-  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file])) {
+  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file])) {
     const current = read(file), baseline = uxBaseline(file);
     if (current === baseline) check(`Protected source byte-for-byte unchanged: ${file}`, () => assert.equal(current,baseline));
     else {

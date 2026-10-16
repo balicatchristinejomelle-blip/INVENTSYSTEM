@@ -7,10 +7,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { SUMMARY_COLORS_BASELINE, reviewedSummaryColorsDeltas, reviewedSummaryColorsAdditions, summaryColorsBaseline, restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 
 let checks = 0;
 const check = (label, fn) => { fn(); checks++; console.log('PASS ' + label); };
-const raw = file => fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+const raw = file => restorePelletMasterFile(file, fs.readFileSync(file, 'utf8'));
 for(const[file,digest]of Object.entries(reviewedSummaryColorsAdditions))check('Exact reviewed new module, independently exercised below: '+file,()=>{
   assert.equal(createHash('sha256').update(raw(file)).digest('hex'),digest);
   assert.doesNotMatch(raw(file),/localStorage|setState|Math\.random|fetch\(|supabase/);
@@ -18,7 +19,7 @@ for(const[file,digest]of Object.entries(reviewedSummaryColorsAdditions))check('E
 for (const file of execFileSync('git', ['ls-tree','-r','--name-only',SUMMARY_COLORS_BASELINE,'src'], { encoding:'utf8' }).trim().split('\n').filter(file=>/\.(tsx?|css)$/.test(file))) {
   check('Original source unchanged or exact reviewed summary/color delta: ' + file, () => {
     assert.equal(restoreSummaryColorsFile(file, raw(file)), summaryColorsBaseline(file));
-    if (reviewedSummaryColorsDeltas[file]) assert.throws(() => restoreSummaryColorsFile(file, raw(file) + '\n// unexpected'), /Unreviewed summary\/color delta/);
+    if (reviewedSummaryColorsDeltas[file]) assert.throws(() => restoreSummaryColorsFile(file, raw(file) + '\n// unexpected'), /Unreviewed (summary\/color|pellet-master) delta/);
   });
 }
 function callbacks(source) {
@@ -59,10 +60,10 @@ try {
     assert.ok(baseline.pellets.filter(bag=>bag.type==='Virgin').every(bag=>bag.color==='White'));
     for(const key of ['rrRecords','materialRequests','transfers'])assert.ok(baseline[key].filter(row=>row.pelletType==='Virgin'&&row.materialCategory!=='Colorant').every(row=>row.color==='White'));
   });
-  check('Fresh Recycled seed has Black/Blue/Green/Mixed with exactly the same forty bags and 1000 kg',()=>{
+  check('Fresh Recycled seed has the full allowed master, with the same forty bags and 1000 kg',()=>{
     const bags=baseline.pellets.filter(bag=>bag.type==='Recycled');
     assert.equal(bags.length,40);assert.equal(bags.reduce((sum,bag)=>sum+bag.availableKg,0),1000);
-    assert.deepEqual([...new Set(bags.map(bag=>bag.color))],['Black','Blue','Green','Mixed']);
+    assert.deepEqual([...new Set(bags.map(bag=>bag.color))],['Black','Blue','Orange','Red Orange','Green']);
   });
   for(const color of ['Black','Blue','Green','Mixed','White','Custom recycled amber']){
     check('Preserve actual Recycled color: '+color,()=>assert.equal(colors.pelletColor('Recycled',color),color));
@@ -73,7 +74,7 @@ try {
   modified.pellets.forEach(bag=>delete bag.recyclingBatchRef);
   modified.pellets.push({...baseline.pellets.filter(bag=>bag.type==='Recycled')[3],color:''});
   const restored=load(modified);
-  check('Saved user colors preserved; unknown recycled color honest, no White/Mixed guessing',()=>assert.deepEqual(restored.pellets.map(bag=>bag.color),['White','Custom amber','Not specified','White','Black']));
+  check('Saved user colors preserved; unknown recycled color honest, no White/Mixed guessing',()=>assert.deepEqual(restored.pellets.map(bag=>bag.color),['White','Custom amber','Not specified','White','Not specified']));
   check('Hydration changes only pellet color metadata; no quantities, IDs, labels, histories or unrelated collections',()=>{
     for(let i=0;i<modified.pellets.length;i++){const {color:before,...a}=modified.pellets[i],{color:after,...b}=restored.pellets[i];assert.deepEqual(b,a);}
     for(const key of ['finishedGoods','orders','manufacturingOrders','productionOrders','transactions','auditLogs','attendance','turnovers','colorants','rejectedMaterials','recyclingBatches'])assert.deepEqual(restored[key],modified[key],key);
@@ -94,10 +95,10 @@ try {
     const record={type:color==='White'?'Virgin':'Recycled',color,availableKg:25,currentLocation:'D'};
     assert.ok(search.matchesRecord(record,color));assert.ok(filters.matchesInventoryColor(record.color,color));
     assert.ok(facets.matchesFacets(facets.inventoryFacetRow(record),{color}));
-    assert.ok(colors.materialColorOptions([record]).includes(color));
+    assert.equal(colors.materialColorOptions('All').includes(color),['White','Black','Blue','Green'].includes(color));
   });
   check('Zero-stock master pellet colors include White and non-White without altering pipe master',()=>{
-    assert.ok(colors.materialColorOptions([]).includes('White'));assert.ok(colors.materialColorOptions([]).includes('Green'));
+    assert.ok(colors.materialColorOptions('Virgin').includes('White'));assert.ok(colors.materialColorOptions('Recycled').includes('Green'));
     assert.equal(raw('src/productMaster.ts'),summaryColorsBaseline('src/productMaster.ts'));
   });
   const counts=inventory.finishedGoodsSummary(baseline.finishedGoods,baseline);

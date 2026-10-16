@@ -7,6 +7,7 @@ import ts from 'typescript';
 import { createServer } from 'vite';
 import { SMART_INVENTORY_BASELINE, SMART_INVENTORY_NEW_FILES, reviewedSmartInventoryDeltas, smartInventoryBaseline, restoreSmartInventoryFile } from './smart-inventory-baseline.mjs';
 import { restoreRecoveryFile } from './recovery-baseline.mjs';
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 
 let checks = 0;
 const check = (label, run) => { run(); checks++; console.log('PASS ' + label); };
@@ -30,7 +31,7 @@ for (const file of files) {
   });
   if (/\.(tsx?|ts)$/.test(file) && current !== before) check('Original business action arguments retained: '+file,()=>assert.deepEqual(actionCalls(current),actionCalls(before)));
 }
-check('Master-based creation/zero-stock selector body retained exactly',()=>assert.equal(functionBody(raw('src/components/ProductFilters.tsx'),'MasterProductFilters'),functionBody(smartInventoryBaseline('src/components/ProductFilters.tsx'),'ProductFilters')));
+check('Pre-final master selector logic retained except reviewed length/reset labels',()=>assert.equal(functionBody(restorePelletMasterFile('src/components/ProductFilters.tsx',raw('src/components/ProductFilters.tsx')),'MasterProductFilters'),functionBody(smartInventoryBaseline('src/components/ProductFilters.tsx'),'ProductFilters')));
 for(const file of SMART_INVENTORY_NEW_FILES) check('New facet module has no business writes: '+file,()=>assert.doesNotMatch(raw(file),/localStorage|Math\.random|Stock In|Stock Out|\.clear\(|fetch\(|supabase|createReceivingReport|updateFinishedGoodStorage/));
 
 const server=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'});

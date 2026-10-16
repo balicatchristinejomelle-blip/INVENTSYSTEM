@@ -12,6 +12,11 @@ export function productFilterSizes(product: string, specifications: readonly Pro
   return product && product !== 'All' ? sizesForProduct(product, polytube)
     : [...new Set([...HPAI_PRODUCT_MASTER.standardDiameters, ...HPAI_PRODUCT_MASTER.ctsSizes, ...HPAI_PRODUCT_MASTER.spiralPipeSizes, ...polytube])];
 }
+/** Product Form compatibility is master-backed, even when there are no records. */
+export function productFilterLengths(form?: string) {
+  return form === 'Straight Length' ? HPAI_PRODUCT_MASTER.straightLengths : form === 'Coil' ? HPAI_PRODUCT_MASTER.coilLengths
+    : [...HPAI_PRODUCT_MASTER.straightLengths, ...HPAI_PRODUCT_MASTER.coilLengths];
+}
 /** Enrich only the supplied, already-authorized record. Relationships provide specification context, not new result records. */
 export function productFilterRecord(record: unknown, data: PipeRelationships & { finishedGoods?: FinishedGood[] }): Record<string, unknown> {
   if (!record || typeof record !== 'object') return {};

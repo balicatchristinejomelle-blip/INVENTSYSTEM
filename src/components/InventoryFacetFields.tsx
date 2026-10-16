@@ -9,7 +9,12 @@ export default function InventoryFacetFields({ rows, fields, value, onChange }: 
   rows: readonly FacetRow[]; fields: readonly InventoryFacetField[]; value: FacetSelection; onChange: (next: FacetSelection) => void;
 }) {
   const locationField = fields.find(field => field.key === 'location');
-  const location = resolveInventoryLocations(rows, value, locationField?.options || []);
+  const resolvedLocation = resolveInventoryLocations(rows, value, locationField?.options || []);
+  // Master validity only; the existing unique/multiple/zero-stock resolver is unchanged.
+  const allowedLocations = resolvedLocation.options.filter(option => locationField?.options.includes(option));
+  const location = { ...resolvedLocation, options: allowedLocations,
+    location: locationField?.options.includes(resolvedLocation.location) ? resolvedLocation.location : '',
+    label: allowedLocations.length || resolvedLocation.label === 'All Locations' ? resolvedLocation.label : 'No Matching Locations' };
   const context = JSON.stringify([Object.entries(value).filter(([key]) => ['product', 'grade', 'color', 'size', 'sdr', 'length'].includes(key)), location.options]);
   const clearedLocationContext = useRef<string | null>(null);
   useEffect(() => {
@@ -21,7 +26,8 @@ export default function InventoryFacetFields({ rows, fields, value, onChange }: 
     if (key === 'location') clearedLocationContext.current = selected ? null : context;
     if (locationField && ['product', 'grade', 'color', 'size', 'sdr', 'length'].includes(key)) {
       clearedLocationContext.current = null;
-      next.location = resolveInventoryLocations(rows, next, locationField.options).location;
+      const proposed = resolveInventoryLocations(rows, next, locationField.options).location;
+      next.location = locationField.options.includes(proposed) ? proposed : '';
     }
     onChange(next);
   };

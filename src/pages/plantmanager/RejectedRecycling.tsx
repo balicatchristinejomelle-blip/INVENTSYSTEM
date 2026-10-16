@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import { TableBody } from '../../components/UXFeedback';
 import { DismissButton } from '../../components/ActionButton';
 import ActionButton from '../../components/ActionButton';
@@ -68,6 +69,7 @@ function RejectedRecycling() {
       ['Cut Material Weight', batch.cutMaterialKg == null ? '—' : `${batch.cutMaterialKg.toFixed(1)} kg`],
       ['Cutting Loss', batch.cuttingLossKg == null ? '—' : `${batch.cuttingLossKg.toFixed(1)} kg`],
       ['Recovered Pellet Weight', batch.recoveredKg == null ? '—' : `${batch.recoveredKg.toFixed(1)} kg`],
+      ['Recycled Pellet Color', pelletColorLabel('Recycled', batch.color)],
       ['Recycling Process Loss', metrics == null ? '—' : `${metrics.recyclingProcessLossKg.toFixed(1)} kg`],
       ['Total Recycling Loss', metrics == null ? '—' : `${metrics.totalRecyclingLossKg.toFixed(1)} kg`],
       ['Recovery Rate', metrics == null ? '—' : `${metrics.recoveryRate.toFixed(2)}%`],

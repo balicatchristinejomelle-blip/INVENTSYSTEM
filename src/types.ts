@@ -397,6 +397,8 @@ export interface RejectedMaterial {
 }
 
 export interface RecyclingBatch {
+  /** Actual output color; absent on historical unclassified batches. */
+  color?: string;
   id: string;
   batchNo: string;
   originalKg: number;

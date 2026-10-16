@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import RecordReference from '../../components/RecordReference';
 import { DismissButton } from '../../components/ActionButton';
 import ActionButton from '../../components/ActionButton';
@@ -73,7 +74,7 @@ function PelletDetailModal({ pellet, onClose }: DetailModalProps) {
             </span>
           } />
           <LabelValue label="Grade" value={pellet.grade} />
-          <LabelValue label="Color" value={pellet.color} />
+          <LabelValue label="Color" value={pelletColorLabel(pellet.type, pellet.color)} />
           <LabelValue label="Received Date" value={pellet.receivedDate} mono />
           <LabelValue label="Transfer Ref" value={pellet.transferRef || '—'} mono />
           <LabelValue label="Current Location" value={pellet.currentLocation || 'Not Yet Assigned'} />
@@ -163,7 +164,7 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <LabelValue label="Batch No." value={pellet.batchNo} mono />
             <LabelValue label="Grade" value={pellet.grade} />
-            <LabelValue label="Color" value={pellet.color} />
+            <LabelValue label="Color" value={pelletColorLabel(pellet.type, pellet.color)} />
             <LabelValue
               label="Available"
               value={
@@ -367,7 +368,7 @@ export default function Pellets() {
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, batch, product, PO, reference, or location..." />
         <CategoryTabs items={MATERIAL_CATEGORIES} value={category} onChange={next => { setCategory(next); setPage(1); }} label="Production material category" />
         {category === 'Colorants' && <CategoryTabs items={['All', 'Base Colorant', 'Stripe Colorant'] as const} value={colorantType} onChange={value => { setColorantType(value); setPage(1); }} label="Colorant usage type" />}
-        <MaterialLocationFilters records={(category === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) && matchesRecord(item, search)) : pellets.filter(item => item.type === selectedType && item.inventoryStatus !== 'Pending Receipt' && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, search)))} status={lifecycle} onStatusChange={category === 'Colorants' ? undefined : value => { setLifecycle(value as typeof lifecycle); setPage(1); }} statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'} grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
+        <MaterialLocationFilters pelletType={category === 'Colorants' ? 'Colorant' : selectedType} records={(category === 'Colorants' ? colorants.filter(item => dateInPeriod(item.lastUpdated, period.range) && (colorantType === 'All' || item.usageType === (colorantType === 'Base Colorant' ? 'BASE_COLORANT' : 'STRIPE_COLORANT')) && matchesRecord(item, search)) : pellets.filter(item => item.type === selectedType && item.inventoryStatus !== 'Pending Receipt' && dateInPeriod(item.receivedDate, period.range) && matchesRecord(item, search)))} status={lifecycle} onStatusChange={category === 'Colorants' ? undefined : value => { setLifecycle(value as typeof lifecycle); setPage(1); }} statusFor={item => ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus) ? 'Open / WIP' : item.inventoryStatus === 'Fully Consumed' ? 'Fully Consumed' : 'Available'} grade={grade} onGradeChange={category === 'Colorants' ? undefined : value => { setGrade(value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />
       </div>
 
       {!activePO && (
@@ -472,7 +473,7 @@ export default function Pellets() {
                       </span>
                     </td>
                       <td style={{ fontSize: 13 }}>{pellet.grade}</td>
-                      <td style={{ fontSize: 13 }}>{pellet.color}</td>
+                      <td style={{ fontSize: 13 }}>{pelletColorLabel(pellet.type, pellet.color)}</td>
                       <td>{inventoryLocationLabel(pellet)}</td>
                       <td style={{ textAlign: 'right' }}>
                       <span

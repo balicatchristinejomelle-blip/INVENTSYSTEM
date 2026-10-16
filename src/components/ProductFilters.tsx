@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import SearchableSelect from './SearchableSelect';
 import { HPAI_PRODUCT_MASTER } from '../productMaster';
 import { readPipeSpecifications } from '../finishedPipeRelations';
-import { emptyProductFilter, matchesProductFilter, productFilterRecord, productFilterSizes, type ProductFilter } from '../productFilters';
+import { emptyProductFilter, matchesProductFilter, productFilterRecord, productFilterSizes, productFilterLengths, type ProductFilter } from '../productFilters';
 import InventoryFacetFields, { type InventoryFacetField } from './InventoryFacetFields';
 import { inventoryFacetRow } from '../inventoryFacets';
 import { finishedPipeInventory, STORAGE_PURPOSES } from '../finishedGoodsInventory';
@@ -21,6 +21,7 @@ export function useProductFilters(onChange?: () => void, viewKey = 'product-filt
   return { value, change, reset: () => change({ ...emptyProductFilter }), matches: (record: unknown, overrides: Partial<ProductFilter> = {}) => matchesProductFilter(record, { ...value, ...overrides }, app) };
 }
 interface ProductFiltersProps {
+  productForm?: 'Straight Length' | 'Coil';
   materialColors?: boolean;
   value: ProductFilter; onChange: (next: ProductFilter) => void; product?: string; grade?: string; onProductChange?: (product: string) => void; onGradeChange?: (grade: string) => void; includeProduct?: boolean; includeGrade?: boolean; includeLength?: boolean; includeColor?: boolean; includeLocation?: boolean;
   records?: readonly unknown[]; purpose?: string; onPurposeChange?: (value: string) => void; status?: string; onStatusChange?: (value: string) => void;
@@ -32,17 +33,20 @@ function InventoryProductFilters(props: ProductFiltersProps) {
   const specifications = readPipeSpecifications();
   const sizes = productFilterSizes(onProductChange ? product || '' : props.includeProduct ? value.product : product || '', specifications);
   useEffect(() => {
+    if (props.materialColors && value.color && !materialColorOptions('All').includes(value.color)) onChange({ ...value, color: '' });
+  }, [props.materialColors, value.color]);
+  useEffect(() => {
     if (value.size && !sizes.includes(value.size)) onChange({ ...value, size: '' });
   }, [product, value.product]);
   const fields: InventoryFacetField[] = [
     ...((props.includeProduct || onProductChange) ? [{ key: 'product', label: 'Product', options: HPAI_PRODUCT_MASTER.products }] : []),
     ...((props.includeGrade || onGradeChange) ? [{ key: 'grade', label: 'Material Grade', options: HPAI_PRODUCT_MASTER.materialGrades }] : []),
-    ...(props.includeColor ? [{ key: 'color', label: 'Color', options: props.materialColors ? materialColorOptions(props.records) : HPAI_PRODUCT_MASTER.pipeColors }] : []),
+    ...(props.includeColor ? [{ key: 'color', label: 'Color', options: props.materialColors ? materialColorOptions('All') : HPAI_PRODUCT_MASTER.pipeColors }] : []),
     { key: 'size', label: 'Size / Diameter', options: sizes }, { key: 'sdr', label: 'SDR / Thickness', options: HPAI_PRODUCT_MASTER.sdrRatings },
     ...(props.includeLocation ? [{ key: 'location', label: 'Location', options: filterLocationCodes(readStorageLocations()) }] : []),
+    ...(props.includeLength ? [{ key: 'length', label: 'Length / Coil Length', options: productFilterLengths(props.productForm) }] : []),
     ...(props.onPurposeChange ? [{ key: 'purpose', label: 'Storage Purpose', options: STORAGE_PURPOSES }] : []),
     ...(props.onStatusChange ? [{ key: 'status', label: 'Status', options: props.statusOptions || ['Quality Pending', 'Awaiting Storage', 'Stored', 'Available', 'Reserved', 'Ready for Release', 'Shipped Out', 'Quality Reject', 'Low Stock'], display: props.statusLabel }] : []),
-    ...(props.includeLength ? [{ key: 'length', label: 'Length / Coil Length', options: [...HPAI_PRODUCT_MASTER.straightLengths, ...HPAI_PRODUCT_MASTER.coilLengths] }] : []),
   ];
   const rows = props.records!.map(record => inventoryFacetRow(productFilterRecord(record, app), {
     ...(props.statusFor ? { status: props.statusFor(record) } : {}),
@@ -65,7 +69,7 @@ function InventoryProductFilters(props: ProductFiltersProps) {
 export default function ProductFilters(props: ProductFiltersProps) {
   return props.records ? <InventoryProductFilters {...props} /> : <MasterProductFilters {...props} />;
 }
-function MasterProductFilters({ value, onChange, product = '', grade = '', onProductChange, onGradeChange, includeProduct = false, includeGrade = false, includeLength = false, includeColor = false, includeLocation = false }: ProductFiltersProps) {
+function MasterProductFilters({ value, onChange, product = '', grade = '', onProductChange, onGradeChange, includeProduct = false, includeGrade = false, includeLength = false, includeColor = false, includeLocation = false, productForm }: ProductFiltersProps) {
   const specifications = readPipeSpecifications();
   const sizes = productFilterSizes(onProductChange ? product : includeProduct ? value.product : product, specifications);
   useEffect(() => {
@@ -73,7 +77,7 @@ function MasterProductFilters({ value, onChange, product = '', grade = '', onPro
   }, [product, value.product]);
   const field = (key: keyof ProductFilter, label: string, options: readonly string[]) => <label key={key} className="product-filter-field">
     <span className="field-label">{label}</span>
-    <SearchableSelect value={key === 'product' && onProductChange ? product === 'All' ? '' : product : key === 'grade' && onGradeChange ? grade === 'All' ? '' : grade : value[key] || ''} options={options} ariaLabel={label} placeholder={key === 'grade' ? 'All Material Grades' : key === 'color' ? 'All Colors' : key === 'location' ? 'All Locations' : `Select ${label}`} searchPlaceholder={`Search ${label}...`} onChange={selected => {
+    <SearchableSelect value={key === 'product' && onProductChange ? product === 'All' ? '' : product : key === 'grade' && onGradeChange ? grade === 'All' ? '' : grade : value[key] || ''} options={options} ariaLabel={label} placeholder={{ product: 'All Products', grade: 'All Material Grades', color: 'All Colors', size: 'All Sizes', sdr: 'All SDRs', location: 'All Locations', length: 'All Lengths' }[key]} searchPlaceholder={`Search ${label}...`} onChange={selected => {
       if (key === 'product' && onProductChange) { onProductChange(selected || 'All'); return; }
       if (key === 'grade' && onGradeChange) { onGradeChange(selected || 'All'); return; }
       const next = { ...value, [key]: selected };
@@ -92,6 +96,6 @@ function MasterProductFilters({ value, onChange, product = '', grade = '', onPro
     {field('size', 'Size / Diameter', sizes)}
     {field('sdr', 'SDR / Thickness', HPAI_PRODUCT_MASTER.sdrRatings)}
     {includeLocation && field('location', 'Location', ['All Locations', ...activeLocationCodes(readStorageLocations())])}
-    {includeLength && field('length', 'Length / Coil Length', [...HPAI_PRODUCT_MASTER.straightLengths, ...HPAI_PRODUCT_MASTER.coilLengths])}
+    {includeLength && field('length', 'Length / Coil Length', productFilterLengths(productForm))}
   </div></>;
 }

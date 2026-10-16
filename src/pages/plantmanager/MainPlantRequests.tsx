@@ -37,6 +37,8 @@ import { materialRequestDocument } from '../../documentPrint';
 import Pagination, { pageRecords } from '../../components/Pagination';
 
 import SearchableSelect from '../../components/SearchableSelect';
+import PelletColorField from '../../components/PelletColorField';
+import { normalizeRecycledPelletColor, pelletColorLabel } from '../../pelletColors';
 
 type RequestTab = "All" | MaterialRequestCategory
 
@@ -96,7 +98,7 @@ export default function MainPlantRequests() {
       setCategory(intent.category);
       if (intent.grade) setGrade(intent.grade);
       if (intent.color) setColor(intent.color);
-      if (intent.category === 'Recycled Pellet' && intent.color) setRecycledColor(intent.color);
+      if (intent.category === 'Recycled Pellet' && intent.color) setRecycledColor(normalizeRecycledPelletColor(intent.color));
       if (intent.usageType) setUsageType(intent.usageType);
       if (intent.category === 'Colorant') setQuantityKg(String(intent.suggestedKg));
       else setBags(String(intent.bags || Math.ceil(intent.suggestedKg / 25)));
@@ -148,6 +150,7 @@ export default function MainPlantRequests() {
 
   const chooseCategory = (next: MaterialRequestCategory) => {
     setCategory(next);
+    setRecycledColor('');
     setError('');
     if (next === 'Colorant' && selectedPO) {
       setUsageType('BASE_COLORANT');
@@ -156,7 +159,7 @@ export default function MainPlantRequests() {
   };
 
   const submit = () => {
-    if (category === 'Recycled Pellet' && !recycledColor.trim()) { setError('Enter the recycled pellet color.'); return; }
+    if (category === 'Recycled Pellet' && !normalizeRecycledPelletColor(recycledColor)) { setError('Select a valid recycled pellet color.'); return; }
     if (category !== 'Colorant' && (!Number.isInteger(requestedBags) || requestedBags <= 0)) {
       setError('Requested complete bags must be a positive whole number.');
       return;
@@ -265,6 +268,7 @@ export default function MainPlantRequests() {
           <div className="responsive-grid">
           <Info label="Category" value={requestCategory(detail)} />
           <Info label="Requested By" value={detail.requestedBy} />
+          {requestCategory(detail) !== 'Colorant' && <Info label="Pellet Color" value={pelletColorLabel(detail.pelletType, detail.color)} />}
           {requestCategory(detail) === 'Colorant' ? <>
             <Info label="Usage" value={detail.colorantUsageType === 'STRIPE_COLORANT' ? 'Stripe Colorant' : 'Base Colorant'} />
             <Info label="Color" value={detail.color} />
@@ -351,7 +355,7 @@ export default function MainPlantRequests() {
               <input className="app-input" type="number" min="1" step="1" value={bags} onChange={event => setBags(event.target.value)} />
             </label>
                 <label>Pellet Color
-                  <input className="app-input" readOnly={category === 'Virgin Pellet'} value={category === 'Virgin Pellet' ? 'White' : recycledColor} required placeholder="Enter actual recycled color" onChange={event => setRecycledColor(event.target.value)} />
+                  <PelletColorField type={category === 'Virgin Pellet' ? 'Virgin' : 'Recycled'} value={recycledColor} onChange={setRecycledColor} />
                 </label>
                 <Info label="Weight Per Bag" value="25 kg fixed" />
                 <Info label="Total Requested Weight" value={`${Number.isFinite(requestedKg) ? requestedKg : 0} kg (automatic)`} />

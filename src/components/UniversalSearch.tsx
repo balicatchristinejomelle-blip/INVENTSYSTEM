@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../pelletColors';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp, USERS } from "../store"
 import type {
@@ -162,7 +163,7 @@ export function buildUniversalIndex(
     },
     (item) => [
       item.barcode || item.bagNo,
-      `${item.type} · ${item.grade} · ${item.batchNo} · ${item.inventoryStatus} · ${item.currentLocation}`,
+      `${item.type} · ${item.grade} · ${pelletColorLabel(item.type, item.color)} · ${item.batchNo} · ${item.inventoryStatus} · ${item.currentLocation}`,
     ],
   )
   add(

@@ -1,3 +1,4 @@
+import { pelletColorLabel } from '../../pelletColors';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import RecordReference from '../../components/RecordReference';
@@ -178,7 +179,7 @@ export default function OwnerRecords() {
         date: item.receivedDate,
         reference: item.barcode,
         module: `${item.type} Pellet`,
-        detail: `${item.batchNo} · ${item.color}`,
+        detail: `${item.batchNo} · ${pelletColorLabel(item.type, item.color)}`,
         quantity: `${item.availableKg} kg`,
         status: item.inventoryStatus,
         grade: item.grade,
@@ -399,7 +400,7 @@ export default function OwnerRecords() {
             </SearchableDropdown></label>
           )}
         </div>}
-        {inventoryArea && !productArea && <MaterialLocationFilters records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).flatMap(row => row.material ? [{ ...row.material, status: row.status }] : [])}
+        {inventoryArea && !productArea && <MaterialLocationFilters pelletType={section === 'Colorants' ? 'Colorant' : 'All'} records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).flatMap(row => row.material ? [{ ...row.material, status: row.status }] : [])}
           status={status} statusOptions={statuses} onStatusChange={value => { setStatus(value === 'All' ? 'All Statuses' : value); setPage(1); }} statusFor={record => record.status}
           grade={grade} onGradeChange={value => { setGrade(value === 'All' ? 'All Grades' : value); setPage(1); }} color={color} location={location} onColorChange={value => { setColor(value); setPage(1); }} onLocationChange={value => { setLocation(value); setPage(1); }} />}
       </div>

@@ -1,3 +1,4 @@
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 import { restoreStorageCallback } from './storage-inventory-baseline.mjs';
 import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 import assert from 'node:assert/strict';
@@ -371,7 +372,7 @@ try {
   const originalBarcodes = namedSources(baseFile('src/components/BarcodeLabel.tsx'));
   const updatedBarcodes = namedSources(fs.readFileSync('src/components/BarcodeLabel.tsx', 'utf8'));
   for (const name of ['CODE_128_PATTERNS', 'getCode128Bars', 'barcodeSvgMarkup', 'barcodeValidationError', 'BarcodeSvg']) check(`Barcode encoding/format unchanged: ${name}`, () => assert.equal(updatedBarcodes.get(name), originalBarcodes.get(name)));
-  check('Existing official document contents unchanged except stable record ID metadata', () => assert.equal(fs.readFileSync('src/documentPrint.ts', 'utf8').replace(/^  recordId: .*\r?\n/gm, '').replace(/\r/g, ''), baseFile('src/documentPrint.ts').replace(/\r/g, '')));
+  check('Existing official document contents unchanged except stable record ID metadata', () => assert.equal(restorePelletMasterFile('src/documentPrint.ts', fs.readFileSync('src/documentPrint.ts', 'utf8')).replace(/^  recordId: .*\r?\n/gm, '').replace(/\r/g, ''), baseFile('src/documentPrint.ts').replace(/\r/g, '')));
   check('Sidebar unchanged and no new roles added', () => assert.equal(fs.readFileSync('src/components/Sidebar.tsx', 'utf8').replace(/\r/g, ''), baseFile('src/components/Sidebar.tsx').replace(/\r/g, '')));
   console.log(`Completed ${checks} reprint workflow, authorization, persistence, inventory-safety and regression checks.`);
 } finally {

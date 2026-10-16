@@ -223,6 +223,23 @@ export default function SearchableSelect({
     window.requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) { openList(); return; }
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex(index => {
+        let next = index + step;
+        while (next >= 0 && next < filtered.length && filtered[next].disabled) next += step;
+        return next >= 0 && next < filtered.length ? next : index;
+      });
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (filtered[activeIndex]) choose(filtered[activeIndex]);
+      else if (allowCustom && query.trim()) { onChange(query.trim()); setOpen(false); setQuery(''); }
+    } else if (event.key === 'Escape') { event.preventDefault(); setOpen(false); setQuery(''); inputRef.current?.blur(); }
+  };
+
   return (
     <div className={`searchable-combobox${open ? ' is-open' : ''}${disabled ? ' is-disabled' : ''}`} ref={rootRef}>
       <div className="searchable-combobox-control">
@@ -255,35 +272,7 @@ export default function SearchableSelect({
       }
           }}
           onChange={event => { if (!open) setOpen(true); setQuery(event.target.value); }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              event.preventDefault()
-
-              if (!open) {
-                openList()
-                return
-              }
-
-              const step = event.key === "ArrowDown" ? 1 : -1
-
-              setActiveIndex((index) => {
-                let next = index + step
-
-                while (
-                  next >= 0 &&
-                  next < filtered.length &&
-                  filtered[next].disabled
-                )
-                  next += step
-
-                return next >= 0 && next < filtered.length ? next : index
-              })
-            } else if (event.key === 'Enter') {
-            event.preventDefault();
-            if (filtered[activeIndex]) choose(filtered[activeIndex]);
-            else if (allowCustom && query.trim()) { onChange(query.trim()); setOpen(false); setQuery(''); }
-          } else if (event.key === 'Escape') { event.preventDefault(); setOpen(false); setQuery(''); inputRef.current?.blur(); }
-          }}
+          onKeyDown={handleKeyDown}
         />
         {clearable && value && !disabled && <button type="button" className="searchable-combobox-clear" aria-label={`Clear ${ariaLabel}`} onPointerDown={event => event.preventDefault()} onClick={() => { onChange(''); setQuery(''); inputRef.current?.focus(); }}>×</button>}
         <button type="button" className="searchable-combobox-toggle" aria-label={`Open ${ariaLabel} options`} tabIndex={-1} disabled={disabled} onPointerDown={event => event.preventDefault()} onClick={openList}>⌄</button>
@@ -294,10 +283,11 @@ export default function SearchableSelect({
             ref={menuRef}
             style={mobileMenuStyle}
             className={`searchable-combobox-menu ${menuClassName}`}
-            id={listId}
-            role="listbox"
-            aria-label={`${ariaLabel} options`}
+            role="presentation"
           >
+            <input className="app-input searchable-menu-search" type="search" aria-label={`Search ${ariaLabel} options`} placeholder={`Search ${ariaLabel}...`} value={query}
+              onChange={event => setQuery(event.target.value)} onKeyDown={handleKeyDown} />
+            <div id={listId} role="listbox" aria-label={`${ariaLabel} options`}>
             {filtered.map((option, index) => (
               <button
                 type="button"
@@ -319,6 +309,7 @@ export default function SearchableSelect({
                 {allowCustom && query.trim() ? `Press Enter to use “${query.trim()}”` : noResultsText}
               </div>
             )}
+            </div>
           </div>,
           document.body,
         )}

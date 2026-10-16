@@ -23,6 +23,7 @@
     "check:recovery": "node scripts/check-recovery.mjs",
     "check:layout-lock": "node scripts/check-layout-lock.mjs",
     "check:summary-colors": "node scripts/check-summary-colors.mjs",
+    "check:pellet-master": "node scripts/check-pellet-master.mjs",
     "qa:summary-colors:browser": "node scripts/check-summary-colors-browser.mjs",
     "qa:layout-lock:browser": "node scripts/check-layout-lock-browser.mjs",
     "qa:smart:browser": "node scripts/check-smart-inventory-browser.mjs",

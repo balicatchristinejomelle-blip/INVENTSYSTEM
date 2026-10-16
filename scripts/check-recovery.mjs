@@ -7,6 +7,7 @@ import ts from 'typescript';
 import { createServer } from 'vite';
 import { RECOVERY_BASELINE, reviewedRecoveryDeltas, recoveryBaseline, restoreRecoveryFile } from './recovery-baseline.mjs';
 import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
+import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 
 let checks = 0;
 const check = (label, fn) => { fn(); checks++; console.log('PASS ' + label); };
@@ -28,7 +29,7 @@ function bindings(text) {
 }
 check('All pre-color business callbacks and transactional seed records are byte-identical', () => assert.deepEqual(bindings(restoreSummaryColorsFile('src/store.tsx', raw('src/store.tsx'))), bindings(recoveryBaseline('src/store.tsx'))));
 check('No master/specification/PEP remapping or barcode/quantity/RBAC engine changes', () => {
-  for (const file of ['src/productMaster.ts', 'src/finishedPipeRelations.ts', 'src/finishedGoodsInventory.ts', 'src/finishedPipeBarcodes.ts', 'src/reprintWorkflow.ts', 'src/pages/management/Settings.tsx', 'src/components/Sidebar.tsx', 'src/components/LocationSelect.tsx']) assert.equal(raw(file), recoveryBaseline(file), file);
+  for (const file of ['src/productMaster.ts', 'src/finishedPipeRelations.ts', 'src/finishedGoodsInventory.ts', 'src/finishedPipeBarcodes.ts', 'src/reprintWorkflow.ts', 'src/pages/management/Settings.tsx', 'src/components/Sidebar.tsx', 'src/components/LocationSelect.tsx']) assert.equal(restorePelletMasterFile(file,raw(file)), recoveryBaseline(file), file);
 });
 check('No startup reset, forced attendance completion, mandatory bag reinsertion or destructive fallback remains', () => {
   const source = raw('src/store.tsx');
@@ -65,7 +66,7 @@ try {
     assert.deepEqual(restored[0], custom); assert.equal(restored[1].status, 'Inactive');
     assert.deepEqual(locations.normalizeLocationMaster(restored), restored);
     for (const code of locations.LOCATION_CODES) assert.ok(restored.some(location => location.code === code));
-    assert.ok(locations.filterLocationCodes(restored).includes('USER'));
+    assert.ok(!locations.filterLocationCodes(restored).includes('USER'));
   });
   const fixture = (location, extra = {}) => facets.inventoryFacetRow({ product: 'HDPE Pipe', grade: 'PE100', color: 'Black (BK)', diameter: '20mm', sdr: 'SDR11', currentLocation: location, ...extra });
   const rows = [fixture('A'), fixture('C'), fixture('F'), fixture('H', { diameter: '25mm', sdr: 'SDR17', grade: 'PE80' })];
@@ -94,10 +95,10 @@ try {
     assert.deepEqual(facets.inventoryFacetRow({ locationBalances: { A: 0, C: 10, F: 3 }, currentLocation: 'A' }).location, ['C', 'F']);
     for (const extra of [{ availableKg: 0 }, { inventoryStatus: 'Fully Consumed' }, { inventoryStatus: 'Pending Receipt' }, { releaseStatus: 'Released' }, { currentInventoryBucket: 'Rejected' }]) assert.deepEqual(fixture('C', extra).location, []);
   });
-  check('Configured physical sublocations, custom names and historical Product aliases remain filterable', () => {
+  check('Legacy locations remain readable but not active choices; Location resolver and Product aliases unchanged', () => {
     const allowed = locations.filterLocationCodes([custom]);
-    assert.ok(allowed.includes('USER'));assert.ok(allowed.includes('User Rack'));
-    assert.equal(facets.resolveInventoryLocations([fixture('User Rack / Bay 2')], { sdr: 'SDR11' }, allowed).location, 'User Rack / Bay 2');
+    assert.deepEqual(allowed,[]);
+    assert.equal(facets.resolveInventoryLocations([fixture('User Rack / Bay 2')], { sdr: 'SDR11' }, ['User Rack']).location, 'User Rack / Bay 2');
     assert.equal(facets.resolveInventoryLocations([fixture('C', { product: 'Commercial HDPE Pipe' })], { product: 'Commercial HDPE Pipe (CGPE)' }, physical).location, 'C');
   });
 

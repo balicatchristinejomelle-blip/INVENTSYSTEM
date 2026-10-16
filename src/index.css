@@ -1331,3 +1331,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .metric-help-popover strong { color: var(--text-primary); }
 .inventory-summary-equation { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
 .inventory-summary-equation > span { display: inline-block; }
+
+/* Reuse the shared popup; keep its search usable while options scroll. */
+.searchable-combobox-menu .searchable-menu-search { position: sticky; top: 0; z-index: 1; display: block; width: 100%; height: 36px; margin-bottom: 4px; padding-inline: 10px; text-align: left; background: var(--card-bg); }
