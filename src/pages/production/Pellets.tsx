@@ -1,4 +1,5 @@
 import { pelletColorLabel } from '../../pelletColors';
+import { canFinishWip, pelletBalances } from '../../operationalInventory';
 import RecordReference from '../../components/RecordReference';
 import { DismissButton } from '../../components/ActionButton';
 import ActionButton from '../../components/ActionButton';
@@ -232,7 +233,8 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function Pellets() {
-  const { pellets, colorants, materialUsageTransactions, activeProductionOrder: activePO, navigate } = useApp();
+  const { pellets, colorants, materialUsageTransactions, activeProductionOrder: activePO, navigate, finishWipBag } = useApp();
+  const [finishMessage, setFinishMessage] = useState('');
 
   const totalVirgin = pellets.filter(p => p.type === 'Virgin' && p.inventoryStatus === 'Available').reduce((s, p) => s + p.availableKg, 0);
 
@@ -289,6 +291,7 @@ export default function Pellets() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {finishMessage && <div className="alert-info" role="status">{finishMessage}</div>}
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -325,12 +328,12 @@ export default function Pellets() {
           </div>
         </div>
         <div className="app-card" style={{ padding: "14px 16px" }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Active PO Pellet Gap</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Current Open WIP</div>
           <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent-blue)', lineHeight: 1 }}>
-            {fmt(loaded)}
+            {fmt(pelletBalances(pellets).wip)}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-            kg actually loaded for {activePO?.poNo ?? "No active PO"}
+            kg remaining across all open WIP; active PO: {activePO?.poNo ?? "None"}
           </div>
         </div>
       </div>
@@ -504,6 +507,10 @@ export default function Pellets() {
                       </span>
                     </td>
                       <td onClick={(e) => e.stopPropagation()}>
+                        {canFinishWip(pellet) && <ActionButton className="btn-secondary btn-compact" onClick={() => {
+                          const result = finishWipBag(pellet.id);
+                          setFinishMessage(result.success ? `WIP marked Finished: ${pellet.barcode}. History retained.` : result.error || 'WIP could not be marked Finished.');
+                        }}>Mark Finished</ActionButton>}
                         <button
                         className="btn-primary btn-compact"
                         disabled={!canLoad}

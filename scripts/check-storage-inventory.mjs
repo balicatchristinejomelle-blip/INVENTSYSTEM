@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { restoreUXFile } from './ux-baseline.mjs';
+import { restoreProductionOutputFile } from './production-output-baseline.mjs';
+import { physicalScanArgs } from './physical-scan-fixtures.mjs';
 import { namedDeclarations, storageBaselineFile, restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles, restoreStorageOutput } from './storage-inventory-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
@@ -15,7 +17,9 @@ try {
   const inventory = await server.ssrLoadModule('/src/finishedGoodsInventory.ts');
   const relations = await server.ssrLoadModule('/src/finishedPipeRelations.ts');
   const store = await server.ssrLoadModule('/src/store.tsx');
+  const { productionOutputTotals } = await server.ssrLoadModule('/src/productionOutput.ts');
   const barcodes = await server.ssrLoadModule('/src/finishedPipeBarcodes.ts');
+  const physicalScan = await server.ssrLoadModule('/src/physicalScan.ts');
   const locations = await server.ssrLoadModule('/src/locationMaster.ts');
   const master = await server.ssrLoadModule('/src/productMaster.ts');
   const { matchesRecord } = await server.ssrLoadModule('/src/components/RecordSearch.tsx');
@@ -29,17 +33,18 @@ try {
   const saved = JSON.stringify(baseline);
   const memory = new Map();
   globalThis.window = { localStorage: { getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) }, sessionStorage: { getItem: () => null, removeItem: () => {} }, location: { hostname: 'test.invalid' } };
-  const source = fs.readFileSync('src/store.tsx', 'utf8').replace(/\r/g, '');
-  const declarations = namedDeclarations(source);
+  const actualSource = fs.readFileSync('src/store.tsx', 'utf8').replace(/\r/g, '');
+  const source = restoreProductionOutputFile('src/store.tsx', actualSource);
+  const declarations = namedDeclarations(actualSource);
   const transpile = code => ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
   const helperNames = ['roundKg', 'makeFinishedPipes', 'nextAnnualSequence', 'makePermanentFinishedPipes', 'registryEntriesForFinishedGoods'];
   const helperCode = transpile(helperNames.map(name => `const ${name} = ${declarations.get(name).text};`).join('\n'));
   const helpers = new Function('normalizeBarcodeValue', 'allocateFinishedPipeBarcodes', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.normalizeBarcodeValue, barcodes.allocateFinishedPipeBarcodes);
   function simulate(name, initial, args) {
     let current = structuredClone(initial);
-    const dependencies = { useCallback: fn => fn, setState: updater => { current = updater(current); }, ...inventory, ...locations, resolveFinishedPipe: relations.resolveFinishedPipe, hydrateFinishedPipe: relations.hydrateFinishedPipe, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, calculateProductionMaterialPlan: store.calculateProductionMaterialPlan, colorCodeFromProductColor: master.colorCodeFromProductColor, colorCodeFromStripe: master.colorCodeFromStripe, MASS_TOLERANCE_KG: 0.001, ...helpers };
+    const dependencies = { useCallback: fn => fn, flushSync: fn => fn(), productionOutputTotals, setState: updater => { current = updater(current); }, ...physicalScan, ...inventory, ...locations, resolveFinishedPipe: relations.resolveFinishedPipe, hydrateFinishedPipe: relations.hydrateFinishedPipe, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, calculateProductionMaterialPlan: store.calculateProductionMaterialPlan, colorCodeFromProductColor: master.colorCodeFromProductColor, colorCodeFromStripe: master.colorCodeFromStripe, MASS_TOLERANCE_KG: 0.001, ...helpers };
     const action = new Function(...Object.keys(dependencies), `${transpile(`const action = ${declarations.get(name).text};`)}; return action;`)(...Object.values(dependencies));
-    const result = action(...args); return { result, state: current };
+    const result = action(...physicalScanArgs(name,current,args)); return { result, state: current };
   }
   const role = name => store.USERS.find(user => user.role === name);
   const stock = baseline.finishedGoods.find(pipe => pipe.source === 'Stock Replenishment');
@@ -114,7 +119,7 @@ try {
   check('Storage search enriches source/purpose/location/origin before ten-row pagination', () => { const records = Array.from({ length: 23 }, (_, index) => ({ ...relations.pipeSearchRecord(storedMO, baseline), id: String(index) })).filter(record => matchesRecord(record, 'Temporary Storage')); assert.deepEqual([1, 2, 3].map(page => pageRecords(records, page).length), [10, 10, 3]); });
   check('No live fixture data or identities are mutated', () => assert.equal(JSON.stringify(baseline), saved));
   check('Store differs only in reviewed FG callbacks and Loaded API wiring', () => assert.equal(restorePreStorageStore(source), storageBaselineFile('src/store.tsx')));
-  check('Production pellet/BOM/reject/recycling arithmetic unchanged after exact FG metadata deltas', () => assert.equal(restoreStorageOutput(declarations.get('recordOutput').text), namedDeclarations(storageBaselineFile('src/store.tsx')).get('recordOutput').text));
+  check('Historical production arithmetic retained outside exact reviewed output-workflow deltas', () => assert.equal(restoreStorageOutput(namedDeclarations(source).get('recordOutput').text), namedDeclarations(storageBaselineFile('src/store.tsx')).get('recordOutput').text));
   check('Types only add storage compatibility/fulfillment/FG event quantity', () => assert.equal(restorePreStorageTypes(fs.readFileSync('src/types.ts', 'utf8')), storageBaselineFile('src/types.ts')));
   check('CSS changes are scoped operational additions; prior responsive/layout code preserved', () => { const css = fs.readFileSync('src/index.css', 'utf8'); assert.equal(restorePreStorageStyles(css), storageBaselineFile('src/index.css')); assert.ok(css.includes('.operational-content .page-stack')); assert.ok(css.includes('.operational-content .app-table')); assert.ok(!css.includes('* {\n  text-align: center')); assert.ok(css.includes('padding-left: 58px')); });
   check('Production storage is genuinely read-only; obsolete no-op storage form is removed', () => { const scanner = fs.readFileSync('src/pages/production/BarcodeScanner.tsx', 'utf8'); const pipes = fs.readFileSync('src/pages/production/FinishedPipes.tsx', 'utf8'); assert.ok(scanner.includes('Inspect Finished Pipe Storage')); assert.ok(scanner.includes('Plant Manager confirms compatible physical locations')); assert.ok(!scanner.includes('setStoragePurpose')); assert.ok(!scanner.includes('updateFinishedGoodStorage')); assert.ok(!pipes.includes('RecordStorageModal')); });

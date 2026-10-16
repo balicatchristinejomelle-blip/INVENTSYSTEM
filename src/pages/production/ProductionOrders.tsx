@@ -11,7 +11,9 @@ import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
-import React, { useState } from "react"
+import React, { useRef, useState } from "react"
+import { canRecordProduction, productionOutputTotals } from '../../productionOutput';
+import type { ProductionOrder } from '../../types';
 
 import { calculateProductionMaterialPlan, useApp } from '../../store';
 
@@ -34,6 +36,7 @@ const OUTPUT_DRAFT_KEY = "hpai:production-output-draft"
 const MATERIAL_REVIEW_KEY = "hpai:material-review-request"
 
 type OutputDraft = {
+  entryId?: string;
   poId: string;
   outputQty: string;
   rejectQty: string;
@@ -55,9 +58,11 @@ const readOutputDraft = (): OutputDraft | null => {
 
 export default function ProdOrders() {
   const app = useApp();
-  const { productionOrders, rejectedMaterials, materialUsageTransactions, pellets, colorants, activeAttendance, navigate, recordOutput } = app;
+  const { productionOrders, rejectedMaterials, materialUsageTransactions, pellets, colorants, activeAttendance, navigate, startProduction, recordOutput } = app;
 
   const [initialDraft] = useState(readOutputDraft)
+  const outputEntryId = useRef(initialDraft?.entryId || crypto.randomUUID());
+  const submissionLock = useRef(false);
 
   const [materialReviewRequest] = useState(() => {
     try {
@@ -119,6 +124,8 @@ export default function ProdOrders() {
   const resetPages = () => setPages({ Ready: 1, 'In Progress': 1, 'Pending Turnover': 1, Completed: 1 });
 
   const viewPO = productionOrders.find((p) => p.id === viewId)
+  const outputHistory = app.transactions.filter(transaction => transaction.transactionType === 'Production Output'
+    && (transaction.productionOrderId === viewId || (viewPO && transaction.reference === viewPO.poNo)));
 
   const documentPO = productionOrders.find(p => p.id === documentAction?.id);
 
@@ -190,10 +197,22 @@ export default function ProdOrders() {
 
   const validMaterials = wipAvailable > 0
 
-  const rejectedForPO = (poNo: string) => rejectedMaterials.filter(record => record.poRef === poNo).reduce((sum, record) => sum + record.quantity, 0);
+  const rejectedForPO = (poNo: string) => {
+    const po = productionOrders.find(item => item.poNo === poNo);
+    return po ? productionOutputTotals(po, rejectedMaterials).rejected : 0;
+  };
+
+  const openProduction = (po: ProductionOrder) => {
+    const result = startProduction(po.id);
+    if (!result.success) return setError(result.error || 'Production could not be started.');
+    setError('');
+    setViewId(po.id);
+    setReviewMaterials(false);
+    setShowOutput(true);
+  };
 
   const handleSaveOutput = () => {
-    if (submitting) return;
+    if (submitting || submissionLock.current) return;
     const completed = Number(outputQty);
     const rejected = Number(rejectQty || 0);
     if (!Number.isInteger(completed) || completed < 1) return setError('Enter the completed quantity.');
@@ -219,16 +238,20 @@ export default function ProdOrders() {
       return setError(`INSUFFICIENT MATERIAL|Only ${materialCapacity} pipes can be produced using the currently available Production materials.|Requested Output: ${completed}|Maximum Possible: ${materialCapacity}|Material Required: ${materialPlan.totalMaterialConsumedKg.toFixed(3)} kg|Material Available: ${availableMaterial.toFixed(3)} kg|Material Shortage: ${shortage.toFixed(3)} kg`);
     }
     if (viewId) {
+      submissionLock.current = true;
       setSubmitting(true);
-      const result = recordOutput(viewId, completed, rejections.map(rejection => ({ weightKg: Number(rejection.weight), reason: rejection.reason })));
+      const result = recordOutput(viewId, completed, rejections.map(rejection => ({ weightKg: Number(rejection.weight), reason: rejection.reason })), outputEntryId.current);
       if (!result.success) {
+        submissionLock.current = false;
         setSubmitting(false);
         return setError(result.error || 'Output could not be recorded. Check the entered quantities.');
       }
       setError('');
       setSaved(true);
+      sessionStorage.removeItem(OUTPUT_DRAFT_KEY);
       setTimeout(() => {
-        sessionStorage.removeItem(OUTPUT_DRAFT_KEY);
+        outputEntryId.current = crypto.randomUUID();
+        submissionLock.current = false;
         setSaved(false); setShowOutput(false); setOutputQty(''); setRejectQty('');
         setRejections([]); setSubmitting(false);
       }, 1200);
@@ -242,6 +265,7 @@ export default function ProdOrders() {
   };
 
   const closeOutput = () => {
+    if (submissionLock.current) return;
     sessionStorage.removeItem(OUTPUT_DRAFT_KEY);
     sessionStorage.removeItem(MATERIAL_REVIEW_KEY);
     setShowOutput(false);
@@ -258,6 +282,7 @@ export default function ProdOrders() {
   const loadPelletBags = () => {
     if (!viewPO) return;
     sessionStorage.setItem(OUTPUT_DRAFT_KEY, JSON.stringify({
+      entryId: outputEntryId.current,
       poId: viewPO.id,
       outputQty,
       rejectQty,
@@ -268,6 +293,7 @@ export default function ProdOrders() {
 
   return (
     <div className="page-stack">
+      {error && !showOutput && <div className="alert-error" role="alert">{error}</div>}
       <PeriodSelector
         period={period}
         search={search}
@@ -311,7 +337,7 @@ export default function ProdOrders() {
                   </td>
                   <td className="font-mono">
                     {po.completedQty} /{" "}
-                    {Math.max(0, po.completedQty - rejectedForPO(po.poNo))} /{" "}
+                    {productionOutputTotals(po, rejectedMaterials).good} /{" "}
                     {rejectedForPO(po.poNo)}
                   </td>
                   <td style={{ minWidth: 130 }}>
@@ -331,7 +357,7 @@ export default function ProdOrders() {
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setViewId(po.id)}>View</button>
                       <DocumentPrintButton className="btn-secondary btn-compact" recordId={po.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: po.id, autoPrint: true })} />
-                      {po.status === 'In Production' && <button className="btn-primary btn-compact" onClick={() => { setViewId(po.id); setShowOutput(true); }}>Record Output</button>}
+                      {canRecordProduction(po) && <button className="btn-primary btn-compact" onClick={() => openProduction(po)}>{['Ready', 'Scheduled'].includes(po.status) ? 'Start Production' : 'Continue / Record Output'}</button>}
                     </div>
                   </td>
                 </tr>
@@ -352,6 +378,7 @@ export default function ProdOrders() {
       {/* PO Detail */}
       {viewId && viewPO && !showOutput && (
         <Modal open title={`Production Order — ${viewPO.poNo}`} onClose={() => setViewId(null)} width="620px">
+          {error && <div className="alert-error mb-3" role="alert">{error}</div>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             {[
               ["PO No.", viewPO.poNo],
@@ -367,7 +394,7 @@ export default function ProdOrders() {
               ["Target Qty", viewPO.targetQty],
               ["Completed Qty", viewPO.completedQty],
               ["Rejected Qty", rejectedForPO(viewPO.poNo)],
-              ['Good Output', Math.max(0, viewPO.completedQty - rejectedForPO(viewPO.poNo))],
+              ['Good Output', productionOutputTotals(viewPO, rejectedMaterials).good],
               ['Remaining', Math.max(0, viewPO.targetQty - viewPO.completedQty)],
               ["Pellet Type", viewPO.pelletType],
               ["Production Line", viewPO.productionLine],
@@ -385,6 +412,17 @@ export default function ProdOrders() {
               <StatusBadge status={viewPO.status} />
             </div>
           </div>
+          <section className="mb-3">
+            <div className="section-title">Production Output History</div>
+            {outputHistory.length ? <div className="table-scroll"><div><table className="app-table" style={{ minWidth: 520 }}>
+              <thead><tr><th>Date / Time</th><th>Batch</th><th>Output</th><th>Good</th><th>Rejected</th></tr></thead>
+              <tbody>{outputHistory.map(entry => <tr key={entry.id}>
+                <td>{entry.date} {entry.time}</td><td>{entry.batch}</td><td>{entry.qtyChanged}</td>
+                <td>{entry.finishedGoodsQuantity ?? 'Not recorded'}</td>
+                <td>{entry.finishedGoodsQuantity == null ? 'Not recorded' : entry.qtyChanged - entry.finishedGoodsQuantity}</td>
+              </tr>)}</tbody>
+            </table></div></div> : <div className="helper-text">No production output has been recorded. Starting or scheduling a PO does not create output.</div>}
+          </section>
           {viewPO.completedQty > 0 && viewPOMaterialUsage.length === 0 && (
             <div className="alert-warning mb-3">
               <strong>MATERIAL USAGE MISSING</strong>
@@ -396,10 +434,14 @@ export default function ProdOrders() {
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={viewPO.id} recordType="PRODUCTION ORDER" onClick={() => setDocumentAction({ id: viewPO.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
-            {viewPO.status === "In Production" && (
+            {canRecordProduction(viewPO) && (
               <>
-                <button className="btn-primary" onClick={() => navigate('prod-barcode')}>Scan with Honeywell</button>
-                <button className="btn-primary" onClick={() => setShowOutput(true)}>Record Output</button>
+                {viewPO.status === 'In Production' && <button className="btn-primary" onClick={() => {
+                  const result = startProduction(viewPO.id);
+                  if (!result.success) setError(result.error || 'Production could not be started.');
+                  else loadPelletBags();
+                }}>Scan with Honeywell</button>}
+                <button className="btn-primary" onClick={() => openProduction(viewPO)}>{['Ready', 'Scheduled'].includes(viewPO.status) ? 'Start Production' : 'Continue / Record Output'}</button>
               </>
             )}
           </div>

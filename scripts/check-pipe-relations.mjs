@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { physicalScanArgs } from './physical-scan-fixtures.mjs';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import React from 'react';
@@ -16,6 +17,7 @@ try {
   const relationships = await server.ssrLoadModule('/src/finishedPipeRelations.ts');
   const master = await server.ssrLoadModule('/src/productMaster.ts');
   const inventory = await server.ssrLoadModule('/src/finishedGoodsInventory.ts');
+  const physicalScan = await server.ssrLoadModule('/src/physicalScan.ts');
   const { AppProvider, useApp, USERS, addReplenishmentSample } = await server.ssrLoadModule('/src/store.tsx');
   const { matchesRecord } = await server.ssrLoadModule('/src/components/RecordSearch.tsx');
   const { pageRecords } = await server.ssrLoadModule('/src/components/Pagination.tsx');
@@ -118,8 +120,9 @@ try {
   const callbackCode = ts.transpileModule(`const action = ${callbackSource};`, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
   const simulateStorage = (initial, args) => {
     let current = structuredClone(initial);
-    const action = new Function('useCallback', 'setState', 'resolveFinishedPipe', 'validStorageLocation', 'finishedGoodsSummary', `${callbackCode}; return action;`)(fn => fn, updater => { current = updater(current); }, relationships.resolveFinishedPipe, inventory.validStorageLocation, inventory.finishedGoodsSummary);
-    const success = action(...args); return { success, state: current };
+    const scan = physicalScan;
+    const action = new Function('useCallback', 'setState', 'resolveFinishedPipe', 'validStorageLocation', 'finishedGoodsSummary', 'finishedPipeInventory', 'exactPhysicalScan', 'flushSync', `${callbackCode}; return action;`)(fn => fn, updater => { current = updater(current); }, relationships.resolveFinishedPipe, inventory.validStorageLocation, inventory.finishedGoodsSummary, inventory.finishedPipeInventory, scan.exactPhysicalScan, fn=>fn());
+    const success = action(...physicalScanArgs('updateFinishedGoodStorage',current,args)); return { success, state: current };
   };
   const plantmanager = USERS.find(item => item.role === 'plantmanager');
   const stateForMovement = { ...data, currentUser: plantmanager, finishedGoods: [hydrated] };

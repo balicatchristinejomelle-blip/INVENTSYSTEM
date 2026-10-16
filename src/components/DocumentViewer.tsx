@@ -45,7 +45,7 @@ export default function DocumentViewer({ open, document, onClose, autoPrint = fa
           <button className="btn-secondary" onClick={onClose}>Close</button>
         </div>
         {document ? (
-          <article className="print-document">
+          <article className={`print-document${record?.approvalError ? ' print:hidden' : ''}`}>
             <header className="print-document-header">
               <img src={hpaiLogo} alt="Hydro Phil Asia, Inc." />
               <div>

@@ -1,0 +1,142 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { createServer } from 'vite';
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'hpai-process-flow-'));
+const executable = process.env.BROWSER_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
+const entry = `
+import React from 'react';import{createRoot}from'react-dom/client';
+import{AppProvider,useApp,USERS}from'/src/store';import{ViewStateScope,VIEW_STATE_PREFIX}from'/src/uiViewState';
+import Pellets from '/src/pages/production/Pellets';import Transfers from '/src/pages/accounting/Transfers';import Operations from '/src/pages/management/Operations';import Transactions from '/src/pages/accounting/Transactions';import Reports from '/src/pages/plantmanager/Reports';
+import Storage from '/src/components/FinishedPipeStorage';import Receiving from '/src/components/ExpectedPelletReceiving';import Scanner from '/src/pages/production/BarcodeScanner';import DocumentViewer from '/src/components/DocumentViewer';import{materialRequestDocument}from'/src/documentPrint';import{printableRecords}from'/src/printableRecords';
+import*as operational from'/src/operationalInventory';import*as inventory from'/src/finishedGoodsInventory';import'/src/index.css';
+const root=createRoot(document.getElementById('root'));let baseline,version=0;window.qa={operational,inventory};
+function StoragePage(){const app=useApp();return React.createElement(Storage,{key:qa.pipeId,pipe:app.finishedGoods.find(item=>item.id===qa.pipeId)});}
+function ReceivingPage(){return React.createElement(Receiving,{transferId:qa.transferId});}
+function RequestPage(){const app=useApp();return React.createElement(DocumentViewer,{open:true,document:materialRequestDocument(app.materialRequests.find(item=>item.id===qa.requestId)),onClose:()=>{}});}
+function Live(){const app=useApp();window.qa.app=app;window.qa.printables=()=>printableRecords(app);if(!baseline)baseline=JSON.parse(JSON.stringify(app));const Page=app.currentPage==='qa-storage'?StoragePage:app.currentPage==='qa-receiving'?ReceivingPage:app.currentPage==='qa-request'?RequestPage:app.currentPage==='prod-scanner'?Scanner:app.currentPage==='prod-pellets'?Pellets:app.currentPage==='acc-transfers'?Transfers:app.currentPage==='mgmt-operations'?Operations:app.currentPage==='acc-transactions'?Transactions:app.currentPage==='pm-reports'?Reports:null;return React.createElement(ViewStateScope,null,React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%'}},Page&&React.createElement(Page)));}
+window.qa.mount=()=>root.render(React.createElement(React.StrictMode,null,React.createElement(AppProvider,{key:++version},React.createElement(Live))));
+window.qa.seed=()=>{const user=USERS.find(row=>row.role==='production'),zero={...baseline.pellets[0],id:'isolated-zero-wip',barcode:'QA-ZERO-WIP',availableKg:0,inventoryStatus:'Loaded',currentLocation:'A'};localStorage.setItem('hpai:shared-app-state-v1',JSON.stringify({...baseline,currentUser:USERS.find(row=>row.role==='accounting'),currentPage:'process-qa',clockedIn:true,currentShift:'Day',attendance:[{...baseline.attendance[0],id:'isolated-browser-process-shift',employeeId:user.employeeId,status:'Active',shift:'Day'}],turnovers:[],pellets:[zero,...baseline.pellets],barcodeRegistry:[...baseline.barcodeRegistry,{barcode:zero.barcode,itemId:zero.id,itemType:'Virgin Pellet Bag',category:'Pellet',createdAt:'2000-01-01T00:00:00.000Z'}]}));window.qa.mount();};
+window.qa.role=(role,page='process-qa',prefs={})=>{const user=USERS.find(row=>row.role===role),prefix=VIEW_STATE_PREFIX+user.employeeId+':'+role+':'+page+':';for(const[key,value]of Object.entries(prefs))sessionStorage.setItem(prefix+key,JSON.stringify(value));window.qa.app.login(user.username,user.password);window.qa.app.navigate(page);};
+window.qa.data=()=>JSON.parse(JSON.stringify(['pellets','finishedGoods','productionOrders','orders','manufacturingOrders','transactions','materialUsageTransactions','transfers','rejectedMaterials','recyclingBatches','rrRecords','materialRequests','colorants','barcodeRegistry','auditLogs','attendance'].map(key=>window.qa.app[key])));
+window.qa.click=(text,scope=document)=>{const button=[...scope.querySelectorAll('button')].find(node=>node.textContent.trim()===text);if(!button||button.disabled)throw Error('Missing/disabled '+text);button.click();};
+window.qa.type=(label,value)=>{const input=document.querySelector('input[aria-label="'+label+'"]');if(!input)throw Error('Missing input '+label);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));};
+window.qa.mount();
+`;
+const server = await createServer({ cacheDir:path.join(profile,'vite-cache'),server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false},plugins:[{
+  name:'process-flow-browser',resolveId(id){if(id==='/__process-qa.js')return'\0process-qa';},load(id){if(id==='\0process-qa')return entry;},configureServer(server){server.middlewares.use(async(req,res,next)=>{if(req.url!=='/__process-qa')return next();try{res.setHeader('Content-Type','text/html');res.end(await server.transformIndexHtml('/__process-qa','<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/__process-qa.js"></script></body></html>'));}catch(error){next(error);}});},
+}]});
+let chrome,socket,id=0;const pending=new Map(),errors=[];const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function wait(probe,label){const end=Date.now()+90000;while(Date.now()<end){try{if(await probe())return;}catch{}await pause(100);}throw Error('Timed out '+label+' '+errors.join(';'));}
+function send(method,params={}){return new Promise((resolve,reject)=>{const request=++id,timer=setTimeout(()=>{pending.delete(request);reject(Error('CDP timeout '+method));},30000);pending.set(request,{resolve:value=>{clearTimeout(timer);resolve(value);},reject});socket.send(JSON.stringify({id:request,method,params}));});}
+async function evaluate(expression){const result=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(result.exceptionDetails)throw Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);return result.result.value;}
+async function action(name,...args){const result=await evaluate('qa.app['+JSON.stringify(name)+'](...'+JSON.stringify(args)+')');await pause(100);return result;}
+async function role(name,page,prefs={}){await evaluate('qa.role('+JSON.stringify(name)+','+JSON.stringify(page||'process-qa')+','+JSON.stringify(prefs)+')');await pause(150);}
+const snapshot=()=>evaluate('JSON.parse(JSON.stringify(qa.app))');
+async function reload(){await evaluate('window.__processReloadPending=true');await send('Page.reload');await wait(()=>evaluate('!window.__processReloadPending&&!!window.qa?.app'),'new document after reload');await pause(100);}
+async function type(label,value){await evaluate('qa.type('+JSON.stringify(label)+','+JSON.stringify(value)+')');await pause(50);}
+async function choose(label,value){await evaluate('document.querySelector('+JSON.stringify('[aria-label="Open '+label+' options"]')+').click()');await pause(50);await evaluate('[...document.querySelectorAll("[role=option]")].find(item=>item.textContent.trim().startsWith('+JSON.stringify(value)+')).click()');await pause(50);}
+async function click(label){await evaluate('qa.click('+JSON.stringify(label)+')');await pause(80);}
+async function confirm(){await wait(()=>evaluate('!!document.querySelector(".modal-box")'),'confirmation dialog');await evaluate("qa.click('Confirm',document.querySelector('.modal-box'))");await pause(100);}
+async function surface(label){for(const theme of ['light','dark']){await action('setTheme',theme);for(const width of [360,768,1280]){await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});await pause(80);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth+1'),false,label+' '+theme+' '+width);if(width!==768){const shot=await send('Page.captureScreenshot',{format:'png'}),file=path.join(profile,label+'-'+theme+'-'+width+'.png');fs.writeFileSync(file,Buffer.from(shot.data,'base64'));console.log('SCREENSHOT '+file);}}}await action('setTheme','light');}
+try{
+  await server.listen();chrome=spawn(executable,['--headless=new','--disable-gpu','--disable-background-networking','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:'ignore'});
+  let target;await wait(async()=>{const port=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0].trim();target=(await(await fetch('http://127.0.0.1:'+port+'/json')).json()).find(page=>page.type==='page');return target;},'isolated browser');
+  socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(resolve=>socket.addEventListener('open',resolve,{once:true}));socket.addEventListener('message',({data})=>{const message=JSON.parse(data);if(message.id){const request=pending.get(message.id);if(request){pending.delete(message.id);if(message.error)request.reject(Error(message.error.message));else request.resolve(message.result);}}else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.exception?.description||message.params.exceptionDetails.text);});
+  await send('Runtime.enable');await send('Page.enable');await send('Page.navigate',{url:'http://127.0.0.1:'+server.httpServer.address().port+'/__process-qa'});await wait(()=>evaluate('!!window.qa?.app'),'app');await evaluate('qa.seed()');await pause(300);
+  const initial=await snapshot(),before=await evaluate('qa.operational.pelletBalances(qa.app.pellets)');
+  await action('createReceivingReport',{pelletType:'Virgin',grade:'PE100',color:'White',numberOfBags:1,supplier:'Isolated Browser QA',referenceNo:'QA-BROWSER-RECEIVING',destination:'Branch Plant',storageLocation:'A'});
+  let state=await snapshot();const bag=state.pellets.find(item=>!initial.pellets.some(old=>old.id===item.id));assert.ok(bag);assert.equal(bag.currentLocation,'A');
+  await role('plantmanager');
+  const spec={id:'isolated-browser-spec',itemCode:'QA-BROWSER',productType:'HDPE Pipe',materialGrade:'PE100',size:'90mm',sizeUnit:'mm',sdr:'SDR11',color:'Black (BK)',stripe:'No Stripe',pipeConstruction:'Solid Wall Pipe',productForm:'Straight Length',straightLength:'6m',unitWeightKg:0.5,active:true};
+  await action('createStockReplenishmentPO',{specification:spec,targetQty:550,requiredDate:'2026-10-19',productionLine:'Line 1',priority:'Normal',reason:'Isolated browser process verification'});
+  state=await snapshot();const po=state.productionOrders.find(item=>!initial.productionOrders.some(old=>old.id===item.id));assert.ok(po);assert.equal(state.finishedGoods.length,initial.finishedGoods.length);
+  await role('production');assert.equal((await action('startProduction',po.id)).success,true);await action('loadPellets',bag.id,po.id);
+  assert.deepEqual(await evaluate('qa.operational.pelletBalances(qa.app.pellets)'),{...before,virgin:before.virgin,wip:before.wip+25});
+  assert.equal((await action('recordOutput',po.id,20,[{weightKg:0.5,reason:'Surface Defect'}],'browser-process-1')).success,true);
+  assert.equal(await evaluate('qa.operational.pelletBalances(qa.app.pellets).wip'),before.wip+15);
+  assert.equal((await action('recordOutput',po.id,30,[{weightKg:0.5,reason:'Surface Defect'}],'browser-process-2')).success,true);
+  state=await snapshot();const produced=state.finishedGoods.filter(item=>item.productionOrderId===po.id);assert.equal(produced.length,48);assert.equal(state.pellets.find(item=>item.id===bag.id).inventoryStatus,'Fully Consumed');
+  const savedState=await evaluate('qa.data()');await action('recordOutput',po.id,30,[{weightKg:0.5,reason:'Surface Defect'}],'browser-process-2');assert.deepEqual(await evaluate('qa.data()'),savedState);
+  console.log('PASS actual browser callbacks: Receiving -> WIP 25 -> 15 -> 0, output 50 / good 48 / rejected 2; no duplicate replay');
+  await role('management','mgmt-operations');
+  const virginShown=await evaluate("Number([...document.querySelectorAll('.kpi-card')].find(node=>node.firstElementChild?.textContent==='Virgin Pellets').querySelector('strong').textContent.replace(/[^0-9.]/g,''))");assert.equal(virginShown,before.virgin);
+  console.log('PASS Management raw total matches shared raw records, excluding WIP');
+  await role('production','prod-pellets',{'production/Pellets:lifecycle':'Open / WIP'});
+  await wait(()=>evaluate("[...document.querySelectorAll('button')].some(node=>node.textContent==='Mark Finished')"),'legacy zero WIP action');await evaluate("qa.click('Mark Finished')");await pause(150);
+  assert.equal((await snapshot()).pellets.find(item=>item.id==='isolated-zero-wip').inventoryStatus,'Fully Consumed');assert.ok(await evaluate("document.body.textContent.includes('WIP marked Finished: QA-ZERO-WIP')"));
+  assert.equal(await evaluate("[...document.querySelectorAll('button')].filter(node=>node.textContent==='Mark Finished').length"),0);
+  console.log('PASS actual Mark Finished action retires zero WIP without deleting traceability or changing quantities');
+  await role('plantmanager');await action('updateFinishedGoodStorage',produced[0].id,'A','General Inventory',undefined,{shift:'Day',scannerMode:'Store Finished Pipes',barcode:produced[0].barcode});
+  await role('marketing');await action('createCustomerOrder',{customerId:state.customers[0].id,product:po.product,diameter:po.diameter,length:po.length,sdr:po.sdr,grade:po.grade,color:po.color,stripe:po.stripe,construction:po.construction,productForm:po.productForm,quantity:1,requiredDate:'2026-10-19'});
+  state=await snapshot();const primaryOrder=state.orders.find(item=>item.id===state.finishedGoods.find(item=>item.id===produced[0].id).reservedForOrderId);
+  await role('plantmanager');await action('relocatePhysicalItem','Finished Pipe',produced[0].id,'I','QA shipping');await role('production');await action('markFinishedGoodLoaded',produced[0].id);await action('releaseFinishedGood',produced[0].id,{shift:'Day',scannerMode:'Release Finished Goods',barcode:produced[0].barcode,orderId:primaryOrder.id});
+  state=await snapshot();assert.equal(state.finishedGoods.find(item=>item.id===produced[0].id).releaseStatus,'Released');assert.equal(state.transactions.filter(item=>item.barcode===produced[0].barcode&&item.transactionType==='Finished Pipe Released').length,1);
+  console.log('PASS actual storage -> reservation -> ready -> loading -> shipment preserves one physical pipe and creates one release');
+  await role('plantmanager');await action('addMaterialRequest',{refNo:'MR-2099-9950',date:'2026-10-16',requestedBy:'Isolated QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE80',color:'White',requestedKg:25,requestedBags:1,status:'New',destination:'Branch Plant'});
+  state=await snapshot();const request=state.materialRequests.find(item=>item.refNo==='MR-2099-9950');assert.ok(request);
+  await role('accounting');await action('approveMaterialRequest',request.id);await action('createTransfer',request.id);state=await snapshot();const transfer=state.transfers.find(item=>item.requestRef===request.refNo);assert.ok(transfer);
+  await role('accounting','acc-transfers');await evaluate("qa.click('Dispatch',[...document.querySelectorAll('tr')].find(node=>node.textContent.includes("+JSON.stringify(transfer.refNo)+')))' );
+  await wait(()=>evaluate("document.body.textContent.includes('Confirm action')"),'dispatch confirmation');await evaluate("qa.click('Confirm',document.querySelector('.modal-box'))");await pause(200);
+  state=await snapshot();assert.equal(state.transfers.find(item=>item.id===transfer.id).status,'In Transit');assert.ok(await evaluate("document.body.textContent.includes('Transfer dispatched: '+"+JSON.stringify(transfer.refNo)+')'));
+  await role('plantmanager');state=await snapshot();const oldExpected=state.pellets.find(item=>item.transferRef===transfer.refNo);await action('receivePellet',oldExpected.id,{shift:'Day',scannerMode:'Receive Pellets',barcode:oldExpected.barcode},'B');state=await snapshot();assert.equal(state.transfers.find(item=>item.id===transfer.id).status,'Received');
+  console.log('PASS actual Accounting Dispatch button and reference feedback connect request -> transfer -> receiving without extra material entry');
+  // Required approval + 125kg delivery, tested through actual viewers/receiving controls.
+  await role('plantmanager');await action('addMaterialRequest',{refNo:'MR-2099-9960',date:'2026-10-16',requestedBy:'Browser scan QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE80',color:'White',requestedKg:125,requestedBags:5,status:'Pending',destination:'Branch Plant'});
+  state=await snapshot();let scanRequest=state.materialRequests.find(item=>item.refNo==='MR-2099-9960');assert.ok(scanRequest);await evaluate('qa.requestId='+JSON.stringify(scanRequest.id));await role('accounting','qa-request');
+  assert.equal(await evaluate("[...document.querySelectorAll('button')].some(item=>item.textContent==='Print')"),false);let key=await evaluate('qa.printables().find(item=>item.recordType==="MATERIAL REQUEST"&&item.recordId===qa.requestId).key');assert.equal((await action('beginPrint',[key])).success,false);
+  await send('Emulation.setEmulatedMedia',{media:'print'});assert.equal(await evaluate("getComputedStyle(document.querySelector('.print-document')).display"),'none');await send('Emulation.setEmulatedMedia',{media:''});
+  await action('rejectMaterialRequest',scanRequest.id);assert.ok(await evaluate("document.body.textContent.includes('Rejected')"));assert.equal((await action('beginPrint',[key])).success,false);
+  await role('plantmanager');await action('addMaterialRequest',{refNo:'MR-2099-9961',date:'2026-10-16',requestedBy:'Browser scan QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE80',color:'White',requestedKg:125,requestedBags:5,status:'New',destination:'Branch Plant'});
+  state=await snapshot();scanRequest=state.materialRequests.find(item=>item.refNo==='MR-2099-9961');assert.ok(scanRequest);await role('accounting');const beforeApprovalRaw=await evaluate('qa.operational.pelletBalances(qa.app.pellets).virgin');await action('approveMaterialRequest',scanRequest.id);await evaluate('qa.requestId='+JSON.stringify(scanRequest.id));await role('accounting','qa-request');assert.ok(await evaluate("[...document.querySelectorAll('button')].some(item=>item.textContent==='Print')"));key=await evaluate('qa.printables().find(item=>item.recordType==="MATERIAL REQUEST"&&item.recordId===qa.requestId).key');const ticket=await action('beginPrint',[key]);assert.equal(ticket.success,true);await action('finishPrint',ticket.ticket,false);
+  await role('accounting');await action('createTransfer',scanRequest.id);state=await snapshot();const scanTransfer=state.transfers.find(item=>item.requestRef===scanRequest.refNo),scanBags=state.pellets.filter(item=>item.transferRef===scanTransfer.refNo);assert.equal(scanBags.length,5);assert.equal(new Set(scanBags.map(item=>item.barcode)).size,5);assert.ok(scanBags.every(item=>item.availableKg===0));assert.equal(await evaluate('qa.operational.pelletBalances(qa.app.pellets).virgin'),beforeApprovalRaw);
+  await action('dispatchTransfer',scanTransfer.id);await evaluate('qa.transferId='+JSON.stringify(scanTransfer.id));await role('plantmanager','qa-receiving');assert.equal(await evaluate("[...document.querySelectorAll('button')].find(item=>item.textContent==='Confirm Scanned Bag Receipt').disabled"),true);await choose('Storage Location','A');
+  await type('Scan Pellet Bag Barcode','UNKNOWN-BAG');await click('Validate Bag Scan');assert.equal(await evaluate('qa.operational.pelletBalances(qa.app.pellets).virgin'),beforeApprovalRaw);
+  await surface('expected-bag-receiving');
+  for(const [index,bag]of scanBags.entries()){
+    await type('Scan Pellet Bag Barcode',bag.barcode);await evaluate("document.querySelector('[aria-label=\"Scan Pellet Bag Barcode\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");await pause(60);await click('Confirm Scanned Bag Receipt');assert.equal(await evaluate('qa.operational.pelletBalances(qa.app.pellets).virgin'),beforeApprovalRaw+25*(index+1));
+  }
+  state=await snapshot();assert.equal(state.transfers.find(item=>item.id===scanTransfer.id).status,'Received');assert.equal(state.transactions.filter(item=>scanBags.some(bag=>bag.barcode===item.barcode)&&item.transactionType==='Pellets Received').reduce((sum,item)=>sum+item.qtyChanged,0),125);
+  assert.equal(await action('receivePellet',scanBags[0].id,{shift:'Day',scannerMode:'Receive Pellets',barcode:scanBags[0].barcode},'A'),false);
+  console.log('PASS actual Pending/Rejected/Approved request viewer + print guard; five unique expected bags stay zero stock until five individual scan/receipt confirmations add exactly 125kg');
+  // Required ten-good-pipe case, with real per-pipe storage inputs and HID shipping.
+  await role('production');state=await snapshot();const extraBag=state.pellets.find(item=>item.grade===po.grade&&item.inventoryStatus==='Available'&&item.availableKg===25);assert.ok(extraBag);await action('loadPellets',extraBag.id,po.id);const beforeTen=state.finishedGoods.map(item=>item.id);assert.equal((await action('recordOutput',po.id,10,[],'browser-ten-good-pipes')).success,true);state=await snapshot();const tenPipes=state.finishedGoods.filter(item=>!beforeTen.includes(item.id));assert.equal(tenPipes.length,10);assert.equal(new Set(tenPipes.map(item=>item.barcode)).size,10);assert.ok(tenPipes.every(item=>qaUnused(item)));
+  function qaUnused(pipe){return pipe.locationStatus==='Awaiting Storage'&&pipe.availableQty===0;}
+  for(const [index,pipe]of tenPipes.entries()){
+    await evaluate('qa.pipeId='+JSON.stringify(pipe.id));await role('plantmanager','qa-storage');await choose('Compatible Finished Pipe Storage Location','A');assert.equal(await evaluate("[...document.querySelectorAll('button')].find(item=>item.textContent==='Confirm Storage').disabled"),true);
+    if(index===0){await type('Scan Pipe Barcode',tenPipes[1].barcode);await click('Validate Storage Scan');assert.equal(await evaluate("[...document.querySelectorAll('button')].find(item=>item.textContent==='Confirm Storage').disabled"),true);}
+    await type('Scan Pipe Barcode',pipe.barcode);await evaluate("document.querySelector('[aria-label=\"Scan Pipe Barcode\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");await pause(60);if(index===0)await surface('pipe-storage-scan');await click('Confirm Storage');await confirm();assert.equal((await snapshot()).finishedGoods.find(item=>item.id===pipe.id).currentLocation,'A');
+  }
+  state=await snapshot();assert.equal(state.transactions.filter(item=>tenPipes.some(pipe=>pipe.barcode===item.barcode)&&item.transactionType==='Finished Pipe Stored').reduce((sum,item)=>sum+item.qtyChanged,0),0);
+  await role('marketing');const beforeShipIds=state.orders.map(item=>item.id);await action('createCustomerOrder',{customerId:state.customers[0].id,product:po.product,diameter:po.diameter,length:po.length,sdr:po.sdr,grade:po.grade,color:po.color,stripe:po.stripe,construction:po.construction,productForm:po.productForm,quantity:1,requiredDate:'2026-10-20'});state=await snapshot();const shipOrder=state.orders.find(item=>!beforeShipIds.includes(item.id));assert.ok(shipOrder,'Customer Order persisted after React state update');const shipPipe=state.finishedGoods.find(item=>item.reservedForOrderId===shipOrder.id);assert.ok(shipPipe);await role('plantmanager');await action('relocatePhysicalItem','Finished Pipe',shipPipe.id,'I','Browser physical shipment QA');await role('production','prod-scanner');
+  await choose('Search options...','Release Finished Pipes');await choose('Shipment Customer Order',shipOrder.orderNo);await evaluate("document.querySelector('[aria-label^=\"Hardware barcode capture\"]').focus()");
+  // Queue the HID burst together: per-character debugger round trips can exceed
+  // the real scanner's inter-key timeout and are not representative keyboard input.
+  await Promise.all([...shipPipe.barcode].map(char=>send('Input.dispatchKeyEvent',{type:'keyDown',key:char,text:char})));await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await pause(150);
+  assert.notEqual((await snapshot()).finishedGoods.find(item=>item.id===shipPipe.id).releaseStatus,'Released');await surface('shipment-scan-confirmation');await click('Confirm Release');await confirm();state=await snapshot();assert.equal(state.finishedGoods.find(item=>item.id===shipPipe.id).releaseStatus,'Released');assert.equal(state.finishedGoods.find(item=>item.id===shipPipe.id).barcode,shipPipe.barcode);assert.equal(state.transactions.filter(item=>item.transactionType==='Finished Pipe Released'&&item.barcode===shipPipe.barcode).length,1);
+  console.log('PASS actual Good Output 10 -> ten Awaiting Storage barcodes -> ten scan-to-store confirmations; same barcode HID scan + selected order + explicit shipment confirmation creates one Stock Out');
+  const shared=await evaluate('qa.data()');
+  for(const name of ['OWNER_SUPER_ADMIN','accounting','marketing','management','plantmanager','production']){
+    await role(name);assert.deepEqual(await evaluate('qa.data()'),shared,name+' shares the same records');
+    if(name!=='accounting'){const result=await action('dispatchTransfer',transfer.id);assert.equal(result.success,false);assert.deepEqual(await evaluate('qa.data()'),shared);}
+    if(name!=='production'){const result=await action('finishWipBag','isolated-zero-wip');assert.equal(result.success,false);assert.deepEqual(await evaluate('qa.data()'),shared);}
+  }
+  await role('accounting','acc-transactions');await pause(200);
+  const rows=await evaluate('qa.operational.operationalStockCard(qa.app.transactions,qa.app.finishedGoods)');assert.ok(rows.filter(row=>/Loaded|Consum/.test(row.transaction.transactionType)).every(row=>row.stockIn===0&&row.stockOut===0));
+  assert.ok(await evaluate("document.body.textContent.includes('Material kg and Finished Pipe units are separate ledgers')"));
+  const persisted=await evaluate('qa.data()');await reload();
+  const reloaded=await evaluate('qa.data()'),expected=structuredClone(persisted);
+  // Existing hydrateFinishedPipe fills this absent relationship on reload.
+  // Permit ONLY that additive reference, retaining strict equality for every
+  // quantity, identity, barcode, physical location, history and other property.
+  for(const pipe of expected[1])if(pipe.source==='Stock Replenishment'&&!Object.hasOwn(pipe,'customerOrderId')&&pipe.reservedForOrderId){
+    assert.ok(expected[3].some(order=>order.id===pipe.reservedForOrderId));pipe.customerOrderId=pipe.reservedForOrderId;
+  }
+  assert.deepEqual(reloaded,expected);
+  await reload();assert.deepEqual(await evaluate('qa.data()'),reloaded);
+  console.log('PASS all six roles share persisted operational data; new actions enforce roles; reload does not duplicate stock, output, pipes or movements');
+  for(const width of [360,768,1280]){await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});await pause(100);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth+1'),false);if(width!==768){const screenshot=await send('Page.captureScreenshot',{format:'png'}),file=path.join(profile,'movement-'+width+'.png');fs.writeFileSync(file,Buffer.from(screenshot.data,'base64'));console.log('SCREENSHOT '+file);}}
+  assert.deepEqual(errors,[]);console.log('PASS process-flow browser verification; isolated profile '+profile);
+}catch(error){if(socket?.readyState===WebSocket.OPEN)console.error(await evaluate('document.body.innerText').catch(()=>''));throw error;}finally{if(socket?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}socket.close();}chrome?.kill();await server.close();}

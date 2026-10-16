@@ -83,6 +83,7 @@ export default function PrintAction({ record, onPreview, autoStart = false }: { 
   };
   const lastRejected = app.reprintRequests.find(item => item.printable.key === record.key && item.status === 'REJECTED');
   return <div className="reprint-action print-hidden">
+    {record.approvalError && <div className="alert-info" role="status">{record.approvalError}</div>}
     <div className="helper-text">{status.replace(/_/g, ' ')} · Print count: {metadata.printCount}{metadata.lastPrintedAt && ` · Last printed: ${new Date(metadata.lastPrintedAt).toLocaleString()}`}</div>
     {authorized && <button className="btn-primary" disabled={session.busy} onClick={action}>{session.busy ? 'Preparing Print…' : metadata.printCount === 0 ? 'Print' : actionableApproval ? 'Reprint' : active ? 'View Request' : 'Request Reprint'}</button>}
     {active && !actionableApproval && <div className="helper-text">{active.status === 'PENDING' ? 'Reprint Pending — Management approval required.' : 'Reprint approved for the original requester only.'}</div>}

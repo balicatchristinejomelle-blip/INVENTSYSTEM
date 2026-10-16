@@ -30,7 +30,8 @@ import DocumentViewer from "../../components/DocumentViewer"
 import { transferDocument } from "../../documentPrint"
 
 function Transfers() {
-  const { transfers, materialRequests, createTransfer } = useSearchableApp()
+  const { transfers, materialRequests, createTransfer, dispatchTransfer } = useSearchableApp()
+  const [dispatchMessage, setDispatchMessage] = useState('');
 
   const [viewId, setViewId] = useState<string | null>(null)
 
@@ -109,6 +110,7 @@ function Transfers() {
 
   return (
     <div>
+      {dispatchMessage && <div className="alert-info mb-3" role="status">{dispatchMessage}</div>}
       <div className="mb-4">
         <CategoryTabs items={categoryTabs} value={category} onChange={v => { setCategory(v); setPage(1); }} label="Transfer material category" />
       </div>
@@ -165,6 +167,10 @@ function Transfers() {
                 </td>
                 <td onClick={(e) => e.stopPropagation()}>
                   <div className="button-group">
+                    {t.status === 'Preparing' && <ActionButton className="btn-primary btn-compact" confirmMessage={`Dispatch ${t.refNo} to ${t.destination}? No inventory is received by this action.`} onClick={() => {
+                      const result = dispatchTransfer(t.id);
+                      setDispatchMessage(result.success ? `Transfer dispatched: ${t.refNo}. Ready for receiving.` : result.error || 'Transfer could not be dispatched.');
+                    }}>Dispatch</ActionButton>}
                     <button className="btn-secondary btn-compact" onClick={() => setViewId(t.id)}>View Details</button>
                     <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
                   </div>

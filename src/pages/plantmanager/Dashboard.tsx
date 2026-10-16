@@ -64,7 +64,7 @@ function PMDashboard() {
         } else {
           const current = target.inventoryType === 'Colorant'
             ? colorants.filter(item => item.color === target.color && item.usageType === target.colorantUsageType).reduce((sum, item) => sum + item.availableKg, 0)
-            : pellets.filter(item => item.type === (target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled') && item.grade === target.materialGrade && item.availableKg > 0).reduce((sum, item) => sum + item.availableKg, 0);
+            : pellets.filter(item => item.type === (target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled') && item.grade === target.materialGrade && item.inventoryStatus === 'Available' && item.availableKg > 0).reduce((sum, item) => sum + item.availableKg, 0);
           if (current <= target.minimumStock) materialLow += 1;
         }
       });

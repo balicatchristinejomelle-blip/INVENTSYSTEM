@@ -10,6 +10,7 @@ export interface PrintableRecord {
   value?: string;
   context?: string;
   allowedRoles: Role[];
+  approvalError?: string;
 }
 export interface PrintMetadata {
   printCount: number;
@@ -44,7 +45,7 @@ export interface PrintWorkflowState {
 export const REPRINT_REASONS = ['Damaged printout', 'Lost copy', 'Unreadable Barcode', 'Printer issue', 'Additional authorized copy', 'Document damaged', 'Other'];
 export const printAuditRole = (role: Role) => ({ OWNER_SUPER_ADMIN: 'Owner / Super Admin', accounting: 'Accounting', marketing: 'Marketing', management: 'Management', plantmanager: 'Plant Manager', production: 'Production' })[role];
 export const printableKey = (kind: PrintableKind, type: string, id: string) => `${kind}:${type}:${id}`;
-export const canPrint = (user: User | null, record: PrintableRecord) => !!user && user.status === 'active' && record.allowedRoles.includes(user.role);
+export const canPrint = (user: User | null, record: PrintableRecord) => !!user && user.status === 'active' && record.allowedRoles.includes(user.role) && !record.approvalError;
 export const canViewRequest = (user: User | null, request: ReprintRequest) => !!user && user.status === 'active' && (['management', 'OWNER_SUPER_ADMIN'].includes(user.role) || request.requestedBy === user.employeeId);
 export function metadataFor(state: PrintWorkflowState, record: PrintableRecord, legacyPrinted = false): PrintMetadata {
   const stored = state.printMetadata?.[record.key];
@@ -78,6 +79,7 @@ export function reviewReprint(state: PrintWorkflowState, user: User | null, id: 
   return { success: true, state: { printMetadata: state.printMetadata, reprintRequests: state.reprintRequests.map(item => item.id === id ? updated : item) }, request: updated };
 }
 export function validatePrint(state: PrintWorkflowState, user: User | null, record: PrintableRecord, approvalId?: string): string | null {
+  if (record.approvalError) return record.approvalError;
   if (!canPrint(user, record)) return 'Access Restricted';
   if (!metadataFor(state, record).printCount) return approvalId ? 'Approval does not match this first print.' : null;
   const request = activeRequest(state, record.key);

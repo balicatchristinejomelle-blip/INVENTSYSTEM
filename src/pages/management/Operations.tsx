@@ -1,4 +1,5 @@
 import { pelletColorLabel } from '../../pelletColors';
+import { pelletBalances } from '../../operationalInventory';
 import RecordReference from '../../components/RecordReference';
 import { useViewState, useFilterChangeEffect } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
@@ -152,7 +153,7 @@ export default function Operations() {
             <div className="app-card kpi-card">
               <div>Virgin Pellets</div>
               <strong>
-                {pellets.filter(item => item.type === 'Virgin').reduce((sum, item) => sum + item.availableKg, 0).toFixed(1)}{" "}
+                {pelletBalances(pellets).virgin.toFixed(1)}{" "}
                 kg
               </strong>
               <small>
@@ -162,7 +163,7 @@ export default function Operations() {
             <div className="app-card kpi-card">
               <div>Recycled Pellets</div>
               <strong>
-                {pellets.filter(item => item.type === 'Recycled').reduce((sum, item) => sum + item.availableKg, 0).toFixed(1)}{" "}
+                {pelletBalances(pellets).recycled.toFixed(1)}{" "}
                 kg
               </strong>
               <small>

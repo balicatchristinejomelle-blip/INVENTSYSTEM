@@ -4,7 +4,8 @@ import { TableBody } from '../../components/UXFeedback';
 import { matchesRecord } from "../../components/RecordSearch"
 import ProductFilters, { useProductFilters } from '../../components/ProductFilters';
 import { productFilterRecord } from '../../productFilters';
-import { finishedGoodsStockEffect, finishedGoodsStockCard } from '../../finishedGoodsInventory';
+import { finishedGoodsStockCard } from '../../finishedGoodsInventory';
+import { operationalStockEffect as finishedGoodsStockEffect, operationalStockCard } from '../../operationalInventory';
 
 import SearchableDropdown from "../../components/SearchableDropdown"
 
@@ -46,6 +47,7 @@ export default function Transactions() {
 
   const types = useMemo(() => ['All', ...Array.from(new Set(transactions.map(item => item.transactionType)))], [transactions]);
   const finishedCard = useMemo(() => finishedGoodsStockCard(transactions, app.finishedGoods), [transactions, app.finishedGoods]);
+  const ledger = useMemo(() => operationalStockCard(transactions, app.finishedGoods), [transactions, app.finishedGoods]);
 
   const visible = transactions.filter(
     (item) =>
@@ -58,17 +60,19 @@ export default function Transactions() {
   )
 
   const summary = useMemo(() => {
-    const ordered = [...visible].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-    const byItem = new Map<string, typeof ordered>();
-    ordered.forEach(item => {
-      const key = item.barcode || `${categoryOf(item)}|${item.item}|${item.batch}`;
-      byItem.set(key, [...(byItem.get(key) || []), item]);
-    });
-    const beginning = category === 'Finished Pipe' ? (finishedCard.rows.find(row => ordered.some(item => item.id === row.transaction.id))?.before ?? finishedCard.ending) : Array.from(byItem.values()).reduce((sum, items) => sum + (items[0]?.qtyBefore || 0), 0);
-    const stockIn = ordered.reduce((sum, item) => sum + finishedGoodsStockEffect(item, app.finishedGoods).stockIn, 0);
-    const stockOut = ordered.reduce((sum, item) => sum + finishedGoodsStockEffect(item, app.finishedGoods).stockOut, 0);
-    return { beginning, stockIn, stockOut, ending: beginning + stockIn - stockOut };
-  }, [visible, category, finishedCard, app.finishedGoods]);
+    const ids = new Set(visible.map(item => item.id));
+    const groups = new Map<string, { unit: string; beginning: number; stockIn: number; stockOut: number }>();
+    for (const row of ledger.filter(row => ids.has(row.transaction.id))) {
+      const group = groups.get(row.category) || { unit: row.category === 'Finished Pipe' ? 'units' : 'kg', beginning: row.before, stockIn: 0, stockOut: 0 };
+      group.stockIn += row.stockIn; group.stockOut += row.stockOut; groups.set(row.category, group);
+    }
+    const format = (field: 'beginning' | 'stockIn' | 'stockOut' | 'ending') => {
+      const values = new Map<string, number>();
+      for (const group of groups.values()) values.set(group.unit, (values.get(group.unit) || 0) + (field === 'ending' ? group.beginning + group.stockIn - group.stockOut : group[field]));
+      return [...values].map(([unit, value]) => `${value.toLocaleString('en-US', { maximumFractionDigits: 3 })} ${unit}`).join(' · ') || '0';
+    };
+    return { beginning: format('beginning'), stockIn: format('stockIn'), stockOut: format('stockOut'), ending: format('ending') };
+  }, [visible, ledger]);
 
   const targetForReference = (reference: string) => {
     if (/^RR-/.test(reference)) return 'acc-rr-records';
@@ -119,7 +123,7 @@ export default function Transactions() {
         </div>
       </div>
       <div className="alert-info stock-card-note">
-        <strong>Internal movement:</strong> Finished Pipe storage, reservation, staging and loading have zero Stock In / Out. Good production output is the single Stock In; shipment/release is Stock Out. Raw Pellet → WIP remains unchanged.</div>
+        <strong>Internal movement:</strong> Raw → WIP, consumption, relocation, inter-plant transfer, storage, reservation, staging and loading do not create company Stock In / Out. Material kg and Finished Pipe units are separate ledgers: good output enters the Finished Pipe ledger once; shipment/release leaves it. Material Ending is the external movement ledger, not active Raw/WIP; current material positions are shown in inventory.</div>
       {category === 'Finished Pipe' && finishedCard.needsReconciliation && <div className="alert-warning">Historical movement totals do not reconcile with the retained physical sample records. No history was rewritten; review the opening balance before backend import.</div>}
       <CategoryTabs items={CATEGORIES} value={category} onChange={value => { setCategory(value); setPage(1); }} label="Inventory transaction category" />
       <div className="toolbar">
@@ -193,7 +197,7 @@ export default function Transactions() {
                     {finishedGoodsStockEffect(item, app.finishedGoods).stockOut > 0 ? formatQuantity(finishedGoodsStockEffect(item, app.finishedGoods).stockOut, unit) : '—'}
                   </td>
                   <td className="font-mono">
-                    {formatQuantity(categoryOf(item) === 'Finished Pipe' ? finishedCard.rows.find(row => row.transaction.id === item.id)?.balance ?? item.qtyAfter : item.qtyAfter, unit)}
+                    {formatQuantity(ledger.find(row => row.transaction.id === item.id)?.balance ?? item.qtyAfter, unit)}
                   </td>
                   <td>{unit}</td>
                   <td>{item.destination || item.source}</td>
