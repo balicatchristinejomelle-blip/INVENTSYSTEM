@@ -7,20 +7,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { PELLET_MASTER_BASELINE, reviewedPelletMasterDeltas, reviewedPelletMasterAdditions, pelletMasterBaseline, restorePelletMasterFile } from './pellet-master-baseline.mjs';
+import { restoreProductionOutputFile } from './production-output-baseline.mjs';
 
 let checks=0;
 const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
 const raw=file=>fs.readFileSync(file,'utf8').replace(/\r/g,'');
 for(const file of execFileSync('git',['ls-tree','-r','--name-only',PELLET_MASTER_BASELINE,'src'],{encoding:'utf8'}).trim().split('\n').filter(file=>/\.(tsx?|css)$/.test(file)))check('Unchanged source or exact reviewed color-only delta: '+file,()=>{
   assert.equal(restorePelletMasterFile(file,raw(file)),pelletMasterBaseline(file));
-  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed pellet-master delta/);
+  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed (pellet-master|production-output|filter-layout|process-flow) delta/);
 });
 for(const[file,hash]of Object.entries(reviewedPelletMasterAdditions))check('Exact shared creation selector: '+file,()=>assert.equal(createHash('sha256').update(raw(file)).digest('hex'),hash));
 function declarations(text){
   const ast=ts.createSourceFile('store.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),result=new Map();
   const visit=node=>{if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer)result.set(node.name.text,node.initializer.getText(ast));ts.forEachChild(node,visit);};visit(ast);return result;
 }
-const current=declarations(raw('src/store.tsx')),before=declarations(pelletMasterBaseline('src/store.tsx'));
+const current=declarations(restoreProductionOutputFile('src/store.tsx',raw('src/store.tsx'))),before=declarations(pelletMasterBaseline('src/store.tsx'));
 const colorCallbacks=['createReceivingReport','createTransfer','addMaterialRequest','completeRecyclingBatch'];
 for(const[name,value]of current)if(value.startsWith('useCallback(')&&!colorCallbacks.includes(name))check('Business callback byte-identical: '+name,()=>assert.equal(value,before.get(name)));
 function numericBindings(text){

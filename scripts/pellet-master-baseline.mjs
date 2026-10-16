@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreProductionOutputFile } from './production-output-baseline.mjs';
 
 export const PELLET_MASTER_BASELINE = 'a628d7c';
 // Exact color-master/legacy-presentation deltas. Independent tests execute the
@@ -40,7 +41,7 @@ export function pelletMasterBaseline(file) {
   return previous.get(file);
 }
 export function restorePelletMasterFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const source = restoreProductionOutputFile(file, text);
   if (!reviewedPelletMasterDeltas[file] || source === pelletMasterBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedPelletMasterDeltas[file]) throw new Error('Unreviewed pellet-master delta: ' + file);
   return pelletMasterBaseline(file);

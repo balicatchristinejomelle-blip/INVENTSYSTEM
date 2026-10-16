@@ -1,0 +1,30 @@
+/* Seven-filter presentation only. A nested facet panel must span its parent
+   toolbar/combined grid, not inherit one narrow column and trigger tablet CSS. */
+.operational-content .inventory-facet-panel:has(> .product-filter-controls[data-field-count="7"]),
+.operational-content .seven-master-filter-panel,
+.operational-content .record-filter-controls:has(.product-filter-controls > .product-filter-field:nth-child(7):last-child) {
+  grid-column: 1 / -1; justify-self: stretch; align-self: stretch; width: 100%; min-width: 0; max-width: 100%;
+}
+.seven-master-filter-panel { container-type: inline-size; }
+.record-filter-controls > .seven-master-filter-panel { flex: 0 0 100%; }
+
+/* Match both shared paths; specificity also overrides legacy display:contents,
+   offset child spans and viewport-only two-column fallbacks for this count. */
+.operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) {
+  display: grid; grid-column: 1 / -1; grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 10px; width: 100%; min-width: 0; max-width: 100%; justify-self: stretch;
+}
+.operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) > .product-filter-field {
+  grid-column: span 3; width: 100%; min-width: 0; max-width: 100%;
+}
+.operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) > .product-filter-field:nth-child(n + 5) { grid-column: span 4; }
+
+/* Four readable reset labels need about 760px, including input padding/gaps.
+   Container width, not a desktop viewport's stale tablet class, owns fallback. */
+@container (max-width: 759px) {
+  .operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) > .product-filter-field:nth-child(n) { grid-column: auto; }
+}
+@media (max-width: 600px) {
+  .operational-content .product-filter-controls:has(> .product-filter-field:nth-child(7):last-child) { grid-template-columns: minmax(0, 1fr); }
+}

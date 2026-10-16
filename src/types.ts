@@ -429,6 +429,8 @@ export interface RecyclingBatch {
 }
 
 export interface ShiftAttendance {
+  /** Selected by an explicit Start / Continue action; absent on older sessions. */
+  productionOrderId?: string;
   id: string;
   employeeId: string;
   employeeName: string;
@@ -523,6 +525,8 @@ export interface AuditLog {
 }
 
 export interface Transaction {
+  /** Idempotency key for a user-submitted production entry, not a physical ID. */
+  productionOutputEntryId?: string;
   finishedGoodsQuantity?: number;
   id: string;
   txId: string;

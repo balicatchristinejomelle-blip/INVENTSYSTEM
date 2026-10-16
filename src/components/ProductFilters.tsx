@@ -85,7 +85,7 @@ function MasterProductFilters({ value, onChange, product = '', grade = '', onPro
       onChange(next);
     }} />
   </label>;
-  return <><ActiveFilters clearLabel="Clear product filters" items={[
+  const controls = <><ActiveFilters clearLabel="Clear product filters" items={[
     ['Product', onProductChange ? product : value.product], ['Material Grade', onGradeChange ? grade : value.grade],
     ['Color', value.color], ['Size / Diameter', value.size], ['SDR / Thickness', value.sdr], ['Location', value.location], ['Length', value.length],
   ]} onClear={() => { onChange({ ...emptyProductFilter }); onProductChange?.('All'); onGradeChange?.('All'); }} />
@@ -98,4 +98,8 @@ function MasterProductFilters({ value, onChange, product = '', grade = '', onPro
     {includeLocation && field('location', 'Location', ['All Locations', ...activeLocationCodes(readStorageLocations())])}
     {includeLength && field('length', 'Length / Coil Length', productFilterLengths(productForm))}
   </div></>;
+  // Only the seven-field legacy variant needs its own width-query boundary.
+  // Other field counts retain their existing fragment/parent layout.
+  return (includeProduct || onProductChange) && (includeGrade || onGradeChange) && includeColor && includeLocation && includeLength
+    ? <div className="seven-master-filter-panel">{controls}</div> : controls;
 }

@@ -122,7 +122,7 @@ export default function PelletInventory() {
     if (target.status !== 'Active' || target.plant !== 'Branch Plant' || target.inventoryType === 'Finished Pipe') return [];
     const current = target.inventoryType === 'Colorant'
       ? colorants.filter(item => item.color === target.color && item.usageType === target.colorantUsageType).reduce((sum, item) => sum + item.availableKg, 0)
-      : pellets.filter(item => item.type === (target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled') && item.grade === target.materialGrade && item.availableKg > 0).reduce((sum, item) => sum + item.availableKg, 0);
+      : pellets.filter(item => item.type === (target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled') && item.grade === target.materialGrade && item.inventoryStatus === 'Available' && item.availableKg > 0).reduce((sum, item) => sum + item.availableKg, 0);
     const openRequest = materialRequests.find(item => {
       const replenishmentReceived = transfers.some(transfer => transfer.requestRef === item.refNo && transfer.status === 'Received');
       if (replenishmentReceived || !['New', 'Pending', 'Approved'].includes(item.status) || (item.destination || 'Branch Plant') !== 'Branch Plant') return false;
