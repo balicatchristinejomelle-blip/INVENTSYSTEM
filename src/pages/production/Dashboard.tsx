@@ -240,9 +240,9 @@ function ProductionDashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="app-card" style={{ padding: '14px 16px' }}>
+      <div className="app-card quick-actions" style={{ padding: '14px 16px' }}>
         <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Quick Actions</h3>
-        <div className="production-actions flex flex-wrap gap-2">
+        <div className="production-actions quick-action-grid">
           <button className="btn-primary" onClick={() => navigate('prod-orders')}>Continue Production</button>
           <button className="btn-primary" onClick={() => navigate('prod-barcode')}>Open Barcode Scanner</button>
           <button className="btn-primary" onClick={() => navigate('prod-finished-pipes')}>Record Output</button>

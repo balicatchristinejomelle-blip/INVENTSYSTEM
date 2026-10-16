@@ -1277,3 +1277,57 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .active-filter-summary > button { width: 100%; }
   .reference-detail-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Final layout lock: presentation only; existing filter/date/location behavior is unchanged. */
+/* A date-only bar has inline-size containment, so fit-content collapses its intrinsic width to zero. */
+.operational-content .record-filter-bar:has(.date-period-filter) {
+  width: 100%; max-width: 100%; min-width: 0; height: auto; min-height: 0;
+  grid-column: 1 / -1; justify-self: stretch; align-self: stretch; flex: 1 0 100%;
+}
+.operational-content .record-filter-bar > :is(.record-search-control, .date-period-filter, .active-filter-summary, .record-filter-controls) { grid-column: 1 / -1; min-width: 0; width: 100%; }
+.operational-content .date-period-filter { width: 100%; min-width: 0; max-width: 100%; height: auto; flex: 0 0 100%; grid-column: 1 / -1; align-self: stretch; }
+.operational-content .date-period-group { width: 100%; min-width: 0; max-width: 100%; gap: 6px; }
+.operational-content .date-period-buttons { display: flex; flex-wrap: wrap; justify-content: center; width: 100%; gap: 6px; }
+.operational-content .date-period-buttons > .date-period-button { flex: 0 0 auto; min-width: 48px; min-height: 34px; padding: 6px 12px; white-space: nowrap; }
+.operational-content .date-navigation-controls { width: min(100%, 520px); min-width: 0; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 8px; }
+.operational-content .date-navigation-controls > .date-period-button { min-width: 40px; min-height: 34px; padding: 6px; white-space: nowrap; }
+.operational-content :is(.date-all-summary, .date-active-range) { min-width: 0; max-width: 100%; }
+.operational-content .date-all-summary { width: 100%; }
+.operational-content .date-active-range { width: 100%; height: auto; overflow-wrap: normal; word-break: normal; line-height: 1.5; }
+.operational-content .date-active-range > span { min-width: 0; overflow-wrap: normal; word-break: normal; text-wrap: balance; }
+.operational-content .date-all-summary .date-active-range > span { white-space: nowrap; }
+.operational-content .date-active-range .date-filter-clear { flex: 0 0 auto; }
+.operational-content .quick-actions { min-width: 0; height: auto; }
+.operational-content .quick-actions > h3 { display: block; margin-bottom: 10px; }
+.operational-content .quick-action-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: stretch; gap: 10px; width: 100%; }
+.operational-content .quick-action-grid:has(> :nth-child(3):last-child), .operational-content .quick-action-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.operational-content .quick-action-grid > button { width: 100%; min-width: 0; min-height: 40px; height: 100%; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: center; white-space: normal; text-wrap: balance; }
+@media (min-width: 601px) and (max-width: 1100px) {
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) > :nth-child(n) { grid-column: span 2; }
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) > :nth-child(4) { grid-column: 2 / span 2; }
+  .operational-content .quick-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content .quick-action-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .operational-content .date-period-buttons { gap: 4px; }
+  .operational-content .date-period-buttons > .date-period-button { padding-inline: 8px; }
+  .operational-content .date-navigation-controls { gap: 4px; }
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) > :nth-child(n) { grid-column: auto; }
+  .operational-content .inventory-metrics:has(> :nth-child(5):last-child) > :last-child { grid-column: 1 / -1; }
+  .operational-content .quick-action-grid, .operational-content .quick-action-grid:has(> :nth-child(3):last-child), .operational-content .quick-action-grid:has(> :nth-child(6):last-child) { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Inventory summary: stable value alignment and help that never resizes a card. */
+.operational-content .kpi-card.metric-card { display: grid; grid-template-rows: minmax(48px, auto) auto auto; align-content: start; gap: 5px; }
+.operational-content .metric-card > .metric-label { flex: none; display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; gap: 6px; }
+.metric-label > span:first-child { min-width: 0; }
+.metric-help { display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center; }
+.metric-help-trigger { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 24px; height: 24px; border: 1px solid var(--card-border); border-radius: 50%; background: var(--card-bg); color: var(--accent-blue); font-size: 11px; font-weight: 600; cursor: pointer; }
+.metric-help-trigger:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.metric-help-popover { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(320px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 14px; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); color: var(--text-secondary); box-shadow: 0 6px 24px #0003; font-size: 12px; font-weight: 400; letter-spacing: normal; text-transform: none; line-height: 1.5; text-align: left; }
+.metric-help-popover:popover-open { display: grid; gap: 6px; }
+.metric-help-popover strong { color: var(--text-primary); }
+.inventory-summary-equation { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
+.inventory-summary-equation > span { display: inline-block; }

@@ -1,47 +1,40 @@
 import React, { useEffect, useRef } from 'react';
 import SearchableSelect from './SearchableSelect';
 import { ActiveFilters } from './UXFeedback';
-import { facetValue, resolveInventoryFacets, type FacetRow, type FacetSelection } from '../inventoryFacets';
+import { facetValue, resolveInventoryLocations, type FacetRow, type FacetSelection } from '../inventoryFacets';
 
-export interface InventoryFacetField { key: string; label: string; allLabel?: string; display?: (value: string) => string }
-const allMatchingLabel = (field: InventoryFacetField) => field.allLabel || 'All Matching ' + ({ product: 'Products', grade: 'Material Grades', color: 'Colors', size: 'Sizes', sdr: 'SDRs', location: 'Locations', purpose: 'Storage Purposes', status: 'Statuses', length: 'Lengths' }[field.key] || field.label);
+export interface InventoryFacetField { key: string; label: string; options: readonly string[]; allLabel?: string; display?: (value: string) => string }
+const allMatchingLabel = (field: InventoryFacetField) => field.allLabel || 'All ' + ({ product: 'Products', grade: 'Material Grades', color: 'Colors', size: 'Sizes', sdr: 'SDRs', location: 'Locations', purpose: 'Storage Purposes', status: 'Statuses', length: 'Lengths' }[field.key] || field.label);
 export default function InventoryFacetFields({ rows, fields, value, onChange }: {
   rows: readonly FacetRow[]; fields: readonly InventoryFacetField[]; value: FacetSelection; onChange: (next: FacetSelection) => void;
 }) {
-  const intent = useRef<FacetSelection>({ ...value }), priority = useRef(Object.keys(value));
-  const last = useRef(JSON.stringify(value));
-  const cleared = useRef<string[]>([]);
-  const signature = JSON.stringify(value);
-  if (last.current !== signature) {
-    for (const field of fields) if (value[field.key] !== JSON.parse(last.current)[field.key]) {
-      intent.current[field.key] = facetValue(value[field.key]);
-      priority.current = [field.key, ...priority.current.filter(key => key !== field.key)];
-    }
-    last.current = signature;
-  }
-  const result = resolveInventoryFacets(rows, fields.map(field => field.key), intent.current, priority.current, cleared.current);
-  const resolved = JSON.stringify(result.selected);
-  const apply = (selected: FacetSelection) => { last.current = JSON.stringify(selected); onChange(selected); };
+  const locationField = fields.find(field => field.key === 'location');
+  const location = resolveInventoryLocations(rows, value, locationField?.options || []);
+  const context = JSON.stringify([Object.entries(value).filter(([key]) => ['product', 'grade', 'color', 'size', 'sdr', 'length'].includes(key)), location.options]);
+  const clearedLocationContext = useRef<string | null>(null);
   useEffect(() => {
-    intent.current = result.retained;
-    if (fields.some(field => facetValue(value[field.key]) !== result.selected[field.key])) apply(result.selected);
-  }, [resolved, signature]);
+    if (locationField && clearedLocationContext.current !== context && facetValue(value.location) !== location.location) onChange({ ...value, location: location.location });
+  }, [context, location.location, value.location]);
   const change = (key: string, selected: string) => {
-    cleared.current = selected ? [] : [key];
-    intent.current = { ...result.retained, [key]: selected };
-    priority.current = [key, ...priority.current.filter(item => item !== key)];
-    apply(resolveInventoryFacets(rows, fields.map(field => field.key), intent.current, priority.current, cleared.current).selected);
+    const next = { ...value, [key]: selected };
+    // Explicit Location removal stays clear until the specification/matching locations change.
+    if (key === 'location') clearedLocationContext.current = selected ? null : context;
+    if (locationField && ['product', 'grade', 'color', 'size', 'sdr', 'length'].includes(key)) {
+      clearedLocationContext.current = null;
+      next.location = resolveInventoryLocations(rows, next, locationField.options).location;
+    }
+    onChange(next);
   };
   return <div className="inventory-facet-panel">
-    <ActiveFilters compact items={fields.map(field => [field.label, field.display?.(result.selected[field.key]) || result.selected[field.key]] as const)}
+    <ActiveFilters compact items={fields.map(field => [field.label, field.display?.(facetValue(value[field.key])) || facetValue(value[field.key])] as const)}
       onRemove={label => { const field = fields.find(field => field.label === label); if (field) change(field.key, ''); }}
-      clearLabel="Clear All" onClear={() => { intent.current = {}; cleared.current = fields.map(field => field.key); apply(Object.fromEntries(fields.map(field => [field.key, '']))); }} />
+      clearLabel="Clear All" onClear={() => onChange(Object.fromEntries(fields.map(field => [field.key, ''])))} />
     <div className="inventory-facet-grid product-filter-controls" data-field-count={fields.length}>
       {fields.map(field => <label className="product-filter-field" key={field.key}>
         <span className="field-label">{field.label}</span>
-        <SearchableSelect ariaLabel={field.label} menuClassName="inventory-facet-options" value={result.selected[field.key] || ''}
-          placeholder={allMatchingLabel(field)}
-          searchPlaceholder={`Search ${field.label}...`} options={[{ value: '', label: allMatchingLabel(field) }, ...result.options[field.key].map(value => ({ value, label: field.display?.(value) || value }))]}
+        <SearchableSelect ariaLabel={field.label} menuClassName="inventory-facet-options" value={facetValue(value[field.key])}
+          placeholder={field.key === 'location' ? location.label : allMatchingLabel(field)}
+          searchPlaceholder={`Search ${field.label}...`} options={[{ value: '', label: field.key === 'location' ? location.label : allMatchingLabel(field) }, ...(field.key === 'location' ? location.options : field.options).map(value => ({ value, label: field.display?.(value) || value }))]}
           onChange={selected => change(field.key, selected)} />
       </label>)}
     </div>

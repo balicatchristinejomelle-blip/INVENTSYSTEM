@@ -20,6 +20,11 @@
     "check:ux": "node scripts/check-ux.mjs",
     "check:dates": "node scripts/check-date-periods.mjs",
     "check:smart": "node scripts/check-smart-inventory.mjs",
+    "check:recovery": "node scripts/check-recovery.mjs",
+    "check:layout-lock": "node scripts/check-layout-lock.mjs",
+    "check:summary-colors": "node scripts/check-summary-colors.mjs",
+    "qa:summary-colors:browser": "node scripts/check-summary-colors-browser.mjs",
+    "qa:layout-lock:browser": "node scripts/check-layout-lock-browser.mjs",
     "qa:smart:browser": "node scripts/check-smart-inventory-browser.mjs",
     "qa:dates:browser": "node scripts/check-date-periods-browser.mjs",
     "qa:po:browser": "node scripts/check-po-references-browser.mjs"

@@ -74,6 +74,7 @@ export default function MainPlantRequests() {
   const [usageType, setUsageType] = useState<'BASE_COLORANT' | 'STRIPE_COLORANT'>('BASE_COLORANT');
 
   const [color, setColor] = useState<string>("Black (BK)")
+  const [recycledColor, setRecycledColor] = useState('');
 
   const [quantityKg, setQuantityKg] = useState("")
 
@@ -95,6 +96,7 @@ export default function MainPlantRequests() {
       setCategory(intent.category);
       if (intent.grade) setGrade(intent.grade);
       if (intent.color) setColor(intent.color);
+      if (intent.category === 'Recycled Pellet' && intent.color) setRecycledColor(intent.color);
       if (intent.usageType) setUsageType(intent.usageType);
       if (intent.category === 'Colorant') setQuantityKg(String(intent.suggestedKg));
       else setBags(String(intent.bags || Math.ceil(intent.suggestedKg / 25)));
@@ -154,6 +156,7 @@ export default function MainPlantRequests() {
   };
 
   const submit = () => {
+    if (category === 'Recycled Pellet' && !recycledColor.trim()) { setError('Enter the recycled pellet color.'); return; }
     if (category !== 'Colorant' && (!Number.isInteger(requestedBags) || requestedBags <= 0)) {
       setError('Requested complete bags must be a positive whole number.');
       return;
@@ -169,7 +172,7 @@ export default function MainPlantRequests() {
       materialCategory: category,
       pelletType: category === 'Recycled Pellet' ? 'Recycled' : 'Virgin',
       grade: category === 'Colorant' ? selectedPO?.grade || 'Not applicable' : grade,
-      color: category === 'Colorant' ? color : selectedPO?.color || 'Natural',
+      color: category === 'Colorant' ? color : category === 'Virgin Pellet' ? 'White' : recycledColor.trim(),
       requestedKg,
       requestedBags: category === 'Colorant' ? undefined : requestedBags,
       colorantUsageType: category === 'Colorant' ? usageType : undefined,
@@ -283,7 +286,7 @@ export default function MainPlantRequests() {
       <DocumentViewer open={!!documentAction} document={documentRequest ? materialRequestDocument(documentRequest) : null} autoPrint={documentAction?.autoPrint} onClose={() => setDocumentAction(null)} />
 
       {showNew && (
-        <Modal draft={{ category, poId, grade, bags, usageType, color, quantityKg, notes }} open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
+        <Modal draft={{ category, poId, grade, bags, usageType, color, recycledColor, quantityKg, notes }} open title="New Material Request" onClose={() => setShowNew(false)} width="680px">
           <div className="page-stack">
             {replenishmentContext && (
               <div className="alert-warning">
@@ -347,6 +350,9 @@ export default function MainPlantRequests() {
                 <label>Requested Complete Bags
               <input className="app-input" type="number" min="1" step="1" value={bags} onChange={event => setBags(event.target.value)} />
             </label>
+                <label>Pellet Color
+                  <input className="app-input" readOnly={category === 'Virgin Pellet'} value={category === 'Virgin Pellet' ? 'White' : recycledColor} required placeholder="Enter actual recycled color" onChange={event => setRecycledColor(event.target.value)} />
+                </label>
                 <Info label="Weight Per Bag" value="25 kg fixed" />
                 <Info label="Total Requested Weight" value={`${Number.isFinite(requestedKg) ? requestedKg : 0} kg (automatic)`} />
               </div>

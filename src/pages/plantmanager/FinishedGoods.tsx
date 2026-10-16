@@ -10,6 +10,7 @@ import StoragePurposeFilter, { type StoragePurposeSelection } from '../../compon
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -243,6 +244,7 @@ export default function PMFinishedGoods() {
         ['Available', available], ['Reserved', reserved], ['Temporary Storage', inventory.temporary],
         ['Ready for Ship Out', inventory.ready], ['On Hand', total],
       ]} />
+      <InventorySummaryNote counts={inventory} />
       <MetricCards items={[
         ['Awaiting Storage', inventory.awaiting],
         ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length],
@@ -252,7 +254,7 @@ export default function PMFinishedGoods() {
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation
           records={finishedGoods.filter(pipe => pipe.qualityStatus !== 'Reject' && dateInPeriod(pipe.productionDate, period.range) && matchesRecord(withPrintSearch(app, pipe), search))}
           purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); resetPage(); }}
-          status={status} onStatusChange={value => { setStatus(value as Destination); resetPage(); }}
+          status={status} statusOptions={DESTINATIONS.slice(1)} onStatusChange={value => { setStatus(value as Destination); resetPage(); }}
           statusFor={pipe => DESTINATIONS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />
       </div>
         <LegacyBarcodeNotice query={search} pipes={finishedGoods} />

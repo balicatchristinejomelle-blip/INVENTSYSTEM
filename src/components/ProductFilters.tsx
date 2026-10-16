@@ -5,13 +5,14 @@ import { readPipeSpecifications } from '../finishedPipeRelations';
 import { emptyProductFilter, matchesProductFilter, productFilterRecord, productFilterSizes, type ProductFilter } from '../productFilters';
 import InventoryFacetFields, { type InventoryFacetField } from './InventoryFacetFields';
 import { inventoryFacetRow } from '../inventoryFacets';
-import { finishedPipeInventory } from '../finishedGoodsInventory';
+import { finishedPipeInventory, STORAGE_PURPOSES } from '../finishedGoodsInventory';
 import type { FinishedGood } from '../types';
 import { useApp } from '../store';
-import { activeLocationCodes } from '../locationMaster';
+import { activeLocationCodes, filterLocationCodes } from '../locationMaster';
 import { readStorageLocations } from '../finishedGoodsInventory';
 import { useViewState } from '../uiViewState';
 import { ActiveFilters } from './UXFeedback';
+import { materialColorOptions } from '../pelletColors';
 
 export function useProductFilters(onChange?: () => void, viewKey = 'product-filters') {
   const app = useApp();
@@ -20,22 +21,28 @@ export function useProductFilters(onChange?: () => void, viewKey = 'product-filt
   return { value, change, reset: () => change({ ...emptyProductFilter }), matches: (record: unknown, overrides: Partial<ProductFilter> = {}) => matchesProductFilter(record, { ...value, ...overrides }, app) };
 }
 interface ProductFiltersProps {
+  materialColors?: boolean;
   value: ProductFilter; onChange: (next: ProductFilter) => void; product?: string; grade?: string; onProductChange?: (product: string) => void; onGradeChange?: (grade: string) => void; includeProduct?: boolean; includeGrade?: boolean; includeLength?: boolean; includeColor?: boolean; includeLocation?: boolean;
   records?: readonly unknown[]; purpose?: string; onPurposeChange?: (value: string) => void; status?: string; onStatusChange?: (value: string) => void;
-  statusFor?: (record: any) => string; statusLabel?: (status: string) => string;
+  statusFor?: (record: any) => string; statusLabel?: (status: string) => string; statusOptions?: readonly string[];
 }
 function InventoryProductFilters(props: ProductFiltersProps) {
   const app = useApp();
   const { value, onChange, product, grade, onProductChange, onGradeChange } = props;
+  const specifications = readPipeSpecifications();
+  const sizes = productFilterSizes(onProductChange ? product || '' : props.includeProduct ? value.product : product || '', specifications);
+  useEffect(() => {
+    if (value.size && !sizes.includes(value.size)) onChange({ ...value, size: '' });
+  }, [product, value.product]);
   const fields: InventoryFacetField[] = [
-    ...((props.includeProduct || onProductChange) ? [{ key: 'product', label: 'Product' }] : []),
-    ...((props.includeGrade || onGradeChange) ? [{ key: 'grade', label: 'Material Grade' }] : []),
-    ...(props.includeColor ? [{ key: 'color', label: 'Color' }] : []),
-    { key: 'size', label: 'Size / Diameter' }, { key: 'sdr', label: 'SDR / Thickness' },
-    ...(props.includeLocation ? [{ key: 'location', label: 'Location' }] : []),
-    ...(props.onPurposeChange ? [{ key: 'purpose', label: 'Storage Purpose' }] : []),
-    ...(props.onStatusChange ? [{ key: 'status', label: 'Status', display: props.statusLabel }] : []),
-    ...(props.includeLength ? [{ key: 'length', label: 'Length / Coil Length' }] : []),
+    ...((props.includeProduct || onProductChange) ? [{ key: 'product', label: 'Product', options: HPAI_PRODUCT_MASTER.products }] : []),
+    ...((props.includeGrade || onGradeChange) ? [{ key: 'grade', label: 'Material Grade', options: HPAI_PRODUCT_MASTER.materialGrades }] : []),
+    ...(props.includeColor ? [{ key: 'color', label: 'Color', options: props.materialColors ? materialColorOptions(props.records) : HPAI_PRODUCT_MASTER.pipeColors }] : []),
+    { key: 'size', label: 'Size / Diameter', options: sizes }, { key: 'sdr', label: 'SDR / Thickness', options: HPAI_PRODUCT_MASTER.sdrRatings },
+    ...(props.includeLocation ? [{ key: 'location', label: 'Location', options: filterLocationCodes(readStorageLocations()) }] : []),
+    ...(props.onPurposeChange ? [{ key: 'purpose', label: 'Storage Purpose', options: STORAGE_PURPOSES }] : []),
+    ...(props.onStatusChange ? [{ key: 'status', label: 'Status', options: props.statusOptions || ['Quality Pending', 'Awaiting Storage', 'Stored', 'Available', 'Reserved', 'Ready for Release', 'Shipped Out', 'Quality Reject', 'Low Stock'], display: props.statusLabel }] : []),
+    ...(props.includeLength ? [{ key: 'length', label: 'Length / Coil Length', options: [...HPAI_PRODUCT_MASTER.straightLengths, ...HPAI_PRODUCT_MASTER.coilLengths] }] : []),
   ];
   const rows = props.records!.map(record => inventoryFacetRow(productFilterRecord(record, app), {
     ...(props.statusFor ? { status: props.statusFor(record) } : {}),
@@ -48,8 +55,8 @@ function InventoryProductFilters(props: ProductFiltersProps) {
     for (const { key } of fields) {
       if (key === 'product' && onProductChange) { if ((product === 'All' ? '' : product) !== next[key]) onProductChange(next[key] || 'All'); }
       else if (key === 'grade' && onGradeChange) { if ((grade === 'All' ? '' : grade) !== next[key]) onGradeChange(next[key] || 'All'); }
-      else if (key === 'purpose') props.onPurposeChange?.(next[key] || 'All');
-      else if (key === 'status') props.onStatusChange?.(next[key] || 'All Statuses');
+      else if (key === 'purpose') { if ((props.purpose?.startsWith('All') ? '' : props.purpose || '') !== next[key]) props.onPurposeChange?.(next[key] || 'All'); }
+      else if (key === 'status') { if ((props.status?.startsWith('All') ? '' : props.status || '') !== next[key]) props.onStatusChange?.(next[key] || 'All Statuses'); }
       else updated[key as keyof ProductFilter] = next[key];
     }
     onChange(updated);

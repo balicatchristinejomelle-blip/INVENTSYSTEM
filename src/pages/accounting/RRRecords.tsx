@@ -50,7 +50,7 @@ export default function RRRecords() {
   const [form, setForm] = useState({
     pelletType: 'Virgin' as 'Virgin' | 'Recycled',
     grade: 'PE100',
-    color: 'Black (BK)',
+    color: 'White',
     numberOfBags: '5',
     supplier: '',
     referenceNo: '',
@@ -81,6 +81,7 @@ export default function RRRecords() {
   )
 
   const submitRR = () => {
+    if (form.pelletType === 'Recycled' && !form.color.trim()) { setFormError('Enter the recycled pellet color.'); return; }
     if (!form.storageLocation) { setFormError('Storage Location is required.'); return; }
     const numberOfBags = Number(form.numberOfBags);
     if (!Number.isInteger(numberOfBags) || numberOfBags < 1 || !form.supplier.trim() || !form.referenceNo.trim()) {
@@ -268,7 +269,7 @@ export default function RRRecords() {
             <label>
               Pellet Type
               <SearchableDropdown
-                className="app-select" value={form.pelletType} onChange={e => setForm({ ...form, pelletType: e.target.value as 'Virgin' | 'Recycled' })}
+                className="app-select" value={form.pelletType} onChange={e => setForm({ ...form, pelletType: e.target.value as 'Virgin' | 'Recycled', color: e.target.value === 'Virgin' ? 'White' : '' })}
               >
                 <option>Virgin</option>
                 <option>Recycled</option>
@@ -284,7 +285,7 @@ export default function RRRecords() {
             </label>
             <label>
               Color
-              <input className="app-input" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
+              <input className="app-input" value={form.color} readOnly={form.pelletType === 'Virgin'} required placeholder="Enter actual recycled color" onChange={e => setForm({ ...form, color: e.target.value })} />
             </label>
             <label>
               Number of 25 kg Bags

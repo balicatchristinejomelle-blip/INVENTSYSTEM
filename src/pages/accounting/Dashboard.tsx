@@ -134,9 +134,9 @@ function AccountingDashboard() {
       </section>
 
       {/* Quick Actions */}
-      <section>
+      <section className="quick-actions">
         <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Quick Actions</h3>
-        <div className="button-group">
+        <div className="button-group quick-action-grid">
           <button className="btn-warning" onClick={() => navigate('acc-branch-requests')}>Review Requests</button>
           <button className="btn-primary" onClick={() => navigate('acc-transfers')}>Create Transfer</button>
           <button className="btn-secondary" onClick={() => navigate('acc-raw-materials')}>View Materials</button>

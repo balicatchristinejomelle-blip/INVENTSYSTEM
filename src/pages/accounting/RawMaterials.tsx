@@ -126,6 +126,8 @@ export default function RawMaterials() {
                   <th>Bag Barcode</th>
                   <th>Batch</th>
                   <th>Grade</th>
+                  <th>Type</th>
+                  <th>Color</th>
                   <th>Remaining Weight</th>
                   <th>Status</th>
                   <th>Current PO</th>
@@ -140,6 +142,8 @@ export default function RawMaterials() {
                     <td className="font-mono"><RecordReference value={item.barcode} /></td>
                     <td className="font-mono"><RecordReference value={item.batchNo} /></td>
                     <td>{item.grade}</td>
+                    <td>{item.type}</td>
+                    <td>{item.color}</td>
                     <td className="font-mono">
                       {item.availableKg.toFixed(3)} kg
                     </td>
@@ -154,7 +158,7 @@ export default function RawMaterials() {
                 ))}
                 {!filteredPellets.length && (
                   <tr>
-                    <td colSpan={9} className="empty-state">No records match the selected search or filters.</td>
+                    <td colSpan={11} className="empty-state">No records match the selected search or filters.</td>
                   </tr>
                 )}
               </TableBody>

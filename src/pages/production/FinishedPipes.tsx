@@ -3,6 +3,7 @@ import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
@@ -149,13 +150,14 @@ export default function FinishedPipes() {
         ['Temporary Storage', inventory.temporary, 'units'], ['Ready for Ship Out', inventory.ready, 'units'],
         ['On Hand', totalUnits, 'units'],
       ]} />
+      <InventorySummaryNote counts={inventory} />
       <div className="helper-text">Total Released: <strong>{totalReleased}</strong> units</div>
 
       <div className="app-card detail-card page-stack">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search barcode, pipe ID, PO, product, or storage location..." filters={<ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); setPage(1); }} grade={grade} onGradeChange={value => { setGrade(value); setPage(1); }} includeColor includeLocation
           records={finishedGoods.filter(pipe => dateInPeriod(pipe.productionDate, period.range) && matchesRecord(pipeSearchRecord(pipe, app), search))}
           purpose={purpose} onPurposeChange={value => { setPurpose(value as StoragePurposeSelection); setPage(1); }}
-          status={activeTab} onStatusChange={value => { setActiveTab(value as FilterTab); setPage(1); }}
+          status={activeTab} statusOptions={FILTER_TABS.slice(1)} onStatusChange={value => { setActiveTab(value as FilterTab); setPage(1); }}
           statusFor={pipe => FILTER_TABS.slice(1).find(destination => matchesDestination(pipe, destination)) || ''} />} />
       </div>
 

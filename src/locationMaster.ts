@@ -3,11 +3,12 @@ export const LOCATION_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as c
 export const SAMPLE_LOCATIONS: readonly StorageLocation[] = LOCATION_CODES.map((code, index) => ({ id: `demo-location-${code.toLowerCase()}-v1`, code, name: code, status: 'Active', plant: 'Branch Plant', locationType: index < 6 ? 'Finished Goods Inventory' : index < 8 ? 'Temporary Finished Goods' : 'Ready for Ship Out' }));
 export function normalizeLocationMaster(stored: unknown): StorageLocation[] {
   const records: StorageLocation[] = Array.isArray(stored) ? stored.filter(record => record && typeof record.name === 'string' && typeof record.locationType === 'string') : [];
-  const legacyIds = ['loc-a', 'loc-b', 'loc-c', 'loc-d', 'loc-temp-1', 'loc-temp-2', 'loc-reserved', 'loc-ship'];
-  const retained = records.map(record => legacyIds.includes(record.id) ? { ...record, status: 'Inactive' as const } : record);
+  const retained = records;
   return [...retained, ...SAMPLE_LOCATIONS.filter(sample => !retained.some(record => record.id === sample.id || record.code === sample.code || record.name === sample.name)).map(sample => ({ ...sample }))];
 }
 export function activeLocationCodes(locations: readonly StorageLocation[] = SAMPLE_LOCATIONS) { return LOCATION_CODES.filter(code => locations.some(location => location.status === 'Active' && (location.code || location.name) === code)); }
+/** Read-only filters include configured custom/historical physical locations, never production-stage placeholders. */
+export function filterLocationCodes(locations: readonly StorageLocation[] = SAMPLE_LOCATIONS) { return [...new Set(locations.flatMap(location => [location.code, location.name].filter((value): value is string => !!value)))]; }
 export const physicalLocation = (record: { currentLocation?: string; storageLocation?: string; receivingLocation?: string }) => record.currentLocation || record.storageLocation || record.receivingLocation || '';
 export const matchesLocation = (record: { currentLocation?: string; storageLocation?: string; receivingLocation?: string; locationBalances?: Record<string, number> }, location: string) => !location || location === 'All' || location === 'All Locations' || (record.locationBalances ? (record.locationBalances[location] || 0) > 0 : physicalLocation(record) === location);
 export function locationQuantity(record: { availableKg: number; currentLocation?: string; locationBalances?: Record<string, number> }, location: string) { return location && location !== 'All' && location !== 'All Locations' ? record.locationBalances?.[location] ?? (record.currentLocation === location ? record.availableKg : 0) : record.availableKg; }

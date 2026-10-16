@@ -18,6 +18,7 @@ try {
   const locations = await server.ssrLoadModule('/src/locationMaster.ts');
   const categories = await server.ssrLoadModule('/src/inventoryCategories.ts');
   const store = await server.ssrLoadModule('/src/store.tsx');
+  const pelletColors = await server.ssrLoadModule('/src/pelletColors.ts');
   const { filterSelectOptions } = await server.ssrLoadModule('/src/components/SearchableSelect.tsx');
   const Controls = (await server.ssrLoadModule('/src/components/ProductFilters.tsx')).default;
   const Tabs = (await server.ssrLoadModule('/src/components/CategoryTabs.tsx')).default;
@@ -73,10 +74,10 @@ try {
   });
   const helperNames = ['makePelletBags', 'normalizeBarcodeValue', 'nextAnnualSequence', 'makePermanentPelletBags', 'registryEntriesForPellets'];
   const helperCode = transpile(helperNames.map(name => `const ${name} = ${initializers.get(name)};`).join('\n'));
-  const helpers = new Function('isSupportedMaterialGrade', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade);
+  const helpers = new Function('isSupportedMaterialGrade', 'pelletColor', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.isSupportedMaterialGrade, pelletColors.pelletColor);
   function simulate(name, role, input) {
     let current = structuredClone({ ...baseline, currentUser: store.USERS.find(user => user.role === role), finishedGoods: [], materialRequests: [], productionOrders: [], transfers: [] });
-    const dependencies = { ...inventory, ...locations, useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
+    const dependencies = { ...inventory, ...locations, ...pelletColors, useCallback: fn => fn, setState: fn => { current = fn(current); }, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, requestCategory: categories.requestCategory, finishedPipeInventory: inventory.finishedPipeInventory, specificationKey: master.specificationKey, specificationKeyFromRecord: master.specificationKeyFromRecord, specificationLength: master.specificationLength, ...helpers };
     const action = new Function(...Object.keys(dependencies), `${transpile(`const action = ${initializers.get(name)};`)}; return action;`)(...Object.values(dependencies));
     const before = structuredClone(current); const result = action(input); return { result, before, state: current };
   }

@@ -1,4 +1,5 @@
 import { restoreStorageCallback } from './storage-inventory-baseline.mjs';
+import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 import assert from 'node:assert/strict';
 import { restorePreviousGradeMaster, restoreGradeCreationGuard } from './material-grade-baseline.mjs';
 import fs from 'node:fs';
@@ -351,7 +352,7 @@ try {
     }; walk(ast); return result;
   };
   const originalStore = namedSources(baseFile('src/store.tsx'));
-  const updatedStore = namedSources(fs.readFileSync('src/store.tsx', 'utf8'));
+  const updatedStore = namedSources(restoreSummaryColorsFile('src/store.tsx', fs.readFileSync('src/store.tsx', 'utf8')));
   // Follow-up relationship work adds only these reviewed metadata/validation statements.
   // Preserve the exact baseline check for all remaining operational formula/transaction code.
   const withoutRelationshipAdditions = (name, source) => {

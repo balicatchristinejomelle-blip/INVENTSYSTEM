@@ -133,10 +133,6 @@ export default function Login() {
             </button>
           </form>
 
-          <div style={{ marginTop: 20, padding: '12px 14px', background: theme === 'dark' ? 'rgba(37,99,235,0.08)' : '#f8fafc', borderRadius: 6, border: '1px solid var(--card-border)' }}>
-            <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: 600 }}>SYSTEM ACCESS</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Authorized personnel only. Unauthorized access is prohibited and may be subject to disciplinary action.</p>
-          </div>
         </div>
       ) : (
         /* Forgot Password */
