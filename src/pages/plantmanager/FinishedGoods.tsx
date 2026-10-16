@@ -10,6 +10,7 @@ import StoragePurposeFilter, { type StoragePurposeSelection } from '../../compon
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -243,6 +244,7 @@ export default function PMFinishedGoods() {
         ['Available', available], ['Reserved', reserved], ['Temporary Storage', inventory.temporary],
         ['Ready for Ship Out', inventory.ready], ['On Hand', total],
       ]} />
+      <InventorySummaryNote counts={inventory} />
       <MetricCards items={[
         ['Awaiting Storage', inventory.awaiting],
         ['Shipped Out', finishedGoods.filter(f => f.releaseStatus === 'Released').length],

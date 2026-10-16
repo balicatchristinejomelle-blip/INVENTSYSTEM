@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { finishedGoodsSummary } from '../finishedGoodsInventory';
 import type { FinishedGood } from '../types';
 import MetricCards from './MetricCards';
+import InventorySummaryNote from './InventorySummaryNote';
 import { LastUpdated } from './UXFeedback';
 export default function FinishedGoodsMetrics({ pipes }: { pipes?: readonly FinishedGood[] }) {
   const app = useApp();
@@ -13,6 +14,7 @@ export default function FinishedGoodsMetrics({ pipes }: { pipes?: readonly Finis
       ['Available', counts.available], ['Reserved', counts.reserved], ['Temporary Storage', counts.temporary],
       ['Ready for Ship Out', counts.ready], ['On Hand', counts.onHand],
     ]} />
+    <InventorySummaryNote counts={counts} />
     <MetricCards label="Additional inventory conditions" items={[
     ['Awaiting Storage / Quality', counts.awaiting + counts.qualityPending],
     ['Held Rejected Pipe Records', counts.rejected],

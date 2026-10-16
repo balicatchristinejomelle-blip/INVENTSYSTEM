@@ -3,6 +3,7 @@ import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import { finishedGoodsSummary, finishedPipeInventory } from '../../finishedGoodsInventory';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import StoragePurposeFilter, { type StoragePurposeSelection } from '../../components/StoragePurposeFilter';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
@@ -149,6 +150,7 @@ export default function FinishedPipes() {
         ['Temporary Storage', inventory.temporary, 'units'], ['Ready for Ship Out', inventory.ready, 'units'],
         ['On Hand', totalUnits, 'units'],
       ]} />
+      <InventorySummaryNote counts={inventory} />
       <div className="helper-text">Total Released: <strong>{totalReleased}</strong> units</div>
 
       <div className="app-card detail-card page-stack">

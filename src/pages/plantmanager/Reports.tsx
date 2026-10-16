@@ -193,6 +193,7 @@ export default function PlantManagerReports() {
 
         date: item.lastUpdated,
         reference: item.colorantId,
+        color: item.color,
 
         category:
           item.usageType === "BASE_COLORANT"
@@ -220,6 +221,7 @@ export default function PlantManagerReports() {
 
         date: item.receivedDate,
         reference: `${item.batchNo} · ${item.bagNo}`,
+        color: item.color,
 
         category: `${item.type} · Complete 25 kg Bag`,
 
@@ -231,7 +233,7 @@ export default function PlantManagerReports() {
 
         balance: `${item.availableKg.toFixed(3)} kg`,
 
-        searchable: `${item.barcode} ${item.batchNo} ${item.bagNo} ${item.grade} ${item.currentLocation}`,
+        searchable: `${item.barcode} ${item.batchNo} ${item.bagNo} ${item.grade} ${item.color} ${item.currentLocation}`,
       }))
 
     const loose =
@@ -243,6 +245,7 @@ export default function PlantManagerReports() {
 
               date: item.date,
               reference: item.batchNo,
+              color: 'Not specified',
 
               category: "Recycled · Loose Recycled Pellet",
 
@@ -478,6 +481,7 @@ export default function PlantManagerReports() {
                   <th>Reference</th>
                   <th>Category / Form</th>
                   <th>Material Grade</th>
+                  <th>Color</th>
                   <th>Lifecycle</th>
                   <th>Location</th>
                   <th>Available</th>
@@ -489,6 +493,7 @@ export default function PlantManagerReports() {
                     <td className="font-mono po-column">{item.reference}</td>
                     <td>{item.category}</td>
                     <td>{item.grade}</td>
+                    <td>{item.color}</td>
                     <td>
                       <StatusBadge status={item.status} />
                     </td>

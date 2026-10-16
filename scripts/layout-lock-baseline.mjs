@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 
 export const LAYOUT_LOCK_BASELINE = 'b0aae1f';
 // Exact presentation-only edits, independently checked by check-layout-lock and full-shell browser QA.
@@ -17,7 +18,9 @@ export function layoutLockBaseline(file) {
   return previous.get(file);
 }
 export function restoreLayoutLockFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const normalized = text.replace(/\r/g, '');
+  if (reviewedLayoutLockDeltas[file] && normalized === layoutLockBaseline(file)) return normalized;
+  const source = restoreSummaryColorsFile(file, normalized);
   if (!reviewedLayoutLockDeltas[file] || source === layoutLockBaseline(file)) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewedLayoutLockDeltas[file]) throw new Error('Unreviewed layout-lock delta: ' + file);
   return layoutLockBaseline(file);

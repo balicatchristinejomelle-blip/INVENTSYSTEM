@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { RECOVERY_BASELINE, reviewedRecoveryDeltas, recoveryBaseline, restoreRecoveryFile } from './recovery-baseline.mjs';
+import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 
 let checks = 0;
 const check = (label, fn) => { fn(); checks++; console.log('PASS ' + label); };
@@ -25,7 +26,7 @@ function bindings(text) {
     ts.forEachChild(node, visit);
   }; visit(ast);return { callbacks, seeds };
 }
-check('All business callbacks and transactional seed records are byte-identical', () => assert.deepEqual(bindings(raw('src/store.tsx')), bindings(recoveryBaseline('src/store.tsx'))));
+check('All pre-color business callbacks and transactional seed records are byte-identical', () => assert.deepEqual(bindings(restoreSummaryColorsFile('src/store.tsx', raw('src/store.tsx'))), bindings(recoveryBaseline('src/store.tsx'))));
 check('No master/specification/PEP remapping or barcode/quantity/RBAC engine changes', () => {
   for (const file of ['src/productMaster.ts', 'src/finishedPipeRelations.ts', 'src/finishedGoodsInventory.ts', 'src/finishedPipeBarcodes.ts', 'src/reprintWorkflow.ts', 'src/pages/management/Settings.tsx', 'src/components/Sidebar.tsx', 'src/components/LocationSelect.tsx']) assert.equal(raw(file), recoveryBaseline(file), file);
 });

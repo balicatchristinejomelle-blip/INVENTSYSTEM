@@ -12,6 +12,7 @@ import { activeLocationCodes, filterLocationCodes } from '../locationMaster';
 import { readStorageLocations } from '../finishedGoodsInventory';
 import { useViewState } from '../uiViewState';
 import { ActiveFilters } from './UXFeedback';
+import { materialColorOptions } from '../pelletColors';
 
 export function useProductFilters(onChange?: () => void, viewKey = 'product-filters') {
   const app = useApp();
@@ -20,6 +21,7 @@ export function useProductFilters(onChange?: () => void, viewKey = 'product-filt
   return { value, change, reset: () => change({ ...emptyProductFilter }), matches: (record: unknown, overrides: Partial<ProductFilter> = {}) => matchesProductFilter(record, { ...value, ...overrides }, app) };
 }
 interface ProductFiltersProps {
+  materialColors?: boolean;
   value: ProductFilter; onChange: (next: ProductFilter) => void; product?: string; grade?: string; onProductChange?: (product: string) => void; onGradeChange?: (grade: string) => void; includeProduct?: boolean; includeGrade?: boolean; includeLength?: boolean; includeColor?: boolean; includeLocation?: boolean;
   records?: readonly unknown[]; purpose?: string; onPurposeChange?: (value: string) => void; status?: string; onStatusChange?: (value: string) => void;
   statusFor?: (record: any) => string; statusLabel?: (status: string) => string; statusOptions?: readonly string[];
@@ -35,7 +37,7 @@ function InventoryProductFilters(props: ProductFiltersProps) {
   const fields: InventoryFacetField[] = [
     ...((props.includeProduct || onProductChange) ? [{ key: 'product', label: 'Product', options: HPAI_PRODUCT_MASTER.products }] : []),
     ...((props.includeGrade || onGradeChange) ? [{ key: 'grade', label: 'Material Grade', options: HPAI_PRODUCT_MASTER.materialGrades }] : []),
-    ...(props.includeColor ? [{ key: 'color', label: 'Color', options: HPAI_PRODUCT_MASTER.pipeColors }] : []),
+    ...(props.includeColor ? [{ key: 'color', label: 'Color', options: props.materialColors ? materialColorOptions(props.records) : HPAI_PRODUCT_MASTER.pipeColors }] : []),
     { key: 'size', label: 'Size / Diameter', options: sizes }, { key: 'sdr', label: 'SDR / Thickness', options: HPAI_PRODUCT_MASTER.sdrRatings },
     ...(props.includeLocation ? [{ key: 'location', label: 'Location', options: filterLocationCodes(readStorageLocations()) }] : []),
     ...(props.onPurposeChange ? [{ key: 'purpose', label: 'Storage Purpose', options: STORAGE_PURPOSES }] : []),

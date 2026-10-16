@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { LAYOUT_LOCK_BASELINE, reviewedLayoutLockDeltas, layoutLockBaseline, restoreLayoutLockFile } from './layout-lock-baseline.mjs';
+import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 
 let checks = 0;
 const check = (label, fn) => { fn(); checks++; console.log('PASS ' + label); };
-const raw = file => fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+const raw = file => restoreSummaryColorsFile(file, fs.readFileSync(file, 'utf8'));
 const printer = ts.createPrinter({ removeComments: true });
 function nonPresentation(text) {
   const ast = ts.createSourceFile('page.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

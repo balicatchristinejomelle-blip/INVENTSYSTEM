@@ -282,6 +282,8 @@ export default function PelletInventory() {
                 <th>Physical Bag</th>
                 <th>Batch</th>
                 <th>Grade</th>
+                <th>Type</th>
+                <th>Color</th>
                 <th>Original / Remaining</th>
                 <th>Status</th>
                 <th>PO Usage History</th>
@@ -298,6 +300,8 @@ export default function PelletInventory() {
                   <td className="font-mono">{item.bagNo}</td>
                   <td className="font-mono"><RecordReference value={item.batchNo} /></td>
                   <td>{item.grade}</td>
+                  <td>{item.type}</td>
+                  <td>{item.color}</td>
                   <td className="font-mono">
                     {(item.originalKg || 25).toFixed(3)} /{" "}
                     {item.availableKg.toFixed(3)} kg
@@ -337,6 +341,7 @@ export default function PelletInventory() {
               <div className="responsive-grid">
                 {[
               ['Physical Item', selected.bagNo], ['Parent Batch', selected.batchNo], ['Pellet Type', selected.type],
+              ['Color', selected.color],
               ['Original Weight', '25 kg'], ['Remaining Weight', `${selected.availableKg.toFixed(3)} kg`], ['Grade', selected.grade],
               ['Inventory Status', selected.inventoryStatus], ['Current Location', selected.currentLocation || 'Not Yet Assigned'],
             ].map(([label, value]) => (

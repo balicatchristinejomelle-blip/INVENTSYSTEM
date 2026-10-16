@@ -2,6 +2,7 @@ import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import {
   withRecordSearch,
   useSearchableApp,
@@ -539,6 +540,7 @@ function Reports() {
             ['Available', fgAvailable], ['Reserved', fgReserved], ['Temporary Storage', inventory.temporary],
             ['Ready for Ship Out', inventory.ready], ['On Hand', inventory.onHand],
           ]} />
+          <InventorySummaryNote counts={inventory} />
           {/* Charts row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="app-card" style={{ padding: 14 }}>

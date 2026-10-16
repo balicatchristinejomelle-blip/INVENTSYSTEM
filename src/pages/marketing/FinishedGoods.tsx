@@ -8,6 +8,7 @@ import StoragePurposeFilter, { type StoragePurposeSelection } from '../../compon
 import LocationStockBreakdown from '../../components/LocationStockBreakdown';
 import { matchesLocation } from '../../locationMaster';
 import MetricCards from '../../components/MetricCards';
+import InventorySummaryNote from '../../components/InventorySummaryNote';
 import LegacyBarcodeNotice from '../../components/LegacyBarcodeNotice';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import BatchTraceability from '../../components/BatchTraceability';
@@ -122,6 +123,7 @@ export default function MarketingFG() {
         ['Ready for Ship Out', inventory.ready, 'individual physical pipes'],
         ['On Hand', inventory.onHand, 'individual physical pipes'],
       ]} />
+      <InventorySummaryNote counts={inventory} />
       <div className="filter-panel product-filter-panel">
         <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => { setPage(1); }} />
         <ProductFilters value={productFilters.value} onChange={productFilters.change} product={productType} onProductChange={value => { setProductType(value as 'All' | PipeProductType); resetPage(); }} grade={grade} onGradeChange={value => { setGrade(value); resetPage(); }} includeColor includeLocation

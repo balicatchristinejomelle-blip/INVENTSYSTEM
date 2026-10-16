@@ -188,9 +188,9 @@ function LoadModal({ pellet, activePO, onClose, onLoad }: LoadModalProps) {
         </div>
 
         {/* Note for preferred pellet */}
-        {pellet.grade === 'PE100' && pellet.color === 'Black (BK)' && (
+        {pellet.type === 'Virgin' && pellet.grade === activePO.grade && (
           <div className="alert-info" style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6 }}>
-            Virgin PE100 Black (BK) is the preferred pellet for <RecordReference value={activePO.poNo} />.
+            Virgin {pellet.grade} pellets are White. Pipe color is supplied separately by colorants for <RecordReference value={activePO.poNo} />.
           </div>
         )}
 

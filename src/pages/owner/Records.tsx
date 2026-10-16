@@ -372,6 +372,7 @@ export default function OwnerRecords() {
       {monitorReprints && <ReprintApprovals monitor search={search} />}
       <CategoryTabs items={AREAS} value={area} onChange={value => { setArea(value); setSection(SECTIONS[value][0]); resetFilters(); }} label="Operations record area" />
       <PeriodSelector period={period} search={search} onSearchChange={value => { setSearch(value); setPage(1); }} onDateChange={() => setPage(1)} placeholder="Search reference, PO, MO, barcode, product, employee..." filters={productArea ? <ProductFilters value={productFilters.value} onChange={productFilters.change} includeProduct includeGrade includeColor includeLocation
+        materialColors={inventoryArea && section === 'All Inventory'}
         records={sourceRows.filter(row => dateInPeriod(row.date, period.range) && matchesRecord(withPrintSearch(app, row), search)).map(row => ({ ...(row.specification || row.material || {}), status: row.status }))}
         status={status} statusOptions={statuses} onStatusChange={inventoryArea ? value => { setStatus(value); setPage(1); } : undefined}
         statusFor={record => record.status} purpose={inventoryPurpose} onPurposeChange={inventoryArea ? value => { setInventoryPurpose(value); setPage(1); } : undefined} /> : undefined} />

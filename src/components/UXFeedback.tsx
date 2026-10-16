@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 export function ActiveFilters({ items, onClear, onRemove, compact = false, clearLabel = 'Clear filters' }: {
   items: readonly (readonly [string, string | undefined])[]; onClear: () => void; onRemove?: (label: string) => void; clearLabel?: string; compact?: boolean;
@@ -29,7 +29,7 @@ const HELP: Record<string, string> = {
   Reserved: 'General inventory allocated to a Customer Order; not available to another buyer.',
   'Temporary Storage': 'Customer-order production held in temporary storage; not general available stock.',
   'Ready for Ship Out': 'Physically staged for shipment; still included in company On Hand.',
-  'On Hand': 'Physical stock still held by the company, including reserved and staged pipes.',
+  'On Hand': 'Available + Reserved + Temporary Storage + Ready for Ship Out + Awaiting Storage + Quality Pending + Held Rejected. Counts each physical pipe once; shipped pipes are excluded.',
   'Origin Group': 'The original Manufacturing Order or replenishment group; moving stock does not change it.',
   'Storage Purpose': 'Derived from the production source, not selected by the storage operator.',
   'Pipe Record ID': 'Permanent system identity of this physical pipe; different from its printable barcode.',
@@ -37,8 +37,13 @@ const HELP: Record<string, string> = {
   'Current Location': 'The current physical storage location, not the production source or storage purpose.',
   'Material Grade': 'PE80 and PE100 are the active material grades. Historical records retain their original grade.',
 };
-export function TermHelp({ term }: { term: string }) {
+export function TermHelp({ term, compact = false }: { term: string; compact?: boolean }) {
+  const id = useId();
   const help = HELP[term];
+  if (help && compact) return <span className="metric-help">
+    <button type="button" className="metric-help-trigger" aria-label={`Explain ${term}`} popoverTarget={id}>?</button>
+    <span id={id} popover="auto" className="metric-help-popover"><strong>{term}</strong><span>{help}</span></span>
+  </span>;
   return help ? <details className="term-help"><summary aria-label={`Explain ${term}`}>?</summary><div>{help}</div></details> : null;
 }
 export function LastUpdated({ records }: { records: readonly object[] }) {

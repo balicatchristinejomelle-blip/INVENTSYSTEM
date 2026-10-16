@@ -8,8 +8,8 @@ export default function MetricCards({ items, inventory = false, label }: {
   label?: string;
 }) {
   return <div className={`kpi-grid${inventory ? ' inventory-metrics' : ''}`} aria-label={label}>
-    {items.map(([title, value, detail]) => <div className="app-card kpi-card" key={title}>
-      <div className="metric-label">{title}{inventory && <TermHelp term={title} />}</div>
+    {items.map(([title, value, detail]) => <div className="app-card kpi-card metric-card" key={title}>
+      <div className="metric-label"><span>{title}</span>{inventory && <TermHelp term={title} compact />}</div>
       <strong>{value}</strong>
       {detail !== undefined && <small>{detail}</small>}
     </div>)}

@@ -1318,3 +1318,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .operational-content .inventory-metrics:has(> :nth-child(5):last-child) > :last-child { grid-column: 1 / -1; }
   .operational-content .quick-action-grid, .operational-content .quick-action-grid:has(> :nth-child(3):last-child), .operational-content .quick-action-grid:has(> :nth-child(6):last-child) { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Inventory summary: stable value alignment and help that never resizes a card. */
+.operational-content .kpi-card.metric-card { display: grid; grid-template-rows: minmax(48px, auto) auto auto; align-content: start; gap: 5px; }
+.operational-content .metric-card > .metric-label { flex: none; display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; gap: 6px; }
+.metric-label > span:first-child { min-width: 0; }
+.metric-help { display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center; }
+.metric-help-trigger { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 24px; height: 24px; border: 1px solid var(--card-border); border-radius: 50%; background: var(--card-bg); color: var(--accent-blue); font-size: 11px; font-weight: 600; cursor: pointer; }
+.metric-help-trigger:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.metric-help-popover { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(320px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 14px; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); color: var(--text-secondary); box-shadow: 0 6px 24px #0003; font-size: 12px; font-weight: 400; letter-spacing: normal; text-transform: none; line-height: 1.5; text-align: left; }
+.metric-help-popover:popover-open { display: grid; gap: 6px; }
+.metric-help-popover strong { color: var(--text-primary); }
+.inventory-summary-equation { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
+.inventory-summary-equation > span { display: inline-block; }
