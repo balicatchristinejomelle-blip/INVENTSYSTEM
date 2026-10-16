@@ -74,7 +74,7 @@ export default function PelletInventory() {
     (item) =>
       dateInPeriod(item.receivedDate, period.range) && item.type === pelletType
     && (lifecycle === 'All' || (lifecycle === 'Available'
-      ? ['Available', 'Pending Receipt'].includes(item.inventoryStatus)
+      ? item.inventoryStatus === 'Available'
       : lifecycle === 'Open / WIP'
         ? ['Loaded', 'Partially Consumed'].includes(item.inventoryStatus)
         : item.inventoryStatus === 'Fully Consumed'))

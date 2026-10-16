@@ -1,6 +1,7 @@
 import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
 import { restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles } from './storage-inventory-baseline.mjs';
 import assert from 'node:assert/strict';
+import { physicalScanArgs } from './physical-scan-fixtures.mjs';
 import { restorePreviousGradeMaster, restorePreviousGradeStore, restorePreviousGradeTypes } from './material-grade-baseline.mjs';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -79,6 +80,7 @@ try {
   check('Group search is partial/case-insensitive and before ten-row pagination', () => { const rows = Array.from({ length: 23 }, (_, index) => ({ ...moGroup, reference: `${moGroup.reference}-${index}` })).filter(group => matchesRecord(group, moGroup.reference.toLowerCase())); assert.deepEqual([1, 2, 3].map(page => pageRecords(rows, page).length), [10, 10, 3]); });
   check('Group detail child lists paginate at ten', () => assert.deepEqual([1, 2, 3].map(page => pageRecords(Array.from({ length: 23 }, () => moPipe), page).length), [10, 10, 3]));
   const inventory = await server.ssrLoadModule('/src/finishedGoodsInventory.ts');
+  const physicalScan = await server.ssrLoadModule('/src/physicalScan.ts');
   const source = fs.readFileSync('src/store.tsx', 'utf8');
   const ast = ts.createSourceFile('store.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const callbacks = {};
@@ -86,8 +88,8 @@ try {
   const simulate = (name, initial, args) => {
     let current = structuredClone(initial);
     const code = ts.transpileModule(`const action = ${callbacks[name]};`, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
-    const action = new Function('useCallback', 'setState', 'normalizeMaterialGrade', 'finishedPipeInventory', 'finishedGoodsSummary', 'storageLocationFor', 'validStorageLocation', 'resolveFinishedPipe', `${code}; return action;`)(fn => fn, fn => { current = fn(current); }, normalizeMaterialGrade, inventory.finishedPipeInventory, inventory.finishedGoodsSummary, inventory.storageLocationFor, inventory.validStorageLocation, relations.resolveFinishedPipe);
-    return { result: action(...args), state: current };
+    const action = new Function('useCallback', 'setState', 'normalizeMaterialGrade', 'finishedPipeInventory', 'finishedGoodsSummary', 'storageLocationFor', 'validStorageLocation', 'resolveFinishedPipe', 'flushSync', 'exactPhysicalScan', `${code}; return action;`)(fn => fn, fn => { current = fn(current); }, normalizeMaterialGrade, inventory.finishedPipeInventory, inventory.finishedGoodsSummary, inventory.storageLocationFor, inventory.validStorageLocation, relations.resolveFinishedPipe, fn=>fn(), physicalScan.exactPhysicalScan);
+    return { result: action(...physicalScanArgs(name,current,args)), state: current };
   };
   const matchingOrder = { ...data.orders[0], product: stockPipe.product, diameter: stockPipe.diameter, length: stockPipe.length, sdr: stockPipe.sdr, grade: stockPipe.grade, color: stockPipe.color, stripe: stockPipe.stripe, construction: stockPipe.construction, productForm: stockPipe.productForm };
   const reserve = simulate('reserveFinishedGoods', { ...data, currentUser: USERS.find(user => user.role === 'marketing'), orders: [matchingOrder], finishedGoods: [stockPipe] }, [matchingOrder.id, 1]);

@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { restoreProcessFlowFile, reviewedProcessFlowDeltas, reviewedProcessFlowAdditions } from './process-flow-baseline.mjs';
 import { restoreProductionOutputFile } from './production-output-baseline.mjs';
+import { approvalScanDeltas, approvalScanAdditions, restoreApprovalScanFile } from './approval-scan-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom' });
 let checks = 0;
@@ -15,8 +16,10 @@ const check = (name, run) => { run(); checks++; console.log('PASS ' + name); };
 for (const file of Object.keys(reviewedProcessFlowDeltas)) check('Exact reviewed process-flow delta, rejects unrelated edits: ' + file, () => {
   const source = fs.readFileSync(file, 'utf8').replace(/\r/g, '');
   assert.equal(restoreProductionOutputFile(file, source), execFileSync('git', ['show', 'b40c023:' + file], { encoding: 'utf8' }).replace(/\r/g, ''));
-  assert.throws(() => restoreProcessFlowFile(file, source + '\n// unexpected'), /Unreviewed process-flow delta/);
+  assert.throws(() => restoreProcessFlowFile(file, source + '\n// unexpected'), /Unreviewed (process-flow|approval-scan) delta/);
 });
+for(const file of Object.keys(approvalScanDeltas))check('Exact reviewed approval/scan delta: '+file,()=>{const source=fs.readFileSync(file,'utf8');assert.equal(restoreApprovalScanFile(file,source),execFileSync('git',['show','7b0c39c:'+file],{encoding:'utf8'}).replace(/\r/g,''));assert.throws(()=>restoreApprovalScanFile(file,source+'\n// unexpected'),/Unreviewed approval-scan delta/);});
+for(const[file,hash]of Object.entries(approvalScanAdditions))check('Exact additive physical scan module: '+file,()=>assert.equal(createHash('sha256').update(fs.readFileSync(file,'utf8').replace(/\r/g,'')).digest('hex'),hash));
 for (const [file, hash] of Object.entries(reviewedProcessFlowAdditions)) check('Exact additive read-only inventory helper: ' + file, () => assert.equal(createHash('sha256').update(fs.readFileSync(file, 'utf8').replace(/\r/g, '')).digest('hex'), hash));
 const previousWindow = globalThis.window;
 try {
@@ -30,6 +33,9 @@ try {
   const categories = await server.ssrLoadModule('/src/inventoryCategories.ts');
   const production = await server.ssrLoadModule('/src/productionOutput.ts');
   const operational = await server.ssrLoadModule('/src/operationalInventory.ts');
+  const physicalScan = await server.ssrLoadModule('/src/physicalScan.ts');
+  const printables = await server.ssrLoadModule('/src/printableRecords.ts');
+  const printing = await server.ssrLoadModule('/src/reprintWorkflow.ts');
   let captured;
   function Capture() { captured = store.useApp(); return null; }
   const render = () => renderToStaticMarkup(React.createElement(store.AppProvider, null, React.createElement(Capture)));
@@ -44,7 +50,7 @@ try {
   const ast = ts.createSourceFile('store.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX), bindings = new Map();
   function walk(node) { if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) bindings.set(node.name.text, node.initializer.getText(ast)); ts.forEachChild(node, walk); } walk(ast);
   const transpile = code => ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const baseDeps = { ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, MASS_TOLERANCE_KG: 0.001 };
+  const baseDeps = { ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, ...physicalScan, MASS_TOLERANCE_KG: 0.001 };
   const helperNames = ['roundKg', 'makePelletBags', 'makeFinishedPipes', 'nextAnnualSequence', 'makePermanentPelletBags', 'makePermanentFinishedPipes', 'registryEntriesForPellets', 'registryEntriesForFinishedGoods', 'transactionBelongsToSession', 'isUnfinishedProductionOrder', 'findPendingTurnover', 'findSessionProductionOrder'];
   const helpers = new Function(...Object.keys(baseDeps), transpile(helperNames.map(name => 'const ' + name + '=' + bindings.get(name) + ';').join('\n')) + ';return {' + helperNames.join(',') + '};')(...Object.values(baseDeps));
   let state = structuredClone(baseline);
@@ -56,6 +62,7 @@ try {
   }
   const clone = () => structuredClone(state);
   const balances = () => operational.pelletBalances(state.pellets);
+  const scan = (item, orderId) => ({ shift: 'Day', scannerMode: 'Isolated physical barcode scan', barcode: item.barcode, orderId });
   const spec = { id: 'isolated-process-spec', itemCode: 'QA-PROCESS', productType: 'HDPE Pipe', materialGrade: 'PE100', size: '90mm', sizeUnit: 'mm', sdr: 'SDR11', color: 'Black (BK)', stripe: 'No Stripe', pipeConstruction: 'Solid Wall Pipe', productForm: 'Straight Length', straightLength: '6m', unitWeightKg: 0.5, active: true };
   const producer = role('production');
   state = { ...state, currentShift: 'Day', attendance: [{ ...baseline.attendance[0], id: 'isolated-process-shift', employeeId: producer.employeeId, status: 'Active', shift: 'Day' }], turnovers: [] };
@@ -98,7 +105,7 @@ try {
   });
   actor('plantmanager'); const pipe = generated[0];
   check('Storage confirmation makes replenishment Available once, with no duplicate Stock In', () => {
-    const before = clone(); assert.equal(action('updateFinishedGoodStorage', pipe.id, 'A', 'General Inventory'), true); assert.equal(inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === pipe.id), state).bucket, 'Available');
+    const before = clone(); assert.equal(action('updateFinishedGoodStorage', pipe.id, 'A', 'General Inventory', undefined, scan(pipe)), true); assert.equal(inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === pipe.id), state).bucket, 'Available');
     assert.equal(state.finishedGoods.length, before.finishedGoods.length); assert.deepEqual(operational.operationalStockEffect(state.transactions[0], state.finishedGoods), { stockIn: 0, stockOut: 0, internal: true });
     const saved = state; assert.equal(action('updateFinishedGoodStorage', pipe.id, 'A', 'General Inventory'), false); assert.equal(state, saved);
   });
@@ -111,7 +118,7 @@ try {
   actor('production');
   check('Ready / loading remain On Hand and have no Stock Out', () => { assert.equal(action('markFinishedGoodLoaded', pipe.id), true); assert.equal(operational.operationalStockEffect(state.transactions[0], state.finishedGoods).stockOut, 0); assert.equal(inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === pipe.id), state).onHand, 1); });
   check('Actual shipment records exactly one Stock Out and is idempotent', () => {
-    assert.equal(action('releaseFinishedGood', pipe.id), true); assert.equal(operational.operationalStockEffect(state.transactions[0], state.finishedGoods).stockOut, 1); assert.equal(inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === pipe.id), state).onHand, 0);
+    assert.equal(action('releaseFinishedGood', pipe.id, scan(pipe, order.id)), true); assert.equal(operational.operationalStockEffect(state.transactions[0], state.finishedGoods).stockOut, 1); assert.equal(inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === pipe.id), state).onHand, 0);
     const saved = state; assert.equal(action('releaseFinishedGood', pipe.id), false); assert.equal(state, saved);
   });
   check('Ending/running balances derive from history, internal moves contribute zero and kg never mix with units', () => {
@@ -132,7 +139,7 @@ try {
   actor('plantmanager');
   check('Customer MO output retains SO/MO/PO/group allocation and enters Temporary Storage, never Available', () => {
     assert.equal(customerPipe.customerOrderId, order.id); assert.equal(customerPipe.manufacturingOrderId, mo.id); assert.equal(customerPipe.originGroup, mo.moNo);
-    assert.equal(action('updateFinishedGoodStorage', customerPipe.id, 'G', 'Customer Order', order.id), true);
+    assert.equal(action('updateFinishedGoodStorage', customerPipe.id, 'G', 'Customer Order', order.id, scan(customerPipe)), true);
     const current = inventory.finishedPipeInventory(state.finishedGoods.find(item => item.id === customerPipe.id), state); assert.equal(current.bucket, 'Temporary Storage'); assert.equal(current.available, 0); assert.equal(current.onHand, 1);
   });
   check('New zero-balance completion only updates the targeted WIP; positive balances and wrong roles are rejected', () => {
@@ -157,7 +164,7 @@ try {
     assert.equal(state.pellets, before.pellets); assert.equal(state.transactions, before.transactions); assert.equal(state.transfers.find(item => item.id === transfer.id).status, 'In Transit');
     const saved = state; assert.equal(action('dispatchTransfer', transfer.id).success, true); assert.equal(state, saved);
   });
-  actor('plantmanager'); const beforeReceipt = balances().virgin; action('confirmTransferReceipt', transfer.id, 1, undefined, undefined, 'B');
+  actor('plantmanager'); const beforeReceipt = balances().virgin; const expectedBag=state.pellets.find(bag=>bag.transferRef===transfer.refNo);action('receivePellet',expectedBag.id,scan(expectedBag),'B');
   check('Transfer receipt activates the same pending bag and preserves MR/transfer traceability once', () => {
     assert.equal(balances().virgin, beforeReceipt + 25); assert.equal(state.transfers.find(item => item.id === transfer.id).status, 'Received'); const received = state.pellets.find(item => item.transferRef === transferNo); assert.equal(received.currentLocation, 'B'); assert.equal(received.inventoryStatus, 'Available');
     const saved = state; action('confirmTransferReceipt', transfer.id, 1, undefined, undefined, 'B'); assert.equal(state, saved);
@@ -181,11 +188,70 @@ try {
     assert.ok(recycledBag); assert.equal(recycledBag.color, 'Green'); assert.equal(recycledBag.availableKg, 25); assert.equal(balances().recycled, rawRecycledBefore + 25);
     const before = state; action('completeRecyclingBatch', recyclingBatch.id, 25, 'Green'); assert.equal(state, before);
   });
-  action('receivePellet', recycledBag.id, undefined, 'C');
+  action('receivePellet', recycledBag.id, scan(recycledBag), 'C');
   check('Storing recycled output assigns a physical location without second Stock In', () => { assert.equal(state.pellets.find(item => item.id === recycledBag.id).currentLocation, 'C'); assert.equal(operational.operationalStockEffect(state.transactions[0], state.finishedGoods).stockIn, 0); });
   action('loadPellets', recycledBag.id, po.id); const recycledRawAfterLoad = balances().recycled;
   assert.equal(action('recordOutput', po.id, 1, [], 'isolated-recycled-output').success, true);
   check('Recycled bag returns to WIP/production; only remaining WIP falls, without double raw deduction', () => { assert.equal(recycledRawAfterLoad, rawRecycledBefore); assert.equal(balances().recycled, rawRecycledBefore); assert.equal(state.pellets.find(item => item.id === recycledBag.id).availableKg, 24.5); });
+  // Additional isolated fork: requested approval + five delivered bags + ten good pipes.
+  const previousFlow=state;state=structuredClone(initial);actor('plantmanager');
+  const approvalRef='MR-2099-9955';action('addMaterialRequest',{refNo:approvalRef,date:'2026-10-16',requestedBy:'Isolated scan QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE80',color:'White',requestedKg:125,requestedBags:5,status:'Pending',destination:'Branch Plant'});
+  const approvalRequest=state.materialRequests.find(item=>item.refNo===approvalRef);assert.ok(approvalRequest);
+  const printableRequest=()=>printables.printableRecords(state).find(item=>item.recordType==='MATERIAL REQUEST'&&item.recordId===approvalRequest.id);
+  const pendingState=state;
+  check('Pending request is viewable but cannot print, reprint or generate expected bags',()=>{
+    assert.ok(printables.documentFor(state,printableRequest()));
+    for(const user of store.USERS){assert.equal(printing.canPrint(user,printableRequest()),false);assert.ok(printing.validatePrint(state,user,printableRequest()));}
+    actor('accounting');assert.equal(action('createTransfer',approvalRequest.id),null);assert.equal(state.pellets,pendingState.pellets);
+  });
+  check('Rejected request stays readable, cannot print or generate bags, and cannot be re-approved',()=>{
+    action('rejectMaterialRequest',approvalRequest.id);assert.equal(state.materialRequests.find(item=>item.id===approvalRequest.id).status,'Rejected');
+    const rejected=clone();assert.ok(printables.documentFor(state,printableRequest()));assert.ok(printing.validatePrint(state,state.currentUser,printableRequest()));assert.equal(action('createTransfer',approvalRequest.id),null);action('approveMaterialRequest',approvalRequest.id);assert.deepEqual(state,rejected);
+  });
+  state=pendingState;
+  check('Approval permissions are unchanged; approval itself creates no received stock',()=>{
+    actor('production');const before=clone();action('approveMaterialRequest',approvalRequest.id);assert.deepEqual(state,before);
+    actor('accounting');const beforeStock=balances();action('approveMaterialRequest',approvalRequest.id);assert.equal(state.materialRequests.find(item=>item.id===approvalRequest.id).status,'Approved');assert.deepEqual(balances(),beforeStock);assert.equal(printing.validatePrint(state,state.currentUser,printableRequest()),null);
+  });
+  const rawBefore=balances().virgin;const expectedTransferNo=action('createTransfer',approvalRequest.id);const delivery=state.transfers.find(item=>item.refNo===expectedTransferNo);const expectedBags=state.pellets.filter(item=>item.transferRef===delivery.refNo);
+  check('Approved 125kg request authorizes five unique expected 25kg PEL-V labels; raw increase remains zero',()=>{
+    assert.equal(expectedBags.length,5);assert.equal(new Set(expectedBags.map(item=>item.barcode)).size,5);assert.ok(expectedBags.every(item=>item.availableKg===0&&item.originalKg===25&&item.inventoryStatus==='Pending Receipt'&&/^PEL-V-/.test(item.barcode)));assert.equal(balances().virgin,rawBefore);
+    const manager=role('plantmanager');for(const bag of expectedBags){const label=printables.printableRecords(state).find(item=>item.kind==='Barcode'&&item.recordId===bag.id);assert.equal(printing.validatePrint(state,manager,label),null);}
+    const before=state;action('createTransfer',approvalRequest.id);assert.equal(state,before);
+  });
+  actor('plantmanager');check('Preparing delivery cannot be received even with the correct physical scan',()=>{const before=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,before);});
+  actor('accounting');action('dispatchTransfer',delivery.id);actor('plantmanager');
+  check('Unscanned, wrong-bag, missing-location and bulk receiving are blocked without inventory change',()=>{
+    const before=state;assert.equal(action('receivePellet',expectedBags[0].id,undefined,'A'),false);assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[1]),'A'),false);assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'BAD'),false);assert.equal(action('confirmTransferReceipt',delivery.id,5,undefined,undefined,'A').success,false);assert.equal(state,before);
+  });
+  check('Unapproved, mismatched material and wrong bag weight cannot be received',()=>{
+    const before=state;
+    for(const override of [{materialRequests:state.materialRequests.map(item=>item.id===approvalRequest.id?{...item,status:'Pending'}:item)},{pellets:state.pellets.map(item=>item.id===expectedBags[0].id?{...item,grade:'PE100'}:item)},{pellets:state.pellets.map(item=>item.id===expectedBags[0].id?{...item,originalKg:20}:item)}]){
+      state={...before,...override};const invalid=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,invalid);
+    }state=before;
+  });
+  check('Only existing receiving roles can receive an approved individually scanned delivery',()=>{
+    for(const user of store.USERS.filter(user=>!['production','plantmanager'].includes(user.role))){actor(user.role);const before=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,before);}actor('plantmanager');
+  });
+  for(const [index,bag]of expectedBags.entries())check('Individual physical bag '+(index+1)+' receives exactly 25kg once, leaving other expected bags inactive',()=>{
+    assert.equal(action('receivePellet',bag.id,scan(bag),['A','B','C','D','E'][index]),true);assert.equal(balances().virgin,rawBefore+25*(index+1));assert.equal(state.pellets.filter(item=>item.transferRef===delivery.refNo&&item.inventoryStatus==='Pending Receipt').length,4-index);
+    const received=state.pellets.find(item=>item.id===bag.id);assert.equal(received.barcode,bag.barcode);assert.ok(received.receivedAt);const before=state;assert.equal(action('receivePellet',bag.id,scan(bag),'I'),false);assert.equal(state,before);
+    if(index===1){assert.equal(action('confirmTransferReceipt',delivery.id,1,'Missing','Cannot erase a confirmed bag','A').success,false);assert.equal(state,before);}
+  });
+  check('All five scanned bags total 125kg Stock In and complete the SAME transfer',()=>{assert.equal(state.transfers.find(item=>item.id===delivery.id).status,'Received');assert.equal(state.transactions.filter(item=>expectedBags.some(bag=>bag.barcode===item.barcode)&&item.transactionType==='Pellets Received').reduce((sum,item)=>sum+operational.operationalStockEffect(item,state.finishedGoods).stockIn,0),125);});
+  const beforePipeFlow=clone();action('createStockReplenishmentPO',{specification:{...spec,id:'isolated-ten-pipes',materialGrade:'PE80'},targetQty:550,requiredDate:'2026-10-19',productionLine:'Line 1',priority:'Normal',reason:'Physical ten-pipe QA'});
+  const tenPO=state.productionOrders.find(item=>!beforePipeFlow.productionOrders.some(old=>old.id===item.id));actor('production');assert.equal(action('startProduction',tenPO.id).success,true);action('loadPellets',expectedBags[0].id,tenPO.id);assert.equal(action('recordOutput',tenPO.id,10,[],'isolated-ten-good-pipes').success,true);
+  const tenPipes=state.finishedGoods.filter(item=>item.productionOrderId===tenPO.id);actor('plantmanager');
+  check('Actual Good Output 10 creates exactly ten unique physical pipes, all Awaiting Storage, not 550',()=>{assert.equal(tenPipes.length,10);assert.equal(new Set(tenPipes.map(item=>item.barcode)).size,10);assert.ok(tenPipes.every(pipe=>inventory.finishedPipeInventory(pipe,state).bucket==='Awaiting Storage'&&pipe.availableQty===0));});
+  check('Storage cannot bypass exact physical scan, source location or role restrictions',()=>{const before=state;assert.equal(action('updateFinishedGoodStorage',tenPipes[0].id,'A','General Inventory'),false);assert.equal(action('updateFinishedGoodStorage',tenPipes[0].id,'A','General Inventory',undefined,scan(tenPipes[1])),false);assert.equal(action('updateFinishedGoodStorage',tenPipes[0].id,'I','General Inventory',undefined,scan(tenPipes[0])),false);assert.equal(state,before);});
+  for(const pipe of tenPipes)check('Scan stores exact pipe once: '+pipe.barcode,()=>{assert.equal(action('updateFinishedGoodStorage',pipe.id,'A','General Inventory',undefined,scan(pipe)),true);const stored=state.finishedGoods.find(item=>item.id===pipe.id);assert.equal(stored.barcode,pipe.barcode);assert.equal(inventory.finishedPipeInventory(stored,state).available,1);assert.equal(state.transactions[0].qtyChanged,0);const before=state;assert.equal(action('updateFinishedGoodStorage',pipe.id,'B','General Inventory',undefined,scan(pipe)),false);assert.equal(state,before);});
+  actor('marketing');const shipmentResult=action('createCustomerOrder',{customerId:state.customers[0].id,product:tenPO.product,diameter:tenPO.diameter,length:tenPO.length,sdr:tenPO.sdr,grade:tenPO.grade,color:tenPO.color,stripe:tenPO.stripe,construction:tenPO.construction,productForm:tenPO.productForm,quantity:1,requiredDate:'2026-10-19'});assert.equal(shipmentResult.success,true);const shipmentOrder=state.orders.find(item=>item.orderNo===shipmentResult.orderNo);const shipmentPipe=state.finishedGoods.find(item=>item.reservedForOrderId===shipmentOrder.id);
+  actor('production');check('A stored/reserved pipe cannot ship before Ready for Ship Out even with its exact barcode',()=>assert.equal(action('releaseFinishedGood',shipmentPipe.id,scan(shipmentPipe,shipmentOrder.id)),false));
+  actor('plantmanager');action('relocatePhysicalItem','Finished Pipe',shipmentPipe.id,'I','Ready for scan-based shipment');actor('production');
+  check('Ready pipe cannot ship without a second scan, with another barcode or wrong order',()=>{const before=state;assert.equal(action('releaseFinishedGood',shipmentPipe.id),false);assert.equal(action('releaseFinishedGood',shipmentPipe.id,scan(tenPipes.find(item=>item.id!==shipmentPipe.id),shipmentOrder.id)),false);assert.equal(action('releaseFinishedGood',shipmentPipe.id,scan(shipmentPipe,'wrong-order')),false);assert.equal(state,before);});
+  check('Second scan of SAME barcode ships exactly once and keeps barcode/history permanently',()=>{assert.equal(action('releaseFinishedGood',shipmentPipe.id,scan(shipmentPipe,shipmentOrder.id)),true);const shipped=state.finishedGoods.find(item=>item.id===shipmentPipe.id);assert.equal(shipped.barcode,shipmentPipe.barcode);assert.equal(inventory.finishedPipeInventory(shipped,state).bucket,'Shipped');assert.equal(state.transactions[0].qtyChanged,-1);const before=state;assert.equal(action('releaseFinishedGood',shipmentPipe.id,scan(shipmentPipe,shipmentOrder.id)),false);assert.equal(state,before);assert.equal(state.finishedGoods.length,beforePipeFlow.finishedGoods.length+10);});
+  for(const old of beforePipeFlow.finishedGoods)assert.deepEqual(state.finishedGoods.find(item=>item.id===old.id),old);
+  state=previousFlow;
   const persisted = JSON.parse(JSON.stringify(state)); memory.set('hpai:shared-app-state-v1', JSON.stringify(persisted));
   for (const user of store.USERS) check('Shared records persist unchanged for role: ' + user.role, () => {
     memory.set('hpai:shared-app-state-v1', JSON.stringify({ ...persisted, currentUser: user })); render();

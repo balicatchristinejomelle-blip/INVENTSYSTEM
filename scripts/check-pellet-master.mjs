@@ -8,13 +8,14 @@ import ts from 'typescript';
 import { createServer } from 'vite';
 import { PELLET_MASTER_BASELINE, reviewedPelletMasterDeltas, reviewedPelletMasterAdditions, pelletMasterBaseline, restorePelletMasterFile } from './pellet-master-baseline.mjs';
 import { restoreProductionOutputFile } from './production-output-baseline.mjs';
+import { restoreApprovalScanFile } from './approval-scan-baseline.mjs';
 
 let checks=0;
 const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
 const raw=file=>fs.readFileSync(file,'utf8').replace(/\r/g,'');
 for(const file of execFileSync('git',['ls-tree','-r','--name-only',PELLET_MASTER_BASELINE,'src'],{encoding:'utf8'}).trim().split('\n').filter(file=>/\.(tsx?|css)$/.test(file)))check('Unchanged source or exact reviewed color-only delta: '+file,()=>{
   assert.equal(restorePelletMasterFile(file,raw(file)),pelletMasterBaseline(file));
-  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed (pellet-master|production-output|filter-layout|process-flow) delta/);
+  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed (pellet-master|production-output|filter-layout|process-flow|approval-scan) delta/);
 });
 for(const[file,hash]of Object.entries(reviewedPelletMasterAdditions))check('Exact shared creation selector: '+file,()=>assert.equal(createHash('sha256').update(raw(file)).digest('hex'),hash));
 function declarations(text){
@@ -60,7 +61,7 @@ try{
     assert.deepEqual(locations.filterLocationCodes(next),locations.LOCATION_CODES);assert.deepEqual(locations.activeLocationCodes(next),locations.LOCATION_CODES);
   });
   check('Date and Location automation engines, barcode/quantity/RBAC logic unchanged',()=>{
-    for(const file of ['src/datePeriods.ts','src/components/PeriodSelector.tsx','src/inventoryFacets.ts','src/finishedGoodsInventory.ts','src/finishedPipeBarcodes.ts','src/reprintWorkflow.ts','src/finishedPipeRelations.ts','src/productMaster.ts','src/App.tsx','src/components/Sidebar.tsx'])assert.equal(raw(file),pelletMasterBaseline(file));
+    for(const file of ['src/datePeriods.ts','src/components/PeriodSelector.tsx','src/inventoryFacets.ts','src/finishedGoodsInventory.ts','src/finishedPipeBarcodes.ts','src/reprintWorkflow.ts','src/finishedPipeRelations.ts','src/productMaster.ts','src/App.tsx','src/components/Sidebar.tsx'])assert.equal(restoreApprovalScanFile(file,raw(file)),pelletMasterBaseline(file));
     const now=declarations(raw('src/pages/management/Settings.tsx')),previous=declarations(pelletMasterBaseline('src/pages/management/Settings.tsx'));
     for(const name of ['createTarget','createSpecification','confirmDeactivate'])assert.equal(now.get(name),previous.get(name));
   });

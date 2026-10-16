@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { createServer } from 'vite';
 import { restoreUXFile } from './ux-baseline.mjs';
 import { restoreProductionOutputFile } from './production-output-baseline.mjs';
+import { physicalScanArgs } from './physical-scan-fixtures.mjs';
 import { namedDeclarations, storageBaselineFile, restorePreStorageStore, restorePreStorageTypes, restorePreStorageStyles, restoreStorageOutput } from './storage-inventory-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
@@ -18,6 +19,7 @@ try {
   const store = await server.ssrLoadModule('/src/store.tsx');
   const { productionOutputTotals } = await server.ssrLoadModule('/src/productionOutput.ts');
   const barcodes = await server.ssrLoadModule('/src/finishedPipeBarcodes.ts');
+  const physicalScan = await server.ssrLoadModule('/src/physicalScan.ts');
   const locations = await server.ssrLoadModule('/src/locationMaster.ts');
   const master = await server.ssrLoadModule('/src/productMaster.ts');
   const { matchesRecord } = await server.ssrLoadModule('/src/components/RecordSearch.tsx');
@@ -40,9 +42,9 @@ try {
   const helpers = new Function('normalizeBarcodeValue', 'allocateFinishedPipeBarcodes', `${helperCode}; return { ${helperNames.join(', ')} };`)(store.normalizeBarcodeValue, barcodes.allocateFinishedPipeBarcodes);
   function simulate(name, initial, args) {
     let current = structuredClone(initial);
-    const dependencies = { useCallback: fn => fn, flushSync: fn => fn(), productionOutputTotals, setState: updater => { current = updater(current); }, ...inventory, ...locations, resolveFinishedPipe: relations.resolveFinishedPipe, hydrateFinishedPipe: relations.hydrateFinishedPipe, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, calculateProductionMaterialPlan: store.calculateProductionMaterialPlan, colorCodeFromProductColor: master.colorCodeFromProductColor, colorCodeFromStripe: master.colorCodeFromStripe, MASS_TOLERANCE_KG: 0.001, ...helpers };
+    const dependencies = { useCallback: fn => fn, flushSync: fn => fn(), productionOutputTotals, setState: updater => { current = updater(current); }, ...physicalScan, ...inventory, ...locations, resolveFinishedPipe: relations.resolveFinishedPipe, hydrateFinishedPipe: relations.hydrateFinishedPipe, normalizeMaterialGrade: store.normalizeMaterialGrade, isActiveMaterialGrade: master.isActiveMaterialGrade, calculateProductionMaterialPlan: store.calculateProductionMaterialPlan, colorCodeFromProductColor: master.colorCodeFromProductColor, colorCodeFromStripe: master.colorCodeFromStripe, MASS_TOLERANCE_KG: 0.001, ...helpers };
     const action = new Function(...Object.keys(dependencies), `${transpile(`const action = ${declarations.get(name).text};`)}; return action;`)(...Object.values(dependencies));
-    const result = action(...args); return { result, state: current };
+    const result = action(...physicalScanArgs(name,current,args)); return { result, state: current };
   }
   const role = name => store.USERS.find(user => user.role === name);
   const stock = baseline.finishedGoods.find(pipe => pipe.source === 'Stock Replenishment');

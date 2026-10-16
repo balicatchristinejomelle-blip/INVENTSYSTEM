@@ -6,6 +6,7 @@ import { findFinishedPipeBarcode } from '../../finishedPipeBarcodes';
 import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import { resolveFinishedPipe } from '../../finishedPipeRelations';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
+import { expectedPelletError } from '../../physicalScan';
 
 import React, { useEffect, useRef, useState } from "react"
 
@@ -105,8 +106,8 @@ export default function BarcodeScanner() {
 
   const scannerMode = mode
 
-  const releaseOrder = orders.find(order => order.status === 'Ready for Release')
-    || orders.find(order => order.status === 'Released');
+  const [releaseOrderId, setReleaseOrderId] = useState('');
+  const releaseOrder = orders.find(order => order.id === releaseOrderId);
 
   const reference = mode === 'Load Pellets'
     ? activePO?.poNo || 'no-active-po'
@@ -248,6 +249,9 @@ export default function BarcodeScanner() {
     }
 
     const previousScan = processedRef.current.get(duplicateKey(found.record.barcode));
+    if (mode === 'Release Finished Goods' && found.category === 'Finished Pipe' && (!releaseOrder || resolveFinishedPipe(found.record, app).order?.id !== releaseOrder.id)) {
+      setResult(null);setError('Select the correct Customer Order before scanning. This pipe must match the expected shipment reservation.');return;
+    }
 
     if (previousScan) {
       showDuplicate(previousScan);
@@ -290,6 +294,8 @@ export default function BarcodeScanner() {
     }
 
     if (mode === 'Receive Pellets' && found.category === 'Pellet') {
+      const validation = found.record.inventoryStatus === 'Pending Receipt' ? expectedPelletError(found.record, transfers, app.materialRequests) : found.record.type === 'Recycled' && found.record.locationStatus === 'Awaiting Storage' ? null : 'Bag is not awaiting physical receiving.';
+      if (validation) { setResult(null); setError(validation); return; }
       setScannerStatus('ITEM FOUND');
       setResult(found);
       return;
@@ -463,7 +469,7 @@ export default function BarcodeScanner() {
       scannerMode,
       location: destination,
     };
-    if (!receivePellet(result.record.id, { shift: currentShift, scannerMode }, storageLocation)) {
+    if (!receivePellet(result.record.id, { shift: currentShift, scannerMode, barcode: result.barcode }, storageLocation)) {
       return setError('This item has already been received or stored. Use Relocate Item for an authorized location change.');
     }
     processedRef.current.set(duplicateKey(item.barcode), item);
@@ -481,6 +487,7 @@ export default function BarcodeScanner() {
     if (finishedPipeInventory(result.record, app).bucket !== 'Ready for Ship Out') return setError(`WRONG LIFECYCLE — Pipe status is ${result.record.status}.`);
     const matchingOrder = resolveFinishedPipe(result.record, app).order;
     if (!matchingOrder) return setError('No authorized Customer Order reservation matches this finished good.');
+    if (!releaseOrder || matchingOrder.id !== releaseOrder.id) return setError('Select the correct Customer Order. This barcode belongs to another reservation/order.');
     const now = new Date();
     const item: SessionScan = {
       barcode: result.record.barcode,
@@ -500,7 +507,7 @@ export default function BarcodeScanner() {
       shift: currentShift,
       scannerMode,
     };
-    if (!releaseFinishedGood(result.record.id, { shift: currentShift, scannerMode })) {
+    if (!releaseFinishedGood(result.record.id, { shift: currentShift, scannerMode, barcode: result.barcode, orderId: releaseOrder.id })) {
       return setError('PIPE RESERVED FOR ANOTHER ORDER');
     }
     processedRef.current.set(duplicateKey(item.barcode), item);
@@ -512,7 +519,6 @@ export default function BarcodeScanner() {
   useEffect(() => {
     if (!result) return;
     if (mode === 'Load Pellets' && 'inventoryStatus' in result.record && result.record.inventoryStatus === 'Available') confirmPellet();
-    if (mode === 'Release Finished Goods') confirmRelease();
   }, [result]);
 
   const finishSession = () => {
@@ -555,6 +561,7 @@ export default function BarcodeScanner() {
           <option value="Release Finished Goods">Release Finished Pipes</option>
         </SearchableDropdown></div>
       </div>
+      {mode === 'Release Finished Goods' && <label className="block-label">Shipment Customer Order<SearchableDropdown className="app-select" aria-label="Shipment Customer Order" value={releaseOrderId} onChange={event => { setReleaseOrderId(event.target.value);setResult(null);setError(''); }}><option value="">Select the expected shipment order</option>{orders.filter(order => finishedGoods.some(pipe => finishedPipeInventory(pipe, app).bucket === 'Ready for Ship Out' && resolveFinishedPipe(pipe, app).order?.id === order.id)).map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.customerName}</option>)}</SearchableDropdown></label>}
       <section className="app-card detail-card hardware-scanner-card">
         <div className="hardware-scanner-heading">
           <div>

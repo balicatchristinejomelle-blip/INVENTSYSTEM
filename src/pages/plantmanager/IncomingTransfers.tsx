@@ -3,6 +3,7 @@ import { useViewState } from '../../uiViewState';
 import { TableBody } from '../../components/UXFeedback';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import LocationSelect from '../../components/LocationSelect';
+import ExpectedPelletReceiving from '../../components/ExpectedPelletReceiving';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -192,7 +193,7 @@ function IncomingTransfers() {
                           View
                         </button>
                         <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
-                        {effectiveStatus === 'In Transit' && (
+                        {effectiveStatus === 'In Transit' && transferCategory(t) === 'Colorant' && (
                           <button
                             className="btn-success btn-compact"
                             onClick={() => setConfirmAcceptId(t.id)}
@@ -295,6 +296,8 @@ function IncomingTransfers() {
             </div>
           )}
 
+          {transferCategory(detail) !== 'Colorant' && <ExpectedPelletReceiving key={detail.id} transferId={detail.id} />}
+
           {getEffectiveStatus(detail) === "In Transit" && (
             <>
               <div className="alert-warning" style={{ marginBottom: 16, fontSize: 12 }}>
@@ -338,7 +341,7 @@ function IncomingTransfers() {
                   setConfirmAcceptId(detail.id);
                 }}
               >
-                Confirm Receipt
+                {transferCategory(detail) === 'Colorant' ? 'Confirm Receipt' : 'Record Receiving Discrepancy'}
               </button>
             )}
           </div>

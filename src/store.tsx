@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { flushSync } from 'react-dom';
 import { canRecordProduction, productionOutputTotals } from './productionOutput';
 import { canFinishWip } from './operationalInventory';
+import { exactPhysicalScan, expectedPelletError, type PhysicalScanMeta } from './physicalScan';
 import { requestReprint, reviewReprint, completePrint, validatePrint, canViewRequest, printAuditRole, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
 import { seedReprintSamples } from './reprintSamples';
@@ -617,7 +618,7 @@ interface AppContextValue extends AppState {
   loadPellets: (pelletId: string, poId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
   recordColorantUsage: (colorantId: string, quantityKg: number, poId: string, usageType?: 'BASE_COLORANT' | 'STRIPE_COLORANT') => { success: boolean; error?: string };
   submitTurnover: (data: Pick<ShiftTurnover, 'machineCondition' | 'lineCondition' | 'lineConditionOther' | 'issueCategory' | 'issueDescription' | 'issuesEncountered' | 'nextRequiredAction' | 'nextRequiredActionOther' | 'notesForIncoming' | 'instructionType' | 'importantInstructions'>, poId: string) => { success: boolean; turnoverNo?: string; error?: string };
-  updateFinishedGoodStorage: (fgId: string, location: string, purpose: 'General Inventory' | 'Customer Order', orderId?: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
+  updateFinishedGoodStorage: (fgId: string, location: string, purpose: 'General Inventory' | 'Customer Order', orderId?: string, scannerMeta?: PhysicalScanMeta) => boolean;
   createProductionOrder: (moId: string) => string | null;
   createStockReplenishmentPO: (input: {
     specification: ProductSpecification;
@@ -627,12 +628,12 @@ interface AppContextValue extends AppState {
     priority: ProductionOrder['priority'];
     reason: string;
   }) => { success: boolean; poNo?: string; error?: string };
-  receivePellet: (pelletId: string, scannerMeta?: { shift: string; scannerMode: string }, storageLocation?: string) => boolean;
+  receivePellet: (pelletId: string, scannerMeta?: PhysicalScanMeta, storageLocation?: string) => boolean;
   confirmTransferReceipt: (transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string, storageLocation?: string) => { success: boolean; error?: string };
   relocatePhysicalItem: (category: 'Pellet' | 'Finished Pipe', itemId: string, location: string, reason: string) => boolean;
   reserveFinishedGoods: (orderId: string, quantity: number) => { success: boolean; error?: string };
   rejectFinishedGood: (fgId: string, weightKg: number, reason: string) => { success: boolean; error?: string };
-  releaseFinishedGood: (fgId: string, scannerMeta?: { shift: string; scannerMode: string }) => boolean;
+  releaseFinishedGood: (fgId: string, scannerMeta?: PhysicalScanMeta) => boolean;
   markFinishedGoodLoaded: (fgId: string) => boolean;
   completeRecyclingBatch: (batchId: string, recoveredKg: number, color: string) => void;
   updateRecyclingStage: (batchId: string, action: 'start-cutting' | 'complete-cutting' | 'submit-weight' | 'start-crushing' | 'complete-crushing' | 'start-pelletizing', weightKg?: number) => { success: boolean; error?: string };
@@ -1230,7 +1231,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => ({
       ...s,
       materialRequests: s.materialRequests.map(r =>
-        r.id === id ? { ...r, status: 'Approved' as const, approvedBy: s.currentUser?.name, approvedDate: new Date().toISOString().slice(0,10) } : r
+        r.id === id && ['New', 'Pending'].includes(r.status) && s.currentUser?.role === 'accounting' ? { ...r, status: 'Approved' as const, approvedBy: s.currentUser?.name, approvedDate: new Date().toISOString().slice(0,10) } : r
       ),
     }));
   }, []);
@@ -1239,7 +1240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => ({
       ...s,
       materialRequests: s.materialRequests.map(r =>
-        r.id === id ? { ...r, status: 'Rejected' as const, approvedBy: s.currentUser?.name, approvedDate: new Date().toISOString().slice(0,10) } : r
+        r.id === id && ['New', 'Pending'].includes(r.status) && s.currentUser?.role === 'accounting' ? { ...r, status: 'Rejected' as const, approvedBy: s.currentUser?.name, approvedDate: new Date().toISOString().slice(0,10) } : r
       ),
     }));
   }, []);
@@ -1572,7 +1573,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let transferNo: string | null = null;
     setState(s => {
       const request = s.materialRequests.find(item => item.id === requestId);
-      if (!request || request.status !== 'Approved') return s;
+      if (!request || request.status !== 'Approved' || s.currentUser?.role !== 'accounting') return s;
       const existing = s.transfers.find(item => item.requestRef === request.refNo);
       if (existing) {
         transferNo = existing.refNo;
@@ -1590,7 +1591,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!color) { transferNo = null; return s; }
       if (!isColorant && !isSupportedMaterialGrade(request.grade)) return s;
       const numberOfBags = isColorant ? undefined : Math.floor(request.requestedKg / 25);
-      if (!isColorant && (!numberOfBags || numberOfBags < 1)) return s;
+      if (!isColorant && (!numberOfBags || numberOfBags < 1 || request.requestedKg !== numberOfBags * 25 || (request.requestedBags !== undefined && request.requestedBags !== numberOfBags))) return s;
       const batchNo = isColorant ? `COL-${year}-${String(next).padStart(4, '0')}` : `${category === 'Recycled Pellet' ? 'RPE' : 'VPE'}-${year}-${String(next).padStart(4, '0')}`;
       const colorant = isColorant
         ? s.colorants.find(item => item.usageType === request.colorantUsageType && (item.name === request.color || item.color === request.color.replace(/\s+\([A-Z]+\)$/, '')))
@@ -2469,10 +2470,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
-  const updateFinishedGoodStorage = useCallback((fgId: string, location: string, purpose: 'General Inventory' | 'Customer Order', orderId?: string, scannerMeta?: { shift: string; scannerMode: string }) => {
+  const updateFinishedGoodStorage = useCallback((fgId: string, location: string, purpose: 'General Inventory' | 'Customer Order', orderId?: string, scannerMeta?: PhysicalScanMeta) => {
     let stored = false;
-    setState(s => {
+    flushSync(() => setState(s => {
       const fg = s.finishedGoods.find(item => item.id === fgId);
+      if (!fg || !exactPhysicalScan(scannerMeta, fg, s.finishedGoods) || finishedPipeInventory(fg, s).bucket !== 'Awaiting Storage') return s;
       const origin = fg ? resolveFinishedPipe(fg, s) : undefined;
       const expectedPurpose = origin?.source === 'Stock Replenishment' ? 'General Inventory' : origin?.source === 'Manufacturing Order' ? 'Customer Order' : undefined;
       const order = origin?.order;
@@ -2553,7 +2555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           newValue: location,
         }, ...s.auditLogs],
       };
-    });
+    }));
     return stored;
   }, []);
 
@@ -2700,17 +2702,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
-  const receivePellet = useCallback((pelletId: string, scannerMeta?: { shift: string; scannerMode: string }, storageLocation?: string) => {
+  const receivePellet = useCallback((pelletId: string, scannerMeta?: PhysicalScanMeta, storageLocation?: string) => {
     let received = false;
-    setState(s => {
-      if (s.currentUser?.role !== 'production') return s;
+    flushSync(() => setState(s => {
+      // Plant Manager already receives transfers; Production already receives/scans bags.
+      if (!s.currentUser || !['production', 'plantmanager'].includes(s.currentUser.role)) return s;
       if (!storageLocation || !activeLocationCodes(readStorageLocations()).includes(storageLocation as never)) return s;
       const pellet = s.pellets.find(item => item.id === pelletId);
+      if (!pellet || !exactPhysicalScan(scannerMeta, pellet, s.pellets)) return s;
+      if (pellet.inventoryStatus === 'Pending Receipt') {
+        if (expectedPelletError(pellet, s.transfers, s.materialRequests)) return s;
+      } else if (s.currentUser?.role !== 'production' || pellet.type !== 'Recycled' || pellet.availableKg !== 25 || pellet.originalKg !== 25 || pellet.locationStatus !== 'Awaiting Storage') return s;
       if (pellet && !['Pending Receipt', 'Available'].includes(pellet.inventoryStatus)) return s;
       if (!pellet || (pellet.currentLocation && !['Awaiting Receipt', 'Awaiting Storage'].includes(pellet.locationStatus))) return s;
-      const transfer = s.transfers.find(item => item.batchNo === pellet.batchNo && item.status === 'In Transit');
+      const transfer = s.transfers.find(item => item.refNo === pellet.transferRef && item.batchNo === pellet.batchNo && item.status === 'In Transit');
       const destination = storageLocation;
-      const action = pellet.type === 'Virgin' ? 'Received' as const : 'Stored' as const;
+      const action = pellet.inventoryStatus === 'Pending Receipt' ? 'Received' as const : 'Stored' as const;
       received = true;
       const now = new Date();
       const date = now.toISOString().slice(0, 10);
@@ -2724,9 +2731,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               inventoryStatus: 'Available' as const,
               currentLocation: destination,
               locationStatus: 'Stored' as const,
-              receivedDate: pellet.type === 'Virgin' ? date : item.receivedDate,
-              receivedBy: pellet.type === 'Virgin' ? s.currentUser!.name : item.receivedBy,
-              receivedAt: pellet.type === 'Virgin' ? now.toISOString() : item.receivedAt,
+              receivedDate: pellet.inventoryStatus === 'Pending Receipt' ? date : item.receivedDate,
+              receivedBy: pellet.inventoryStatus === 'Pending Receipt' ? s.currentUser!.name : item.receivedBy,
+              receivedAt: pellet.inventoryStatus === 'Pending Receipt' ? now.toISOString() : item.receivedAt,
               storedBy: s.currentUser!.name,
               storedAt: now.toISOString(),
               lastScan: `${date} ${time}`,
@@ -2756,8 +2763,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           date, time,
           employee: s.currentUser.name,
           employeeId: s.currentUser.employeeId,
-          role: 'Production',
-          transactionType: pellet.type === 'Virgin' ? 'Pellets Received' : 'Recycled Pellet Stored',
+          role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
+          transactionType: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellets Received' : 'Recycled Pellet Stored',
+          materialCategory: pellet.type === 'Virgin' ? 'Virgin Pellet' : 'Recycled Pellet',
           item: `${pellet.type} Pellets ${pellet.grade}`,
           batch: pellet.batchNo,
           barcode: pellet.barcode,
@@ -2766,7 +2774,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           qtyAfter: 25,
           source: pellet.currentLocation || 'Not Yet Assigned',
           destination,
-          reference: transfer?.refNo || pellet.rrRef || pellet.recyclingBatchRef || pellet.batchNo,
+          reference: pellet.inventoryStatus === 'Pending Receipt' ? s.materialRequests.find(request => request.refNo === transfer?.requestRef)?.refNo || transfer!.refNo : pellet.rrRef || pellet.recyclingBatchRef || pellet.batchNo,
           status: 'Completed',
           shift: scannerMeta?.shift,
           scannerMode: scannerMeta?.scannerMode,
@@ -2775,15 +2783,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           id: `al${Date.now()}`,
           user: s.currentUser.name,
           employeeId: s.currentUser.employeeId,
-          role: 'Production',
-          action: pellet.type === 'Virgin' ? 'Pellet Received and Stored' : 'Recycled Pellet Stored',
+          role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
+          action: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellet Received and Stored' : 'Recycled Pellet Stored',
           date, time,
           reference: pellet.barcode,
           previousValue: pellet.currentLocation || 'Not Yet Assigned',
           newValue: destination,
         }, ...s.auditLogs],
       };
-    });
+    }));
     return received;
   }, []);
 
@@ -2795,6 +2803,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const isColorant = !!transfer && transferCategory(transfer) === 'Colorant';
       const sentQuantity = transfer?.sentQuantity ?? (isColorant ? transfer?.weightKg : transfer?.numberOfBags) ?? 0;
       if (!transfer || !s.currentUser || transfer.status !== 'In Transit') return s;
+      if (!isColorant && receivedQuantity >= sentQuantity) { result.error = 'Scan and confirm each expected pellet bag individually. Bulk receipt cannot activate unscanned bags.'; return s; }
+      if (!isColorant && receivedQuantity < s.pellets.filter(bag => bag.transferRef === transfer.refNo && bag.batchNo === transfer.batchNo && bag.receivedAt && bag.inventoryStatus !== 'Pending Receipt').length) { result.error = 'Received quantity cannot be less than bags already physically scanned and received.'; return s; }
       if ((!isColorant && !Number.isInteger(receivedQuantity)) || !Number.isFinite(receivedQuantity) || receivedQuantity < 0 || receivedQuantity > sentQuantity) {
         result = { success: false, error: `Received quantity must be ${isColorant ? 'a kg value' : 'a whole bag count'} from 0 to ${sentQuantity}.` };
         return s;
@@ -3092,12 +3102,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return loaded;
   }, []);
 
-  const releaseFinishedGood = useCallback((fgId: string, scannerMeta?: { shift: string; scannerMode: string }) => {
+  const releaseFinishedGood = useCallback((fgId: string, scannerMeta?: PhysicalScanMeta) => {
     let released = false;
-    setState(s => {
+    flushSync(() => setState(s => {
       if (s.currentUser?.role !== 'production') return s;
       const fg = s.finishedGoods.find(item => item.id === fgId);
       const order = fg ? resolveFinishedPipe(fg, s).order : undefined;
+      if (!fg || !exactPhysicalScan(scannerMeta, fg, s.finishedGoods) || !order || scannerMeta?.orderId !== order.id) return s;
       if (
         !fg || !order || fg.releaseStatus === 'Released' || fg.qualityStatus !== 'Pass'
         || finishedPipeInventory(fg, s).bucket !== 'Ready for Ship Out'
@@ -3169,7 +3180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           reference: order.orderNo,
         }, ...s.auditLogs],
       };
-    });
+    }));
     return released;
   }, []);
 

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreApprovalScanFile } from './approval-scan-baseline.mjs';
 
 // Historical source guards normalize only these exact reviewed deltas.
 // check-process-flow independently executes the CURRENT production callbacks.
@@ -18,7 +19,7 @@ export const reviewedProcessFlowAdditions = {
 const previous = new Map();
 const hash = source => createHash('sha256').update(source).digest('hex');
 export function restoreProcessFlowFile(file, text) {
-  const source = text.replace(/\r/g, '');
+  const source = restoreApprovalScanFile(file, text);
   if (!reviewedProcessFlowDeltas[file]) return source;
   const marker = file.endsWith('Transfers.tsx') ? 'dispatchTransfer' : file.includes('/plantmanager/') ? "item.inventoryStatus === 'Available' && item.availableKg > 0" : 'operationalInventory';
   if (!source.includes(marker)) return source;
