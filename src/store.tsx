@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { canRecordProduction, productionOutputTotals } from './productionOutput';
 import { canFinishWip } from './operationalInventory';
 import { exactPhysicalScan, expectedPelletError, type PhysicalScanMeta } from './physicalScan';
+import { expectedPelletPlan } from './incomingPelletBarcodes';
 import { requestReprint, reviewReprint, completePrint, validatePrint, canViewRequest, printAuditRole, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
 import { seedReprintSamples } from './reprintSamples';
@@ -609,6 +610,7 @@ interface AppContextValue extends AppState {
     remarks?: string;
   }) => void;
   createTransfer: (requestId: string) => string | null;
+  ensureExpectedPelletBags: (requestId: string) => { success: boolean; error?: string };
   dispatchTransfer: (transferId: string) => { success: boolean; error?: string };
   updatePO: (id: string, updates: Partial<ProductionOrder>) => void;
   finishWipBag: (pelletId: string) => { success: boolean; error?: string };
@@ -1569,6 +1571,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const ensureExpectedPelletBags = useCallback((requestId: string) => {
+    let result: { success: boolean; error?: string } = { success: false, error: 'Only Plant Manager can prepare approved incoming bag labels.' };
+    flushSync(() => setState(s => {
+      if (s.currentUser?.role !== 'plantmanager') return s;
+      const plan = expectedPelletPlan(s, requestId);
+      if (plan.error || !plan.request) { result.error = plan.error; return s; }
+      const request = plan.request;
+      if (plan.bags.some(bag => s.barcodeRegistry.some(record => normalizeBarcodeValue(record.barcode) === normalizeBarcodeValue(bag.barcode) && record.itemId !== bag.id))) {
+        result.error = 'An existing barcode registry entry belongs to another item. No records were overwritten.'; return s;
+      }
+      if (plan.missing && (!isSupportedMaterialGrade(request.grade) || newPelletColor(request.pelletType, request.color) !== request.color)) {
+        result.error = 'Valid pellet grade and color are required before adding missing labels.'; return s;
+      }
+      const added = plan.missing ? makePermanentPelletBags(plan.missing, {
+        type: request.pelletType, batchNo: plan.batchNo, grade: request.grade,
+        color: newPelletColor(request.pelletType, request.color)!, receivedDate: '—',
+        materialRequestRef: request.refNo, transferRef: plan.transfer?.refNo,
+      }, s.barcodeRegistry, s.pellets, { available: false }) : [];
+      const missingRegistry = plan.bags.filter(bag => !s.barcodeRegistry.some(record => normalizeBarcodeValue(record.barcode) === normalizeBarcodeValue(bag.barcode)));
+      result = { success: true };
+      if (!added.length && !missingRegistry.length) return s;
+      return { ...s, pellets: [...added, ...s.pellets], barcodeRegistry: [...registryEntriesForPellets([...added, ...missingRegistry]), ...s.barcodeRegistry] };
+    }));
+    return result;
+  }, []);
+
   const createTransfer = useCallback((requestId: string) => {
     let transferNo: string | null = null;
     setState(s => {
@@ -1586,13 +1614,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       transferNo = `MT-${year}-${String(next).padStart(4, '0')}`;
       const category = requestCategory(request);
       const isColorant = category === 'Colorant';
+      const prepared = isColorant ? undefined : expectedPelletPlan(s, request.id);
+      if (prepared?.error || prepared?.bags.some(bag => bag.transferRef || bag.inventoryStatus !== 'Pending Receipt' || bag.availableKg !== 0)) { transferNo = null; return s; }
       if (!isColorant && request.pelletType !== (category === 'Virgin Pellet' ? 'Virgin' : 'Recycled')) { transferNo = null; return s; }
       const color = isColorant ? request.color : newPelletColor(request.pelletType, request.color);
       if (!color) { transferNo = null; return s; }
       if (!isColorant && !isSupportedMaterialGrade(request.grade)) return s;
       const numberOfBags = isColorant ? undefined : Math.floor(request.requestedKg / 25);
       if (!isColorant && (!numberOfBags || numberOfBags < 1 || request.requestedKg !== numberOfBags * 25 || (request.requestedBags !== undefined && request.requestedBags !== numberOfBags))) return s;
-      const batchNo = isColorant ? `COL-${year}-${String(next).padStart(4, '0')}` : `${category === 'Recycled Pellet' ? 'RPE' : 'VPE'}-${year}-${String(next).padStart(4, '0')}`;
+      const batchNo = prepared?.bags.length ? prepared.batchNo : isColorant ? `COL-${year}-${String(next).padStart(4, '0')}` : `${category === 'Recycled Pellet' ? 'RPE' : 'VPE'}-${year}-${String(next).padStart(4, '0')}`;
       const colorant = isColorant
         ? s.colorants.find(item => item.usageType === request.colorantUsageType && (item.name === request.color || item.color === request.color.replace(/\s+\([A-Z]+\)$/, '')))
         : undefined;
@@ -1615,14 +1645,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: 'Preparing',
         requestRef: request.refNo,
       };
-      const bags = isColorant ? [] : makePermanentPelletBags(numberOfBags || 0, {
+      const bags = isColorant || prepared?.missing === 0 ? [] : makePermanentPelletBags(prepared?.missing ?? numberOfBags ?? 0, {
         type: request.pelletType, batchNo, grade: normalizeMaterialGrade(request.grade), color,
-        receivedDate: '—', transferRef: transfer.refNo,
+        receivedDate: '—', transferRef: transfer.refNo, materialRequestRef: request.refNo,
       }, s.barcodeRegistry, s.pellets, { available: false });
       return {
         ...s,
         transfers: [transfer, ...s.transfers],
-        pellets: [...bags, ...s.pellets],
+        pellets: [...bags, ...s.pellets.map(bag => prepared?.bags.includes(bag) && !bag.transferRef ? { ...bag, transferRef: transfer.refNo } : bag)],
         barcodeRegistry: [...registryEntriesForPellets(bags), ...s.barcodeRegistry],
       };
     });
@@ -3394,7 +3424,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     currentMaterialUsage,
     setTheme, login, logout, navigate, clockIn, clockOut,
     markNotificationsRead, markNotificationRead, approveMaterialRequest, rejectMaterialRequest,
-    acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, updatePO, startProduction, recordOutput,
+    acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, ensureExpectedPelletBags, updatePO, startProduction, recordOutput,
     dispatchTransfer, finishWipBag, addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
     createProductionOrder, createStockReplenishmentPO,
     receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, markFinishedGoodLoaded, completeRecyclingBatch,
