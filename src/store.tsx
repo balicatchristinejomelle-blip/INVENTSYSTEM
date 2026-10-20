@@ -3,7 +3,8 @@ import { flushSync } from 'react-dom';
 import { canRecordProduction, productionOutputTotals } from './productionOutput';
 import { canFinishWip } from './operationalInventory';
 import { exactPhysicalScan, expectedPelletError, type PhysicalScanMeta } from './physicalScan';
-import { expectedPelletPlan } from './incomingPelletBarcodes';
+import { expectedPelletPlan, requestPelletBags } from './incomingPelletBarcodes';
+import { approvedMaterialRequest, linkedMaterialRequest } from './materialRequestLink';
 import { countedReceiptPlan } from './countedPelletReceiving';
 import { requestReprint, reviewReprint, completePrint, validatePrint, canViewRequest, printAuditRole, type PrintableRecord, type PrintWorkflowState } from './reprintWorkflow';
 import { hydratePrintWorkflow, printableRecords } from './printableRecords';
@@ -1660,7 +1661,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let result: { success: boolean; error?: string } = { success: false, error: 'Accept received bags before viewing labels.' };
     flushSync(() => setState(s => {
       const request = s.materialRequests.find(item => item.id === requestId);
-      if (s.currentUser?.role === 'plantmanager' && request?.status === 'Approved' && s.pellets.some(bag => bag.inventoryStatus !== 'Pending Receipt' && (bag.materialRequestRef === request.refNo || s.transfers.some(transfer => transfer.requestRef === request.refNo && transfer.refNo === bag.transferRef && transfer.batchNo === bag.batchNo)))) result = { success: true };
+      if (s.currentUser?.role === 'plantmanager' && request && approvedMaterialRequest(request) && requestPelletBags(s, request).some(bag => bag.inventoryStatus !== 'Pending Receipt')) result = { success: true };
       return s;
     }));
     return result;
@@ -1671,7 +1672,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(s => {
       const request = s.materialRequests.find(item => item.id === requestId);
       if (!request || request.status !== 'Approved' || s.currentUser?.role !== 'accounting') return s;
-      const existing = s.transfers.find(item => item.requestRef === request.refNo);
+      const existing = s.transfers.find(item => linkedMaterialRequest(s.materialRequests, item.requestRef)?.id === request.id);
       if (existing) {
         transferNo = existing.refNo;
         return s;
@@ -2194,7 +2195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return s;
       }
       const duplicate = s.materialRequests.find(item => {
-        const replenishmentReceived = s.transfers.some(transfer => transfer.requestRef === item.refNo && transfer.status === 'Received');
+        const replenishmentReceived = s.transfers.some(transfer => linkedMaterialRequest(s.materialRequests, transfer.requestRef)?.id === item.id && transfer.status === 'Received');
         if (replenishmentReceived || !['New', 'Pending', 'Approved'].includes(item.status) || requestCategory(item) !== category || (item.destination || 'Branch Plant') !== (req.destination || 'Branch Plant')) return false;
         if (category === 'Colorant') return item.color === req.color && item.colorantUsageType === req.colorantUsageType;
         return normalizeMaterialGrade(item.grade) === normalizeMaterialGrade(req.grade);

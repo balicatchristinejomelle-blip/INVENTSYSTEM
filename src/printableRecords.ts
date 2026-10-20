@@ -4,6 +4,7 @@ import { customerOrderDocument, manufacturingOrderDocument, productionOrderDocum
 import { pipeSearchRecord, readPipeSpecifications } from './finishedPipeRelations';
 import type { Customer } from './types';
 import { productFilterRecord } from './productFilters';
+import { linkedMaterialRequest, approvedMaterialRequest } from './materialRequestLink';
 
 export interface PrintableSource {
   customers?: Customer[];
@@ -13,8 +14,8 @@ export interface PrintableSource {
 }
 export function printableRecords(source: PrintableSource): PrintableRecord[] {
   const requestApproval = (reference: string | undefined) => {
-    const request = source.materialRequests.find(item => item.refNo === reference);
-    return request?.status === 'Approved' ? undefined : 'Approved Material Request required before printing. Pending and Rejected records are view only.';
+    const request = linkedMaterialRequest(source.materialRequests, reference);
+    return approvedMaterialRequest(request) ? undefined : 'Approved Material Request required before printing. Pending and Rejected records are view only.';
   };
   const pelletApproval = (item: PelletInventory) => item.inventoryStatus === 'Pending Receipt'
     ? 'Accept the counted received quantity before printing bag labels.'

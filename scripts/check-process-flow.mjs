@@ -39,6 +39,7 @@ try {
   const printing = await server.ssrLoadModule('/src/reprintWorkflow.ts');
   const incomingPrinting = await server.ssrLoadModule('/src/incomingPelletBarcodes.ts');
   const countedReceiving = await server.ssrLoadModule('/src/countedPelletReceiving.ts');
+  const requestLinks = await server.ssrLoadModule('/src/materialRequestLink.ts');
   let captured;
   function Capture() { captured = store.useApp(); return null; }
   const render = () => renderToStaticMarkup(React.createElement(store.AppProvider, null, React.createElement(Capture)));
@@ -53,7 +54,7 @@ try {
   const ast = ts.createSourceFile('store.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX), bindings = new Map();
   function walk(node) { if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) bindings.set(node.name.text, node.initializer.getText(ast)); ts.forEachChild(node, walk); } walk(ast);
   const transpile = code => ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const baseDeps = { ...countedReceiving, ...incomingPrinting, ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, ...physicalScan, MASS_TOLERANCE_KG: 0.001 };
+  const baseDeps = { ...requestLinks, ...countedReceiving, ...incomingPrinting, ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, ...physicalScan, MASS_TOLERANCE_KG: 0.001 };
   const helperNames = ['roundKg', 'makePelletBags', 'makeFinishedPipes', 'nextAnnualSequence', 'makePermanentPelletBags', 'makePermanentFinishedPipes', 'registryEntriesForPellets', 'registryEntriesForFinishedGoods', 'transactionBelongsToSession', 'isUnfinishedProductionOrder', 'findPendingTurnover', 'findSessionProductionOrder'];
   const helpers = new Function(...Object.keys(baseDeps), transpile(helperNames.map(name => 'const ' + name + '=' + bindings.get(name) + ';').join('\n')) + ';return {' + helperNames.join(',') + '};')(...Object.values(baseDeps));
   let state = structuredClone(baseline);

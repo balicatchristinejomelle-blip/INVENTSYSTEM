@@ -8,6 +8,7 @@ import { reviewedProductionOutputAdditions } from './production-output-baseline.
 import { reviewedProcessFlowAdditions } from './process-flow-baseline.mjs';
 import { approvalScanAdditions } from './approval-scan-baseline.mjs';
 import { countedReceivingAdditions } from './counted-receiving-baseline.mjs';
+import { receivingLinkAdditions } from './receiving-link-baseline.mjs';
 import { scanSessionAdditions } from './scan-session-baseline.mjs';
 import { incomingPrintingAdditions } from './incoming-printing-baseline.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -92,7 +93,7 @@ const check = (label, fn) => { fn(); count++; console.log(`PASS ${label}`); };
 const server = await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'});
 const oldWindow = globalThis.window, oldSession = globalThis.sessionStorage;
 try {
-  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file] && !reviewedProductionOutputAdditions[file] && !reviewedProcessFlowAdditions[file] && !approvalScanAdditions[file] && !incomingPrintingAdditions[file] && !scanSessionAdditions[file] && !countedReceivingAdditions[file])) {
+  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file] && !reviewedProductionOutputAdditions[file] && !reviewedProcessFlowAdditions[file] && !approvalScanAdditions[file] && !incomingPrintingAdditions[file] && !scanSessionAdditions[file] && !countedReceivingAdditions[file] && !receivingLinkAdditions[file])) {
     const current = read(file), baseline = uxBaseline(file);
     if (current === baseline) check(`Protected source byte-for-byte unchanged: ${file}`, () => assert.equal(current,baseline));
     else {
