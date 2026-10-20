@@ -7,13 +7,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { incomingPrintingDeltas, incomingPrintingAdditions, restoreIncomingPrintingFile } from './incoming-printing-baseline.mjs';
+import { activePmDeltas, restoreActivePmFile } from './pm-active-flow-baseline.mjs';
 import { countedReceivingDeltas, countedReceivingAdditions, restoreCountedReceivingFile } from './counted-receiving-baseline.mjs';
 import { scanSessionDeltas, scanSessionAdditions, restoreScanSessionFile } from './scan-session-baseline.mjs';
 
 let checks = 0;
 const check = (name, run) => { run(); checks++; console.log('PASS '+name); };
 const read = file => fs.readFileSync(file,'utf8').replace(/\r/g,'');
-for(const[file,hash]of Object.entries({...countedReceivingDeltas,...countedReceivingAdditions}))check('Exact counted receiving correction: '+file,()=>{assert.equal(createHash('sha256').update(read(file)).digest('hex'),hash);if(countedReceivingDeltas[file])assert.throws(()=>restoreCountedReceivingFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);});
+for(const[file,hash]of Object.entries(activePmDeltas))check('Exact active Plant Manager flow: '+file,()=>{assert.equal(createHash('sha256').update(read(file)).digest('hex'),hash);assert.throws(()=>restoreActivePmFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);});
+check('Storage, receipt, inventory, Production, permission and persistence engines are unchanged',()=>assert.equal(read('src/store.tsx'),execFileSync('git',['show','d8c2e7f:src/store.tsx'],{encoding:'utf8'}).replace(/\r/g,'')));
+check('Store Pipes is inside Scanner, with no standalone storage route/menu or old wording',()=>{assert.match(read('src/App.tsx'),/'pm-scanner': <BarcodeScanner \/>/);assert.ok(!read('src/App.tsx').includes('pm-pipe-storage'));assert.ok(!read('src/components/Sidebar.tsx').includes("label: 'Store Pipes'"));assert.ok(read('src/components/Sidebar.tsx').includes("label: 'Scanner'"));assert.ok(!read('src/pages/production/BarcodeScanner.tsx').includes('Inspect Finished Pipe Storage'));assert.ok(read('src/pages/production/BarcodeScanner.tsx').includes('{managerStorage ? <PipeStorageSession /> : <>'));});
+for(const[file,hash]of Object.entries({...countedReceivingDeltas,...countedReceivingAdditions}))check('Exact counted receiving correction: '+file,()=>{assert.equal(createHash('sha256').update(restoreActivePmFile(file,read(file))).digest('hex'),hash);if(countedReceivingDeltas[file])assert.throws(()=>restoreCountedReceivingFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);});
 for(const[file,hash]of Object.entries({...scanSessionDeltas,...scanSessionAdditions}))check('Exact reviewed scan-session source: '+file,()=>{assert.equal(createHash('sha256').update(restoreCountedReceivingFile(file,read(file))).digest('hex'),hash);if(scanSessionDeltas[file])assert.throws(()=>restoreScanSessionFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);});
 for(const file of Object.keys(incomingPrintingDeltas))check('Exact reviewed incoming printing delta: '+file,()=>{
   assert.equal(restoreIncomingPrintingFile(file,read(file)),execFileSync('git',['show','e938306:'+file],{encoding:'utf8'}).replace(/\r/g,''));

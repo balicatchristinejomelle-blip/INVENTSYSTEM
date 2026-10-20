@@ -51,6 +51,8 @@ export default function RequestPelletBarcodeButton({ request }: { request?: Mate
   const app = useApp();
   const [open, setOpen] = useState(false), [error, setError] = useState('');
   if (app.currentUser?.role !== 'plantmanager' || !request || request.status !== 'Approved' || request.materialCategory === 'Colorant') return null;
+  const bags = requestPelletBags(app, request).filter(bag => bag.inventoryStatus !== 'Pending Receipt');
+  const records = printableRecords(app).filter(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && bags.some(bag => bag.id === record.recordId) && canPrint(app.currentUser, record) && metadataFor(app, record).printCount === 0);
   const show = () => {
     const result = app.ensureExpectedPelletBags(request.id);
     setError(result.success ? '' : result.error || 'Expected labels could not be prepared.');
@@ -58,6 +60,7 @@ export default function RequestPelletBarcodeButton({ request }: { request?: Mate
   };
   return <div style={{ display: 'contents', whiteSpace: 'normal' }}>
     <button className="btn-secondary btn-compact" onClick={show} disabled={!requestPelletBags(app, request).some(bag => bag.inventoryStatus !== 'Pending Receipt')} title="Accept received bags before viewing/printing their labels">View Barcodes</button>
+    <BatchPrintAction label="Print Barcodes" records={records} onPreview={() => printBarcodeBatch(bags.filter(bag => records.some(record => record.recordId === bag.id)).map(bag => ({ value: bag.barcode, recordId: bag.id, recordLabel: bag.bagNo }))).length === records.length} />
     {error && <div className="helper-text" role="alert">{error}</div>}
     <Modal open={open} title={`Incoming Pellet Barcodes — ${request.refNo}`} onClose={() => setOpen(false)} width="900px">
       <RequestPelletBarcodes key={request.id} requestId={request.id} />

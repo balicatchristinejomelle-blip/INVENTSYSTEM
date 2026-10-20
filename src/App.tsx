@@ -114,6 +114,7 @@ function PageRenderer() {
     'pm-transfers': <PMIncomingTransfers />,
     'pm-requests': <PMMainPlantRequests />,
     'pm-finished-goods': <PMFinishedGoods />,
+    'pm-scanner': <BarcodeScanner />,
     'pm-recycling': <PMRejectedRecycling />,
     'pm-attendance': <PMAttendance />,
     'pm-turnover': <PMShiftTurnover />,

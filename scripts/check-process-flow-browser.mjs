@@ -11,20 +11,22 @@ import React from 'react';import{createRoot}from'react-dom/client';
 import{AppProvider,useApp,USERS}from'/src/store';import{ViewStateScope,VIEW_STATE_PREFIX}from'/src/uiViewState';
 import Pellets from '/src/pages/production/Pellets';import Transfers from '/src/pages/accounting/Transfers';import Operations from '/src/pages/management/Operations';import Transactions from '/src/pages/accounting/Transactions';import Reports from '/src/pages/plantmanager/Reports';
 import Storage from '/src/components/FinishedPipeStorage';import Receiving from '/src/components/ExpectedPelletReceiving';import Scanner from '/src/pages/production/BarcodeScanner';import DocumentViewer from '/src/components/DocumentViewer';import{materialRequestDocument}from'/src/documentPrint';import{printableRecords}from'/src/printableRecords';
-import Requests from '/src/pages/plantmanager/MainPlantRequests';import Incoming from '/src/pages/plantmanager/IncomingTransfers';
+import App from '/src/App';import Requests from '/src/pages/plantmanager/MainPlantRequests';import Incoming from '/src/pages/plantmanager/IncomingTransfers';
 import*as operational from'/src/operationalInventory';import*as inventory from'/src/finishedGoodsInventory';import'/src/index.css';
 const root=createRoot(document.getElementById('root'));let baseline,version=0;window.qa={operational,inventory};
 function StoragePage(){const app=useApp();return React.createElement(Storage,{key:qa.pipeId,pipe:app.finishedGoods.find(item=>item.id===qa.pipeId)});}
 function ReceivingPage(){return React.createElement(Receiving,{transferId:qa.transferId});}
 function RequestPage(){const app=useApp();return React.createElement(DocumentViewer,{open:true,document:materialRequestDocument(app.materialRequests.find(item=>item.id===qa.requestId)),onClose:()=>{}});}
 function Live(){const app=useApp();window.qa.app=app;window.qa.printables=()=>printableRecords(app);if(!baseline)baseline=JSON.parse(JSON.stringify(app));const Page=app.currentPage==='pm-requests'?Requests:app.currentPage==='pm-transfers'?Incoming:app.currentPage==='qa-storage'?StoragePage:app.currentPage==='qa-receiving'?ReceivingPage:app.currentPage==='qa-request'?RequestPage:app.currentPage==='prod-scanner'?Scanner:app.currentPage==='prod-pellets'?Pellets:app.currentPage==='acc-transfers'?Transfers:app.currentPage==='mgmt-operations'?Operations:app.currentPage==='acc-transactions'?Transactions:app.currentPage==='pm-reports'?Reports:null;return React.createElement(ViewStateScope,null,React.createElement('main',{className:'operational-content page-stack',style:{padding:16,minWidth:0,maxWidth:'100%'}},Page&&React.createElement(Page)));}
-window.qa.mount=()=>root.render(React.createElement(React.StrictMode,null,React.createElement(AppProvider,{key:++version},React.createElement(Live))));
+window.qa.mount=()=>{delete window.qa.app;sessionStorage.removeItem('hpai:qa-real-shell');root.render(React.createElement(React.StrictMode,null,React.createElement(AppProvider,{key:++version},React.createElement(Live))));};
+window.qa.shell=()=>{delete window.qa.app;sessionStorage.setItem('hpai:qa-real-shell','true');root.render(React.createElement(App));};
+window.qa.saved=()=>JSON.parse(localStorage.getItem('hpai:shared-app-state-v1'));
 window.qa.seed=()=>{const user=USERS.find(row=>row.role==='production'),zero={...baseline.pellets[0],id:'isolated-zero-wip',barcode:'QA-ZERO-WIP',availableKg:0,inventoryStatus:'Loaded',currentLocation:'A'};localStorage.setItem('hpai:shared-app-state-v1',JSON.stringify({...baseline,currentUser:USERS.find(row=>row.role==='accounting'),currentPage:'process-qa',clockedIn:true,currentShift:'Day',attendance:[{...baseline.attendance[0],id:'isolated-browser-process-shift',employeeId:user.employeeId,status:'Active',shift:'Day'}],turnovers:[],pellets:[zero,...baseline.pellets],barcodeRegistry:[...baseline.barcodeRegistry,{barcode:zero.barcode,itemId:zero.id,itemType:'Virgin Pellet Bag',category:'Pellet',createdAt:'2000-01-01T00:00:00.000Z'}]}));window.qa.mount();};
 window.qa.role=(role,page='process-qa',prefs={})=>{const user=USERS.find(row=>row.role===role),prefix=VIEW_STATE_PREFIX+user.employeeId+':'+role+':'+page+':';for(const[key,value]of Object.entries(prefs))sessionStorage.setItem(prefix+key,JSON.stringify(value));window.qa.app.login(user.username,user.password);window.qa.app.navigate(page);};
 window.qa.data=()=>JSON.parse(JSON.stringify(['pellets','finishedGoods','productionOrders','orders','manufacturingOrders','transactions','materialUsageTransactions','transfers','rejectedMaterials','recyclingBatches','rrRecords','materialRequests','colorants','barcodeRegistry','auditLogs','attendance','printMetadata','reprintRequests'].map(key=>window.qa.app[key])));
 window.qa.click=(text,scope=document)=>{const button=[...scope.querySelectorAll('button')].find(node=>node.textContent.trim()===text);if(!button||button.disabled)throw Error('Missing/disabled '+text);button.click();};
 window.qa.type=(label,value)=>{const input=document.querySelector('input[aria-label="'+label+'"]');if(!input)throw Error('Missing input '+label);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));};
-window.qa.mount();
+if(sessionStorage.getItem('hpai:qa-real-shell')==='true')window.qa.shell();else window.qa.mount();
 `;
 const server = await createServer({ cacheDir:path.join(profile,'vite-cache'),server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false},plugins:[{
   name:'process-flow-browser',resolveId(id){if(id==='/__process-qa.js')return'\0process-qa';},load(id){if(id==='\0process-qa')return entry;},configureServer(server){server.middlewares.use(async(req,res,next)=>{if(req.url!=='/__process-qa')return next();try{res.setHeader('Content-Type','text/html');res.end(await server.transformIndexHtml('/__process-qa','<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/__process-qa.js"></script></body></html>'));}catch(error){next(error);}});},
@@ -175,5 +177,70 @@ try{
   await reload();assert.deepEqual(await evaluate('qa.data()'),reloaded);
   console.log('PASS all six roles share persisted operational data; new actions enforce roles; reload does not duplicate stock, output, pipes or movements');
   for(const width of [360,768,1280]){await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});await pause(100);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth+1'),false);if(width!==768){const screenshot=await send('Page.captureScreenshot',{format:'png'}),file=path.join(profile,'movement-'+width+'.png');fs.writeFileSync(file,Buffer.from(screenshot.data,'base64'));console.log('SCREENSHOT '+file);}}
+
+  // Verify the production App shell, real sidebar routes and handler wiring, not mock page maps.
+  const saved=()=>evaluate('qa.saved()');
+  async function shellReload(){
+    await evaluate('window.__shellReloadPending=true');await send('Page.reload');
+    await wait(()=>evaluate('!window.__shellReloadPending&&!!window.qa?.saved&&!!document.querySelector(".app-shell")'),'actual App shell after refresh');await pause(150);
+  }
+  async function shellSurface(label){
+    for(const width of [360,768,1280]){await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});await pause(100);assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth+1'),false,label+' width '+width);if(width!==768){const shot=await send('Page.captureScreenshot',{format:'png'}),file=path.join(profile,label+'-'+width+'.png');fs.writeFileSync(file,Buffer.from(shot.data,'base64'));console.log('SCREENSHOT '+file);}}
+  }
+  async function nav(label){
+    await evaluate('(()=>{const node=document.querySelector('+JSON.stringify('.sidebar-nav [aria-label="'+label+'"]')+')||[...document.querySelectorAll(".sidebar-nav div")].find(item=>item.textContent.trim()==='+JSON.stringify(label)+');if(!node)throw Error("Missing sidebar "+'+JSON.stringify(label)+');node.click();})()');await pause(150);
+  }
+  for(const [suffix,total]of [['FULL',20],['PARTIAL',18]]){
+    await evaluate('qa.mount()');await wait(()=>evaluate('!!qa.app'),'fixture setup provider');await role('plantmanager');
+    const ref='MR-2099-SHELL-'+suffix;
+    await action('addMaterialRequest',{refNo:ref,date:'2026-10-20',requestedBy:'Real-shell isolated QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE100',color:'White',requestedKg:500,requestedBags:20,status:'New',destination:'Branch Plant'});
+    state=await snapshot();const request=state.materialRequests.find(item=>item.refNo===ref);assert.ok(request);
+    await role('accounting');await action('approveMaterialRequest',request.id);await action('createTransfer',request.id);state=await snapshot();const transfer=state.transfers.find(item=>item.requestRef===ref);assert.ok(transfer);await action('dispatchTransfer',transfer.id);
+    await role('plantmanager','pm-dashboard');const before=await snapshot();await evaluate('qa.shell()');await wait(()=>evaluate('!!document.querySelector(".app-shell")'),'actual App');
+    await nav('Materials & Requests');await nav('Incoming Transfers');await wait(async()=>((await saved()).currentPage==='pm-transfers'),'real incoming route');
+    const row='[...document.querySelectorAll("tr")].find(item=>item.textContent.includes('+JSON.stringify(transfer.refNo)+'))';
+    await evaluate('qa.click("Accept Transfer",'+row+')');await pause(120);
+    assert.equal(await evaluate('!!document.querySelector("[aria-label=\\\"Scan Pellet Bag Barcode\\\"]")'),false);
+    assert.equal(await evaluate('document.body.textContent.includes("Approval and labels do not add stock")'),false);
+    assert.equal(await evaluate('document.body.textContent.includes("0 / 20 bags received")'),false);
+    await type('Received Bags (Cumulative Total)',String(total));await choose('Storage Location','A');
+    assert.equal(await evaluate('!!document.querySelector("[aria-label=\\\"Open Discrepancy Reason options\\\"]")'),total<20);
+    if(total<20){await click('Accept Transfer');await confirm();assert.ok(await evaluate('document.body.textContent.includes("Select a discrepancy reason")'));assert.equal((await saved()).pellets.filter(item=>item.transferRef===transfer.refNo).length,0);await choose('Discrepancy Reason','Missing');}
+    await shellSurface('shell-counted-'+suffix.toLowerCase());await click('Accept Transfer');await confirm();await wait(async()=>((await saved()).transfers.find(item=>item.id===transfer.id)?.receivedQuantity===total),'accepted count visible immediately');
+    let accepted=await saved();const bags=accepted.pellets.filter(item=>item.transferRef===transfer.refNo);
+    assert.equal(bags.length,total);assert.equal(new Set(bags.map(item=>item.barcode)).size,total);assert.equal(bags.reduce((sum,item)=>sum+item.availableKg,0),total*25);
+    const delivery=accepted.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.sentQuantity,20);assert.equal(delivery.discrepancyQuantity,20-total);assert.equal(delivery.status,total===20?'Received':'Receiving Discrepancy');
+    for(const bag of before.pellets)assert.deepEqual(accepted.pellets.find(item=>item.id===bag.id),bag);
+    assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify('Accepted receipt: '+total+' of 20 bags')+')'));
+    await shellSurface('shell-accepted-'+suffix.toLowerCase());await click('View Barcodes');assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify(bags[0].barcode)+')'));assert.deepEqual((await saved()).pellets,accepted.pellets);
+    await evaluate('[...document.querySelectorAll(".modal-box")].at(-1).querySelector("[aria-label=\\\"Close dialog\\\"]").click()');await pause(80);
+    await evaluate('qa.previewHtml="";window.open=()=>({document:{write:html=>{qa.previewHtml=html;},close:()=>{}},close:()=>{}})');
+    await click('Print Barcodes ('+total+')');await wait(()=>evaluate('document.body.textContent.includes("Confirm actual print result")'),'direct barcode print result');
+    const html=await evaluate('qa.previewHtml');assert.equal((html.match(/<section class="label"/g)||[]).length,total);for(const bag of bags)assert.ok(html.includes('Barcode label '+bag.barcode));
+    await click('Print completed successfully');await pause(150);accepted=await saved();for(const bag of bags)assert.equal(accepted.printMetadata['Barcode:Pellet:'+bag.id].printCount,1);
+    assert.deepEqual(accepted.pellets.filter(item=>item.transferRef===transfer.refNo).map(item=>[item.id,item.barcode]),bags.map(item=>[item.id,item.barcode]));
+    await shellReload();assert.deepEqual((await saved()).pellets,accepted.pellets);assert.deepEqual((await saved()).transfers,accepted.transfers);assert.deepEqual((await saved()).transactions,accepted.transactions);
+    await evaluate('qa.click("View",'+row+')');await pause(100);await click('View Barcodes');assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify(bags[0].barcode)+')'));
+    console.log('PASS actual App sidebar -> Incoming Transfers -> '+total+'/20 counted acceptance -> View Barcodes -> direct Print Barcodes -> refresh preserves exact records');
+  }
+  await shellReload();await nav('Scanner');await wait(async()=>((await saved()).currentPage==='pm-scanner'),'Scanner navigation');
+  assert.equal(await evaluate('!!document.querySelector(".sidebar-nav [aria-label=\\\"Store Pipes\\\"]")'),false);
+  assert.equal(await evaluate('document.body.textContent.includes("Inspect Finished Pipe Storage")'),false);
+  assert.equal(await evaluate('document.querySelector(".scanner-context-status strong").textContent'),'Store Pipes');
+  assert.ok(await evaluate('[...document.querySelectorAll("h3")].some(node=>node.textContent==="Pipe Storage")'));
+  await choose('Search options...','Store Pipes');await choose('Storage Location','A');
+  const storageBefore=await saved();
+  for(const pipe of produced.slice(1,3)){
+    assert.equal(storageBefore.finishedGoods.find(item=>item.id===pipe.id).locationStatus,'Awaiting Storage');
+    await type('Scan Pipe Barcode',pipe.barcode);await evaluate('document.querySelector("[aria-label=\\\"Scan Pipe Barcode\\\"]").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}))');await pause(100);
+    const stored=(await saved()).finishedGoods.find(item=>item.id===pipe.id);assert.equal(stored.barcode,pipe.barcode);assert.equal(stored.locationStatus,'Stored');assert.equal(stored.currentLocation,'A');assert.equal(stored.inventoryPurpose,'General Inventory');
+    assert.equal(await evaluate('document.querySelector("[aria-label=\\\"Storage Location\\\"]").value'),'A');
+    assert.equal(await evaluate('document.activeElement.getAttribute("aria-label")'),'Scan Pipe Barcode');
+  }
+  await shellSurface('shell-scanner-store-pipes');const beforeDuplicateStorage=await saved();await type('Scan Pipe Barcode',produced[1].barcode);await click('Store Scanned Pipe');assert.deepEqual(await saved(),beforeDuplicateStorage);
+  assert.equal(beforeDuplicateStorage.transactions.slice(0,2).reduce((sum,item)=>sum+item.qtyChanged,0),0);
+  await shellReload();assert.equal((await saved()).currentPage,'pm-scanner');assert.equal((await saved()).finishedGoods.find(item=>item.id===produced[1].id).locationStatus,'Stored');
+  console.log('PASS real Scanner -> Store Pipes -> one location -> multiple unchanged barcodes stored; duplicate scan and refresh preserve stock/history; no standalone Store Pipes menu');
+
   assert.deepEqual(errors,[]);console.log('PASS process-flow browser verification; isolated profile '+profile);
 }catch(error){if(socket?.readyState===WebSocket.OPEN)console.error(await evaluate('document.body.innerText').catch(()=>''));throw error;}finally{if(socket?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}socket.close();}chrome?.kill();await server.close();}
