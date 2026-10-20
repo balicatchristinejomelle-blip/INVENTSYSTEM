@@ -268,6 +268,8 @@ export interface ProductionOrder {
 }
 
 export interface PelletInventory {
+  /** Direct approved-request link for expected labels prepared before a transfer. */
+  materialRequestRef?: string;
   id: string;
   bagNo: string;
   type: 'Virgin' | 'Recycled';

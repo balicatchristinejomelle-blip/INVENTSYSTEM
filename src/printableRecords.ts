@@ -16,6 +16,9 @@ export function printableRecords(source: PrintableSource): PrintableRecord[] {
     const request = source.materialRequests.find(item => item.refNo === reference);
     return request?.status === 'Approved' ? undefined : 'Approved Material Request required before printing. Pending and Rejected records are view only.';
   };
+  const pelletApproval = (item: PelletInventory) => item.materialRequestRef
+    ? requestApproval(item.materialRequestRef)
+    : item.transferRef && item.inventoryStatus === 'Pending Receipt' ? requestApproval(source.transfers.find(transfer => transfer.refNo === item.transferRef)?.requestRef) : undefined;
   const documents = [
     ...source.orders.map(customerOrderDocument), ...source.manufacturingOrders.map(item => manufacturingOrderDocument(item)),
     ...source.productionOrders.map(productionOrderDocument), ...source.rrRecords.map(receivingReportDocument),
@@ -29,7 +32,7 @@ export function printableRecords(source: PrintableSource): PrintableRecord[] {
   };
   return [
     ...documents.map(doc => ({ key: printableKey('Document', doc.type, doc.recordId), kind: 'Document' as const, recordType: doc.type, recordId: doc.recordId, reference: doc.reference, context: doc.sections.flatMap(section => section.fields.map(field => `${field.label}: ${field.value}`)).join(' '), allowedRoles: roles[doc.type] || [], approvalError: doc.type === 'MATERIAL REQUEST' ? requestApproval(doc.reference) : doc.type === 'MATERIAL TRANSFER' && source.transfers.find(item => item.id === doc.recordId)?.requestRef ? requestApproval(source.transfers.find(item => item.id === doc.recordId)?.requestRef) : undefined })),
-    ...source.pellets.filter(item => !!item.barcode).map(item => ({ key: printableKey('Barcode', 'Pellet', item.id), kind: 'Barcode' as const, recordType: 'Pellet', recordId: item.id, reference: item.bagNo, value: item.barcode, context: `${item.type} ${item.grade} ${item.batchNo}`, allowedRoles: ['plantmanager'] as PrintableRecord['allowedRoles'], approvalError: item.transferRef && item.inventoryStatus === 'Pending Receipt' ? requestApproval(source.transfers.find(transfer => transfer.refNo === item.transferRef)?.requestRef) : undefined })),
+    ...source.pellets.filter(item => !!item.barcode).map(item => ({ key: printableKey('Barcode', 'Pellet', item.id), kind: 'Barcode' as const, recordType: 'Pellet', recordId: item.id, reference: item.bagNo, value: item.barcode, context: `${item.type} ${item.grade} ${item.batchNo}`, allowedRoles: ['plantmanager'] as PrintableRecord['allowedRoles'], approvalError: pelletApproval(item) })),
     ...source.finishedGoods.filter(item => !!item.barcode).map(item => ({ key: printableKey('Barcode', 'Finished Pipe', item.id), kind: 'Barcode' as const, recordType: 'Finished Pipe', recordId: item.id, reference: item.fgId, value: item.barcode, context: `${item.product} ${item.diameter} ${item.sdr} ${item.length} ${item.poRef} ${item.batch}`, allowedRoles: ['plantmanager'] as PrintableRecord['allowedRoles'] })),
   ];
 }

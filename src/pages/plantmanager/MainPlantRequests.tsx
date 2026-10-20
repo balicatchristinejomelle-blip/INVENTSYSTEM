@@ -7,6 +7,7 @@ import { DismissButton } from '../../components/ActionButton';
 import ActionButton from '../../components/ActionButton';
 import { withPrintSearch } from '../../printableRecords';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
+import RequestPelletBarcodeButton from '../../components/RequestPelletBarcodes';
 import { matchesRecord } from "../../components/RecordSearch"
 
 import SearchableDropdown from "../../components/SearchableDropdown"
@@ -252,6 +253,7 @@ export default function MainPlantRequests() {
                   <td>
                     <div className="button-group">
                       <button className="btn-secondary btn-compact" onClick={() => setViewId(request.id)}>View Details</button>
+                      <RequestPelletBarcodeButton request={request} />
                       <DocumentPrintButton className="btn-secondary btn-compact" recordId={request.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: request.id, autoPrint: true })} />
                     </div>
                   </td>
@@ -282,6 +284,7 @@ export default function MainPlantRequests() {
           <Info label="Destination" value={detail.destination || 'Branch Plant'} />
         </div>
           <div className="form-actions mt-4">
+            <RequestPelletBarcodeButton request={detail} />
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL REQUEST" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
           </div>

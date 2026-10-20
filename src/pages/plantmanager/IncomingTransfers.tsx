@@ -4,6 +4,7 @@ import { TableBody } from '../../components/UXFeedback';
 import DocumentPrintButton from '../../components/DocumentPrintButton';
 import LocationSelect from '../../components/LocationSelect';
 import ExpectedPelletReceiving from '../../components/ExpectedPelletReceiving';
+import RequestPelletBarcodeButton from '../../components/RequestPelletBarcodes';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -30,7 +31,7 @@ import { transferDocument } from "../../documentPrint"
 type FilterTab = 'All' | 'Preparing' | 'In Transit' | 'Receiving Discrepancy' | 'Received';
 
 function IncomingTransfers() {
-  const { transfers, confirmTransferReceipt } = useSearchableApp()
+  const { transfers, materialRequests, confirmTransferReceipt } = useSearchableApp()
 
   const [tab, setTab] = useViewState<FilterTab>("plantmanager/IncomingTransfers:tab", "All")
 
@@ -193,6 +194,7 @@ function IncomingTransfers() {
                           View
                         </button>
                         <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
+                        <RequestPelletBarcodeButton request={materialRequests.find(request => request.refNo === t.requestRef)} />
                         {effectiveStatus === 'In Transit' && transferCategory(t) === 'Colorant' && (
                           <button
                             className="btn-success btn-compact"
@@ -330,6 +332,7 @@ function IncomingTransfers() {
           )}
 
           <div className="form-actions">
+            <RequestPelletBarcodeButton request={materialRequests.find(request => request.refNo === detail.requestRef)} />
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>

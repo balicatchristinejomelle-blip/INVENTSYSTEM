@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreIncomingPrintingFile } from './incoming-printing-baseline.mjs';
 
 // Exact reviewed deltas only. Current callbacks are exercised by check-process-flow.
 export const approvalScanDeltas = {
@@ -19,7 +20,7 @@ export const approvalScanAdditions = {
   'src/components/ExpectedPelletReceiving.tsx': 'd95808063ea99131a8da3ec24af63c54b58113af0633acd9505dc8a420ea10ba',
 };
 export function restoreApprovalScanFile(file, text) {
-  const source = text.replace(/\r/g, ''), reviewed = approvalScanDeltas[file];
+  const source = restoreIncomingPrintingFile(file, text), reviewed = approvalScanDeltas[file];
   if (!reviewed || !source.includes(reviewed[1])) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewed[0]) throw Error('Unreviewed approval-scan delta: ' + file);
   return execFileSync('git', ['show', '7b0c39c:' + file], { encoding: 'utf8' }).replace(/\r/g, '');

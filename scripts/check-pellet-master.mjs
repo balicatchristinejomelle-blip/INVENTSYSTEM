@@ -15,7 +15,7 @@ const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
 const raw=file=>fs.readFileSync(file,'utf8').replace(/\r/g,'');
 for(const file of execFileSync('git',['ls-tree','-r','--name-only',PELLET_MASTER_BASELINE,'src'],{encoding:'utf8'}).trim().split('\n').filter(file=>/\.(tsx?|css)$/.test(file)))check('Unchanged source or exact reviewed color-only delta: '+file,()=>{
   assert.equal(restorePelletMasterFile(file,raw(file)),pelletMasterBaseline(file));
-  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed (pellet-master|production-output|filter-layout|process-flow|approval-scan) delta/);
+  if(reviewedPelletMasterDeltas[file])assert.throws(()=>restorePelletMasterFile(file,raw(file)+'\n// unexpected'),/Unreviewed (pellet-master|production-output|filter-layout|process-flow|approval-scan|incoming-printing) delta/);
 });
 for(const[file,hash]of Object.entries(reviewedPelletMasterAdditions))check('Exact shared creation selector: '+file,()=>assert.equal(createHash('sha256').update(raw(file)).digest('hex'),hash));
 function declarations(text){

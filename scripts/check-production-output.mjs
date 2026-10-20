@@ -20,7 +20,7 @@ function declarations(text) {
 const source = read('src/store.tsx'), bindings = declarations(source);
 for (const file of Object.keys(reviewedProductionOutputDeltas)) check('Only exact reviewed production changes are accepted: ' + file, () => {
   assert.equal(restoreProductionOutputFile(file, read(file)), execFileSync('git', ['show', 'b40c023:' + file], { encoding: 'utf8' }).replace(/\r/g, ''));
-  assert.throws(() => restoreProductionOutputFile(file, read(file) + '\n// unexpected'), /Unreviewed (production-output|process-flow|approval-scan) delta/);
+  assert.throws(() => restoreProductionOutputFile(file, read(file) + '\n// unexpected'), /Unreviewed (production-output|process-flow|approval-scan|incoming-printing) delta/);
 });
 for (const [file, hash] of Object.entries(reviewedProductionOutputAdditions)) check('Exact read-only production helper: ' + file, () => assert.equal(createHash('sha256').update(read(file)).digest('hex'), hash));
 const before = declarations(execFileSync('git', ['show', 'b40c023:src/store.tsx'], { encoding: 'utf8' }).replace(/\r/g, ''));
