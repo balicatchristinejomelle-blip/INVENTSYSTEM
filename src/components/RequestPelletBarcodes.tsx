@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { MaterialRequest, PelletInventory } from '../types';
 import { useApp } from '../store';
-import { expectedPelletPlan } from '../incomingPelletBarcodes';
+import { requestPelletBags } from '../incomingPelletBarcodes';
 import { printableRecords } from '../printableRecords';
 import { canPrint, metadataFor } from '../reprintWorkflow';
 import PrintAction, { BatchPrintAction } from './PrintAction';
@@ -11,10 +11,10 @@ import Modal from './Modal';
 export function RequestPelletBarcodes({ requestId }: { requestId: string }) {
   const app = useApp();
   const [selected, setSelected] = useState<string[]>([]);
-  const plan = expectedPelletPlan(app, requestId);
-  if (!plan.request || plan.error) return <div className="alert-error" role="alert">{plan.error}</div>;
-  const { request, bags, expected } = plan;
-  const received = bags.filter(bag => bag.inventoryStatus !== 'Pending Receipt').length;
+  const request = app.materialRequests.find(item => item.id === requestId);
+  if (!request || request.status !== 'Approved') return <div className="alert-error" role="alert">An Approved Material Request is required.</div>;
+  const bags = requestPelletBags(app, request).filter(bag => bag.inventoryStatus !== 'Pending Receipt');
+  const expected = request.requestedBags ?? request.requestedKg / 25, received = bags.length;
   const records = printableRecords(app).filter(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && bags.some(bag => bag.id === record.recordId));
   const firstPrints = records.filter(record => canPrint(app.currentUser, record) && metadataFor(app, record).printCount === 0);
   const selectedRecords = records.filter(record => selected.includes(record.recordId));
@@ -25,7 +25,7 @@ export function RequestPelletBarcodes({ requestId }: { requestId: string }) {
       {Object.entries({ 'Request Reference': request.refNo, Material: `${request.pelletType} Pellets · ${request.grade} · ${request.color}`, 'Approved Quantity': `${request.requestedKg} kg`, 'Bag Count': expected, 'Received Count': received, 'Remaining Count': Math.max(0, expected - received) }).map(([label, value]) => <div key={label}><div className="field-label">{label}</div><div className="field-value">{value}</div></div>)}
     </div>
     <div className="alert-info">Labels do not receive inventory. Print All covers never-printed labels only. Printed labels use the individual Management-approved Reprint action below, with the SAME barcode.</div>
-    {plan.missing > 0 && <div className="alert-warning">{plan.missing} expected labels are missing. Close and reopen View Barcodes to safely add only missing records.</div>}
+    <div className="helper-text">Only accepted received bags have printable labels. Unreceived bags do not create inventory or new barcodes.</div>
     <div className="button-group">
       <BatchPrintAction label="Print All" records={firstPrints} onPreview={() => preview(bags.filter(bag => firstPrints.some(record => record.recordId === bag.id)))} />
       <BatchPrintAction label="Print Selected" records={selectedFirstPrints} onPreview={() => preview(bags.filter(bag => selectedFirstPrints.some(record => record.recordId === bag.id)))} />
@@ -57,7 +57,7 @@ export default function RequestPelletBarcodeButton({ request }: { request?: Mate
     if (result.success) setOpen(true);
   };
   return <div style={{ display: 'contents', whiteSpace: 'normal' }}>
-    <button className="btn-secondary btn-compact" onClick={show}>View Barcodes</button>
+    <button className="btn-secondary btn-compact" onClick={show} disabled={!requestPelletBags(app, request).some(bag => bag.inventoryStatus !== 'Pending Receipt')} title="Accept received bags before viewing/printing their labels">View Barcodes</button>
     {error && <div className="helper-text" role="alert">{error}</div>}
     <Modal open={open} title={`Incoming Pellet Barcodes — ${request.refNo}`} onClose={() => setOpen(false)} width="900px">
       <RequestPelletBarcodes key={request.id} requestId={request.id} />

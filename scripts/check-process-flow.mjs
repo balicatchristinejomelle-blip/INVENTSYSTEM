@@ -38,6 +38,7 @@ try {
   const printables = await server.ssrLoadModule('/src/printableRecords.ts');
   const printing = await server.ssrLoadModule('/src/reprintWorkflow.ts');
   const incomingPrinting = await server.ssrLoadModule('/src/incomingPelletBarcodes.ts');
+  const countedReceiving = await server.ssrLoadModule('/src/countedPelletReceiving.ts');
   let captured;
   function Capture() { captured = store.useApp(); return null; }
   const render = () => renderToStaticMarkup(React.createElement(store.AppProvider, null, React.createElement(Capture)));
@@ -52,7 +53,7 @@ try {
   const ast = ts.createSourceFile('store.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX), bindings = new Map();
   function walk(node) { if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) bindings.set(node.name.text, node.initializer.getText(ast)); ts.forEachChild(node, walk); } walk(ast);
   const transpile = code => ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const baseDeps = { ...incomingPrinting, ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, ...physicalScan, MASS_TOLERANCE_KG: 0.001 };
+  const baseDeps = { ...countedReceiving, ...incomingPrinting, ...store, ...inventory, ...locations, ...relations, ...barcodes, ...master, ...colors, ...categories, ...production, ...operational, ...physicalScan, MASS_TOLERANCE_KG: 0.001 };
   const helperNames = ['roundKg', 'makePelletBags', 'makeFinishedPipes', 'nextAnnualSequence', 'makePermanentPelletBags', 'makePermanentFinishedPipes', 'registryEntriesForPellets', 'registryEntriesForFinishedGoods', 'transactionBelongsToSession', 'isUnfinishedProductionOrder', 'findPendingTurnover', 'findSessionProductionOrder'];
   const helpers = new Function(...Object.keys(baseDeps), transpile(helperNames.map(name => 'const ' + name + '=' + bindings.get(name) + ';').join('\n')) + ';return {' + helperNames.join(',') + '};')(...Object.values(baseDeps));
   let state = structuredClone(baseline);
@@ -166,8 +167,8 @@ try {
     assert.equal(state.pellets, before.pellets); assert.equal(state.transactions, before.transactions); assert.equal(state.transfers.find(item => item.id === transfer.id).status, 'In Transit');
     const saved = state; assert.equal(action('dispatchTransfer', transfer.id).success, true); assert.equal(state, saved);
   });
-  actor('plantmanager'); const beforeReceipt = balances().virgin; const expectedBag=state.pellets.find(bag=>bag.transferRef===transfer.refNo);action('receivePellet',expectedBag.id,scan(expectedBag),'B');
-  check('Transfer receipt activates the same pending bag and preserves MR/transfer traceability once', () => {
+  actor('plantmanager'); const beforeReceipt = balances().virgin; action('acceptCountedPelletTransfer',transfer.id,1,'B');
+  check('Counted receipt generates one accepted bag and preserves MR/transfer traceability once', () => {
     assert.equal(balances().virgin, beforeReceipt + 25); assert.equal(state.transfers.find(item => item.id === transfer.id).status, 'Received'); const received = state.pellets.find(item => item.transferRef === transferNo); assert.equal(received.currentLocation, 'B'); assert.equal(received.inventoryStatus, 'Available');
     const saved = state; action('confirmTransferReceipt', transfer.id, 1, undefined, undefined, 'B'); assert.equal(state, saved);
   });
@@ -215,32 +216,31 @@ try {
     actor('production');const before=clone();action('approveMaterialRequest',approvalRequest.id);assert.deepEqual(state,before);
     actor('accounting');const beforeStock=balances();action('approveMaterialRequest',approvalRequest.id);assert.equal(state.materialRequests.find(item=>item.id===approvalRequest.id).status,'Approved');assert.deepEqual(balances(),beforeStock);assert.equal(printing.validatePrint(state,state.currentUser,printableRequest()),null);
   });
-  const rawBefore=balances().virgin;const expectedTransferNo=action('createTransfer',approvalRequest.id);const delivery=state.transfers.find(item=>item.refNo===expectedTransferNo);const expectedBags=state.pellets.filter(item=>item.transferRef===delivery.refNo);
-  check('Approved 125kg request authorizes five unique expected 25kg PEL-V labels; raw increase remains zero',()=>{
-    assert.equal(expectedBags.length,5);assert.equal(new Set(expectedBags.map(item=>item.barcode)).size,5);assert.ok(expectedBags.every(item=>item.availableKg===0&&item.originalKg===25&&item.inventoryStatus==='Pending Receipt'&&/^PEL-V-/.test(item.barcode)));assert.equal(balances().virgin,rawBefore);
-    const manager=role('plantmanager');for(const bag of expectedBags){const label=printables.printableRecords(state).find(item=>item.kind==='Barcode'&&item.recordId===bag.id);assert.equal(printing.validatePrint(state,manager,label),null);}
+  const rawBefore=balances().virgin;const expectedTransferNo=action('createTransfer',approvalRequest.id);const delivery=state.transfers.find(item=>item.refNo===expectedTransferNo);let expectedBags=[];
+  check('Approved transfer creates no pellet labels or inventory before accepted received quantity',()=>{
+    assert.equal(state.pellets.filter(item=>item.transferRef===delivery.refNo).length,0);assert.equal(balances().virgin,rawBefore);
     const before=state;action('createTransfer',approvalRequest.id);assert.equal(state,before);
   });
-  actor('plantmanager');check('Preparing delivery cannot be received even with the correct physical scan',()=>{const before=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,before);});
+  actor('plantmanager');check('Preparing delivery cannot be accepted by count',()=>{const before=state;assert.equal(action('acceptCountedPelletTransfer',delivery.id,5,'A').success,false);assert.equal(state,before);});
   actor('accounting');action('dispatchTransfer',delivery.id);actor('plantmanager');
-  check('Unscanned, wrong-bag, missing-location and bulk receiving are blocked without inventory change',()=>{
-    const before=state;assert.equal(action('receivePellet',expectedBags[0].id,undefined,'A'),false);assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[1]),'A'),false);assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'BAD'),false);assert.equal(action('confirmTransferReceipt',delivery.id,5,undefined,undefined,'A').success,false);assert.equal(state,before);
+  check('Invalid bag counts, missing location and legacy scan/bulk APIs cannot change inventory',()=>{
+    const before=state;assert.equal(action('acceptCountedPelletTransfer',delivery.id,6,'A').success,false);assert.equal(action('acceptCountedPelletTransfer',delivery.id,5,'BAD').success,false);assert.equal(action('acceptScannedPelletTransfer',delivery.id,['UNKNOWN'],'A').success,false);assert.equal(action('confirmTransferReceipt',delivery.id,5,undefined,undefined,'A').success,false);assert.equal(state,before);
   });
-  check('Unapproved, mismatched material and wrong bag weight cannot be received',()=>{
+  check('Unapproved or mismatched material cannot be received by count',()=>{
     const before=state;
-    for(const override of [{materialRequests:state.materialRequests.map(item=>item.id===approvalRequest.id?{...item,status:'Pending'}:item)},{pellets:state.pellets.map(item=>item.id===expectedBags[0].id?{...item,grade:'PE100'}:item)},{pellets:state.pellets.map(item=>item.id===expectedBags[0].id?{...item,originalKg:20}:item)}]){
-      state={...before,...override};const invalid=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,invalid);
+    for(const override of [{materialRequests:state.materialRequests.map(item=>item.id===approvalRequest.id?{...item,status:'Pending'}:item)},{transfers:state.transfers.map(item=>item.id===delivery.id?{...item,color:'Green'}:item)}]){
+      state={...before,...override};const invalid=state;assert.equal(action('acceptCountedPelletTransfer',delivery.id,5,'A').success,false);assert.equal(state,invalid);
     }state=before;
   });
-  check('Only existing receiving roles can receive an approved individually scanned delivery',()=>{
-    for(const user of store.USERS.filter(user=>!['production','plantmanager'].includes(user.role))){actor(user.role);const before=state;assert.equal(action('receivePellet',expectedBags[0].id,scan(expectedBags[0]),'A'),false);assert.equal(state,before);}actor('plantmanager');
+  check('Counted transfer acceptance retains Plant Manager-only authorization',()=>{
+    for(const user of store.USERS.filter(user=>user.role!=='plantmanager')){actor(user.role);const before=state;assert.equal(action('acceptCountedPelletTransfer',delivery.id,5,'A').success,false);assert.equal(state,before);}actor('plantmanager');
   });
-  for(const [index,bag]of expectedBags.entries())check('Individual physical bag '+(index+1)+' receives exactly 25kg once, leaving other expected bags inactive',()=>{
-    assert.equal(action('receivePellet',bag.id,scan(bag),['A','B','C','D','E'][index]),true);assert.equal(balances().virgin,rawBefore+25*(index+1));assert.equal(state.pellets.filter(item=>item.transferRef===delivery.refNo&&item.inventoryStatus==='Pending Receipt').length,4-index);
-    const received=state.pellets.find(item=>item.id===bag.id);assert.equal(received.barcode,bag.barcode);assert.ok(received.receivedAt);const before=state;assert.equal(action('receivePellet',bag.id,scan(bag),'I'),false);assert.equal(state,before);
-    if(index===1){assert.equal(action('confirmTransferReceipt',delivery.id,1,'Missing','Cannot erase a confirmed bag','A').success,false);assert.equal(state,before);}
+  for(let index=1;index<=5;index++)check('Cumulative accepted bag '+index+' adds exactly 25kg once and generates only the received label',()=>{
+    assert.equal(action('acceptCountedPelletTransfer',delivery.id,index,['A','B','C','D','E'][index-1],index<5?'Missing':undefined).success,true);assert.equal(balances().virgin,rawBefore+25*index);
+    expectedBags=state.pellets.filter(item=>item.transferRef===delivery.refNo);assert.equal(expectedBags.length,index);assert.ok(expectedBags.every(item=>item.inventoryStatus!=='Pending Receipt'));
+    const before=state;assert.equal(action('acceptCountedPelletTransfer',delivery.id,index,'I','Missing').success,false);assert.equal(state,before);
   });
-  check('All five scanned bags total 125kg Stock In and complete the SAME transfer',()=>{assert.equal(state.transfers.find(item=>item.id===delivery.id).status,'Received');assert.equal(state.transactions.filter(item=>expectedBags.some(bag=>bag.barcode===item.barcode)&&item.transactionType==='Pellets Received').reduce((sum,item)=>sum+operational.operationalStockEffect(item,state.finishedGoods).stockIn,0),125);});
+  check('Five accepted bags total 125kg Stock In and complete the SAME transfer',()=>{assert.equal(state.transfers.find(item=>item.id===delivery.id).status,'Received');assert.equal(state.transactions.filter(item=>expectedBags.some(bag=>bag.barcode===item.barcode)&&item.transactionType==='Pellets Received').reduce((sum,item)=>sum+operational.operationalStockEffect(item,state.finishedGoods).stockIn,0),125);});
   const beforePipeFlow=clone();action('createStockReplenishmentPO',{specification:{...spec,id:'isolated-ten-pipes',materialGrade:'PE80'},targetQty:550,requiredDate:'2026-10-19',productionLine:'Line 1',priority:'Normal',reason:'Physical ten-pipe QA'});
   const tenPO=state.productionOrders.find(item=>!beforePipeFlow.productionOrders.some(old=>old.id===item.id));actor('production');assert.equal(action('startProduction',tenPO.id).success,true);action('loadPellets',expectedBags[0].id,tenPO.id);assert.equal(action('recordOutput',tenPO.id,10,[],'isolated-ten-good-pipes').success,true);
   const tenPipes=state.finishedGoods.filter(item=>item.productionOrderId===tenPO.id);actor('plantmanager');

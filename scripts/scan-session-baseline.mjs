@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreCountedReceivingFile } from './counted-receiving-baseline.mjs';
 
 // Exact reviewed scan-session deltas only; current transitions are exercised separately.
 export const scanSessionDeltas = {
@@ -16,7 +17,7 @@ export const scanSessionAdditions = {
 const previous = new Map();
 const markers = { 'src/store.tsx': 'acceptScannedPelletTransfer', 'src/physicalScan.ts': "'Receiving Discrepancy'", 'src/components/FinishedPipeStorage.tsx': 'PipeStorageSession', 'src/components/ExpectedPelletReceiving.tsx': 'ScannedTransferAcceptance', 'src/pages/plantmanager/IncomingTransfers.tsx': 'setViewId(t.id)}>Accept Transfer' };
 export function restoreScanSessionFile(file, text) {
-  const source = text.replace(/\r/g, ''), reviewed = scanSessionDeltas[file];
+  const source = restoreCountedReceivingFile(file, text), reviewed = scanSessionDeltas[file];
   if (!reviewed || !source.includes(markers[file])) return source;
   if (!previous.has(file)) previous.set(file, execFileSync('git', ['show', '9ba6955:' + file], { encoding: 'utf8' }).replace(/\r/g, ''));
   const baseline = previous.get(file);
