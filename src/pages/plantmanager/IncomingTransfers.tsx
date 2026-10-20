@@ -195,6 +195,7 @@ function IncomingTransfers() {
                         </button>
                         <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
                         <RequestPelletBarcodeButton request={materialRequests.find(request => request.refNo === t.requestRef)} />
+                        {transferCategory(t) !== 'Colorant' && ['In Transit', 'Receiving Discrepancy'].includes(effectiveStatus) && materialRequests.some(request => request.refNo === t.requestRef && request.status === 'Approved') && <button className="btn-success btn-compact" onClick={() => setViewId(t.id)}>Accept Transfer</button>}
                         {effectiveStatus === 'In Transit' && transferCategory(t) === 'Colorant' && (
                           <button
                             className="btn-success btn-compact"
@@ -300,7 +301,7 @@ function IncomingTransfers() {
 
           {transferCategory(detail) !== 'Colorant' && <ExpectedPelletReceiving key={detail.id} transferId={detail.id} />}
 
-          {getEffectiveStatus(detail) === "In Transit" && (
+          {getEffectiveStatus(detail) === "In Transit" && transferCategory(detail) === 'Colorant' && (
             <>
               <div className="alert-warning" style={{ marginBottom: 16, fontSize: 12 }}>
                 Enter the{" "}
@@ -336,7 +337,7 @@ function IncomingTransfers() {
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>
-            {getEffectiveStatus(detail) === 'In Transit' && (
+            {getEffectiveStatus(detail) === 'In Transit' && transferCategory(detail) === 'Colorant' && (
               <button
                 className="btn-success"
                 onClick={() => {

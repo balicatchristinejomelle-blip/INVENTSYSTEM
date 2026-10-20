@@ -113,7 +113,7 @@ try {
     memory.set('hpai:shared-app-state-v1', JSON.stringify({ ...baseline, currentUser: user, currentPage: routes[user.role] }));
     // Module is preloaded below; SSR is not interactive/visual QA.
     const html = render(React.createElement(pageModules[pages[user.role]])); assert.ok(html.includes('app-input')); assert.equal(captured.currentUser.role, user.role);
-    const storageHtml = render(React.createElement(Storage, { pipe: waitingStock })); assert.equal(storageHtml.includes('Confirm Storage'), user.role === 'plantmanager');
+    const storageHtml = render(React.createElement(Storage, { pipe: waitingStock })); assert.equal(storageHtml.includes('Store Scanned Pipe'), user.role === 'plantmanager');
     assert.ok(renderToStaticMarkup(React.createElement(App)).includes('app-main operational-content'));
   });
   check('Storage search enriches source/purpose/location/origin before ten-row pagination', () => { const records = Array.from({ length: 23 }, (_, index) => ({ ...relations.pipeSearchRecord(storedMO, baseline), id: String(index) })).filter(record => matchesRecord(record, 'Temporary Storage')); assert.deepEqual([1, 2, 3].map(page => pageRecords(records, page).length), [10, 10, 3]); });

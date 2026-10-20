@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreScanSessionFile } from './scan-session-baseline.mjs';
 
 // Normalize only exact reviewed additive label preparation/UI changes for older guards.
 export const incomingPrintingDeltas = {
@@ -15,7 +16,7 @@ export const incomingPrintingAdditions = {
 };
 const previous = new Map();
 export function restoreIncomingPrintingFile(file, text) {
-  const source = text.replace(/\r/g, ''), reviewed = incomingPrintingDeltas[file];
+  const source = restoreScanSessionFile(file, text), reviewed = incomingPrintingDeltas[file];
   if (!reviewed || !source.includes(reviewed[1])) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewed[0]) throw Error('Unreviewed incoming-printing delta: ' + file);
   if (!previous.has(file)) previous.set(file, execFileSync('git', ['show', 'e938306:' + file], { encoding: 'utf8' }).replace(/\r/g, ''));

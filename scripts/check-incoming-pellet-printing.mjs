@@ -7,10 +7,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import { createServer } from 'vite';
 import { incomingPrintingDeltas, incomingPrintingAdditions, restoreIncomingPrintingFile } from './incoming-printing-baseline.mjs';
+import { scanSessionDeltas, scanSessionAdditions, restoreScanSessionFile } from './scan-session-baseline.mjs';
 
 let checks = 0;
 const check = (name, run) => { run(); checks++; console.log('PASS '+name); };
 const read = file => fs.readFileSync(file,'utf8').replace(/\r/g,'');
+for(const[file,hash]of Object.entries({...scanSessionDeltas,...scanSessionAdditions}))check('Exact reviewed scan-session source: '+file,()=>{assert.equal(createHash('sha256').update(read(file)).digest('hex'),hash);if(scanSessionDeltas[file])assert.throws(()=>restoreScanSessionFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);});
 for(const file of Object.keys(incomingPrintingDeltas))check('Exact reviewed incoming printing delta: '+file,()=>{
   assert.equal(restoreIncomingPrintingFile(file,read(file)),execFileSync('git',['show','e938306:'+file],{encoding:'utf8'}).replace(/\r/g,''));
   assert.throws(()=>restoreIncomingPrintingFile(file,read(file)+'\n// unexpected'),/Unreviewed incoming-printing delta/);
@@ -18,8 +20,9 @@ for(const file of Object.keys(incomingPrintingDeltas))check('Exact reviewed inco
 for(const[file,hash]of Object.entries(incomingPrintingAdditions))check('Exact additive label module: '+file,()=>assert.equal(createHash('sha256').update(read(file)).digest('hex'),hash));
 function bindings(source){const ast=ts.createSourceFile('store.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),result=new Map();const walk=node=>{if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer)result.set(node.name.text,node.initializer.getText(ast));ts.forEachChild(node,walk);};walk(ast);return result;}
 const source=bindings(read('src/store.tsx')),old=bindings(execFileSync('git',['show','e938306:src/store.tsx'],{encoding:'utf8'}));
-check('All seeds and existing business callbacks except expected-label-aware transfer creation are byte-identical',()=>{
-  for(const[name,value]of old)if(name.startsWith('INITIAL_')||(value.startsWith('useCallback(')&&name!=='createTransfer'))assert.equal(source.get(name),value,name);
+check('Historical seeds/callbacks remain byte-identical after exact reviewed label and scan-session normalization',()=>{
+  const preserved=bindings(restoreScanSessionFile('src/store.tsx',read('src/store.tsx')));
+  for(const[name,value]of old)if(name.startsWith('INITIAL_')||(value.startsWith('useCallback(')&&name!=='createTransfer'))assert.equal(preserved.get(name),value,name);
 });
 const server=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'}),oldWindow=globalThis.window;
 try{
@@ -62,6 +65,42 @@ try{
   check('Partial delivery: three individual scans produce 3 received / 2 remaining / exactly 75kg Stock In',()=>{const current=incoming.requestPelletBags(state,request);assert.equal(current.filter(bag=>bag.inventoryStatus==='Pending Receipt').length,2);assert.equal(current.filter(bag=>bag.receivedAt).length,3);assert.equal(current.reduce((sum,bag)=>sum+bag.availableKg,0),75);assert.equal(state.transactions.filter(tx=>bags.some(bag=>bag.barcode===tx.barcode)&&tx.transactionType==='Pellets Received').reduce((sum,tx)=>sum+tx.qtyChanged,0),75);assert.equal(state.transfers.find(item=>item.id===transfer.id).status,'In Transit');});
   check('Duplicate and unknown receiving cannot change partial totals or history',()=>{const before=state;assert.equal(action('receivePellet',bags[0].id,{shift:'Day',scannerMode:'Receive Pellets',barcode:bags[0].barcode},'B'),false);assert.equal(action('receivePellet','unknown',{shift:'Day',scannerMode:'Receive Pellets',barcode:'UNKNOWN'},'A'),false);assert.equal(state,before);action('ensureExpectedPelletBags',request.id);assert.equal(state,before);assert.equal(state.finishedGoods,beforeReceive.finishedGoods);});
   check('Missing-only repair preserves already-received bags, partial quantities and Stock In history',()=>{const partial=state,missing=new Set(bags.slice(3).map(bag=>bag.id));state={...partial,pellets:partial.pellets.filter(bag=>!missing.has(bag.id)),barcodeRegistry:partial.barcodeRegistry.filter(record=>!missing.has(record.itemId))};const before=state;assert.equal(action('ensureExpectedPelletBags',request.id).success,true);const current=incoming.requestPelletBags(state,request);assert.equal(current.length,5);assert.equal(current.reduce((sum,bag)=>sum+bag.availableKg,0),75);for(const bag of before.pellets)assert.equal(state.pellets.find(item=>item.id===bag.id),bag);for(const key of ['transfers','materialRequests','transactions','printMetadata'])assert.equal(state[key],before[key],key);state=partial;});
+  state=beforeReceive;
+  check('Accept Transfer blocks zero scans, duplicate scans, unknown barcode, record IDs and invalid location atomically',()=>{
+    for(const[values,location]of [[[],'A'],[[bags[0].barcode,bags[0].barcode],'A'],[[bags[0].barcode,'UNKNOWN'],'A'],[[bags[0].id],'A'],[[bags[0].barcode],'J']]){const before=state;assert.equal(action('acceptScannedPelletTransfer',transfer.id,values,location).success,false);assert.equal(state,before);}
+  });
+  check('Pending, Rejected, wrong material, wrong transfer and Preparing deliveries cannot be accepted',()=>{
+    const valid=state;
+    for(const override of [
+      ...['Pending','Rejected'].map(status=>({materialRequests:valid.materialRequests.map(item=>item.id===request.id?{...item,status}:item)})),
+      {pellets:valid.pellets.map(item=>item.id===bags[0].id?{...item,grade:'WRONG'}:item)},
+      {pellets:valid.pellets.map(item=>item.id===bags[0].id?{...item,transferRef:'OTHER'}:item)},
+      {pellets:valid.pellets.map(item=>item.id===bags[1].id?{...item,currentLocation:'Z',locationStatus:'Stored'}:item)},
+      {transfers:valid.transfers.map(item=>item.id===transfer.id?{...item,receivedQuantity:2}:item)},
+      {transfers:valid.transfers.map(item=>item.id===transfer.id?{...item,status:'Preparing'}:item)},
+    ]){state={...valid,...override};const before=state;assert.equal(action('acceptScannedPelletTransfer',transfer.id,[bags[0].barcode,bags[1].barcode],'A').success,false);assert.equal(state,before);}state=valid;
+  });
+  for(const user of store.USERS.filter(user=>user.role!=='plantmanager'))check('Transfer acceptance preserves existing RBAC for '+user.role,()=>{const valid=state;actor(user.role);const before=state;assert.equal(action('acceptScannedPelletTransfer',transfer.id,[bags[0].barcode],'A').success,false);assert.equal(state,before);state=valid;});
+  const beforeAccept=state;
+  check('Accept 3 of 5 scans records exactly 75 kg and 50 kg missing, preserving Sent Quantity and every unscanned record',()=>{
+    assert.equal(action('acceptScannedPelletTransfer',transfer.id,bags.slice(0,3).map(bag=>bag.barcode),'A').success,true);
+    const delivery=state.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.status,'Receiving Discrepancy');assert.equal(delivery.receivedQuantity,3);assert.equal(delivery.discrepancyQuantity,2);assert.equal(delivery.weightKg,125);assert.equal(delivery.sentQuantity,beforeAccept.transfers.find(item=>item.id===transfer.id).sentQuantity);
+    for(const bag of beforeAccept.pellets.filter(bag=>!bags.slice(0,3).some(item=>item.id===bag.id)))assert.equal(state.pellets.find(item=>item.id===bag.id),bag);
+    for(const key of ['orders','manufacturingOrders','productionOrders','rrRecords','materialRequests','barcodeRegistry','printMetadata','reprintRequests','finishedGoods'])assert.equal(state[key],beforeAccept[key],key);
+    const tx=state.transactions.filter(tx=>bags.some(bag=>bag.barcode===tx.barcode)&&tx.transactionType==='Pellets Received');assert.equal(tx.length,3);assert.equal(new Set(tx.map(tx=>tx.txId)).size,3);assert.equal(tx.reduce((sum,tx)=>sum+tx.qtyChanged,0),75);
+  });
+  const partialAccepted=state;
+  check('Mixed already-received and unreceived scans cannot partially mutate a delivery',()=>{const before=state;assert.equal(action('acceptScannedPelletTransfer',transfer.id,[bags[3].barcode,bags[0].barcode],'B').success,false);assert.equal(state,before);});
+  check('Remaining two bags complete partial delivery without recreating bags or rewriting prior receipt/history',()=>{
+    assert.equal(action('acceptScannedPelletTransfer',transfer.id,bags.slice(3).map(bag=>bag.barcode),'B').success,true);const delivery=state.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.status,'Received');assert.equal(delivery.receivedQuantity,5);assert.equal(delivery.discrepancyQuantity,0);assert.equal(delivery.receivingLocation,'Multiple Locations');
+    for(const bag of partialAccepted.pellets.filter(item=>bags.slice(0,3).some(bag=>bag.id===item.id)))assert.equal(state.pellets.find(item=>item.id===bag.id),bag);
+    for(const tx of partialAccepted.transactions)assert.ok(state.transactions.includes(tx));
+    for(const bag of bags)assert.equal(state.pellets.find(item=>item.id===bag.id).barcode,bag.barcode);
+    const tx=state.transactions.filter(tx=>bags.some(bag=>bag.barcode===tx.barcode)&&tx.transactionType==='Pellets Received');assert.equal(tx.length,5);assert.equal(tx.reduce((sum,tx)=>sum+tx.qtyChanged,0),125);
+    const completed=state;assert.equal(action('acceptScannedPelletTransfer',transfer.id,[bags[4].barcode],'A').success,false);assert.equal(state,completed);
+  });
+  check('Full five-bag acceptance records 125kg with five unique stock movements and no discrepancy',()=>{state=beforeAccept;assert.equal(action('acceptScannedPelletTransfer',transfer.id,bags.map(bag=>bag.barcode),'I').success,true);const delivery=state.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.status,'Received');assert.equal(delivery.discrepancyQuantity,0);const tx=state.transactions.filter(tx=>bags.some(bag=>bag.barcode===tx.barcode)&&tx.transactionType==='Pellets Received');assert.equal(tx.length,5);assert.equal(new Set(tx.map(tx=>tx.txId)).size,5);assert.equal(tx.reduce((sum,tx)=>sum+tx.qtyChanged,0),125);});
+  state=partialAccepted;
   const persisted=JSON.parse(JSON.stringify(state));for(const user of store.USERS)check('Partial labels and quantities survive reload for '+user.role,()=>{memory.set('hpai:shared-app-state-v1',JSON.stringify({...persisted,currentUser:user}));render();for(const key of ['pellets','transfers','materialRequests','transactions','barcodeRegistry'])assert.deepEqual(captured[key],persisted[key],key);});
   console.log(`Completed ${checks} incoming-pellet label preparation, print approval, preservation and partial-receiving checks. Isolated fixtures only.`);
 }finally{globalThis.window=oldWindow;await server.close();}
