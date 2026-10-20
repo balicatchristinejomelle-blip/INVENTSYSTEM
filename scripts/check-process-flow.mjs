@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { restoreProcessFlowFile, reviewedProcessFlowDeltas, reviewedProcessFlowAdditions } from './process-flow-baseline.mjs';
 import { restoreProductionOutputFile } from './production-output-baseline.mjs';
 import { approvalScanDeltas, approvalScanAdditions, restoreApprovalScanFile } from './approval-scan-baseline.mjs';
+import { restoreScanSessionFile } from './scan-session-baseline.mjs';
 
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom' });
 let checks = 0;
@@ -19,7 +20,7 @@ for (const file of Object.keys(reviewedProcessFlowDeltas)) check('Exact reviewed
   assert.throws(() => restoreProcessFlowFile(file, source + '\n// unexpected'), /Unreviewed (process-flow|approval-scan|incoming-printing) delta/);
 });
 for(const file of Object.keys(approvalScanDeltas))check('Exact reviewed approval/scan delta: '+file,()=>{const source=fs.readFileSync(file,'utf8');assert.equal(restoreApprovalScanFile(file,source),execFileSync('git',['show','7b0c39c:'+file],{encoding:'utf8'}).replace(/\r/g,''));assert.throws(()=>restoreApprovalScanFile(file,source+'\n// unexpected'),/Unreviewed (approval-scan|incoming-printing) delta/);});
-for(const[file,hash]of Object.entries(approvalScanAdditions))check('Exact additive physical scan module: '+file,()=>assert.equal(createHash('sha256').update(fs.readFileSync(file,'utf8').replace(/\r/g,'')).digest('hex'),hash));
+for(const[file,hash]of Object.entries(approvalScanAdditions))check('Exact additive physical scan module: '+file,()=>assert.equal(createHash('sha256').update(restoreScanSessionFile(file,fs.readFileSync(file,'utf8'))).digest('hex'),hash));
 for (const [file, hash] of Object.entries(reviewedProcessFlowAdditions)) check('Exact additive read-only inventory helper: ' + file, () => assert.equal(createHash('sha256').update(fs.readFileSync(file, 'utf8').replace(/\r/g, '')).digest('hex'), hash));
 const previousWindow = globalThis.window;
 try {

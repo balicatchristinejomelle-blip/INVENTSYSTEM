@@ -631,6 +631,7 @@ interface AppContextValue extends AppState {
     reason: string;
   }) => { success: boolean; poNo?: string; error?: string };
   receivePellet: (pelletId: string, scannerMeta?: PhysicalScanMeta, storageLocation?: string) => boolean;
+  acceptScannedPelletTransfer: (transferId: string, barcodes: string[], location: string) => { success: boolean; error?: string };
   confirmTransferReceipt: (transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string, storageLocation?: string) => { success: boolean; error?: string };
   relocatePhysicalItem: (category: 'Pellet' | 'Finished Pipe', itemId: string, location: string, reason: string) => boolean;
   reserveFinishedGoods: (orderId: string, quantity: number) => { success: boolean; error?: string };
@@ -916,6 +917,97 @@ export const formatProductionTime = (value?: string) => {
   const suffix = hours >= 12 ? 'PM' : 'AM';
   return `${hours % 12 || 12}:${match[2]} ${suffix}`;
 };
+
+/** One existing physical receipt transition, shared by individual and atomic scanned-bag acceptance. */
+export function applyPhysicalPelletReceipt(s: AppState, pelletId: string, scannerMeta?: PhysicalScanMeta, storageLocation?: string): AppState {
+  // Plant Manager already receives transfers; Production already receives/scans bags.
+  if (!s.currentUser || !['production', 'plantmanager'].includes(s.currentUser.role)) return s;
+  if (!storageLocation || !activeLocationCodes(readStorageLocations()).includes(storageLocation as never)) return s;
+  const pellet = s.pellets.find(item => item.id === pelletId);
+  if (!pellet || !exactPhysicalScan(scannerMeta, pellet, s.pellets)) return s;
+  if (pellet.inventoryStatus === 'Pending Receipt') {
+    if (expectedPelletError(pellet, s.transfers, s.materialRequests)) return s;
+  } else if (s.currentUser?.role !== 'production' || pellet.type !== 'Recycled' || pellet.availableKg !== 25 || pellet.originalKg !== 25 || pellet.locationStatus !== 'Awaiting Storage') return s;
+  if (pellet && !['Pending Receipt', 'Available'].includes(pellet.inventoryStatus)) return s;
+  if (!pellet || (pellet.currentLocation && !['Awaiting Receipt', 'Awaiting Storage'].includes(pellet.locationStatus))) return s;
+  const transfer = s.transfers.find(item => item.refNo === pellet.transferRef && item.batchNo === pellet.batchNo && ['In Transit', 'Receiving Discrepancy'].includes(item.status));
+  const destination = storageLocation;
+  const action = pellet.inventoryStatus === 'Pending Receipt' ? 'Received' as const : 'Stored' as const;
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const time = now.toTimeString().slice(0, 5);
+  return {
+    ...s,
+    pellets: s.pellets.map(item => item.id === pelletId
+      ? {
+          ...item,
+          availableKg: 25,
+          inventoryStatus: 'Available' as const,
+          currentLocation: destination,
+          locationStatus: 'Stored' as const,
+          receivedDate: pellet.inventoryStatus === 'Pending Receipt' ? date : item.receivedDate,
+          receivedBy: pellet.inventoryStatus === 'Pending Receipt' ? s.currentUser!.name : item.receivedBy,
+          receivedAt: pellet.inventoryStatus === 'Pending Receipt' ? now.toISOString() : item.receivedAt,
+          storedBy: s.currentUser!.name,
+          storedAt: now.toISOString(),
+          lastScan: `${date} ${time}`,
+          scannedBy: s.currentUser!.name,
+          locationHistory: [...(item.locationHistory || []), {
+            from: item.currentLocation || 'Not Yet Assigned',
+            to: destination,
+            action,
+            employee: s.currentUser!.name,
+            employeeId: s.currentUser!.employeeId,
+            dateTime: now.toISOString(),
+          }],
+        }
+      : item),
+    transfers: transfer ? s.transfers.map(item => item.id === transfer.id
+      ? {
+          ...item,
+          receivedQuantity: Math.min(item.sentQuantity || item.numberOfBags || 0, (item.receivedQuantity || 0) + 1),
+          status: s.pellets.filter(bag => bag.transferRef === transfer.refNo && bag.batchNo === pellet.batchNo && bag.inventoryStatus === 'Pending Receipt').length <= 1 ? 'Received' as const : item.status,
+          discrepancyQuantity: item.status === 'Receiving Discrepancy' ? Math.max(0, (item.sentQuantity ?? item.numberOfBags ?? 0) - (item.receivedQuantity || 0) - 1) : item.discrepancyQuantity,
+          discrepancyReason: item.status === 'Receiving Discrepancy' && (item.receivedQuantity || 0) + 1 >= (item.sentQuantity ?? item.numberOfBags ?? 0) ? undefined : item.discrepancyReason,
+          receivedBy: s.currentUser!.name,
+          receivedDate: `${date} ${time}`,
+        }
+      : item) : s.transfers,
+    transactions: [{
+      id: `tx-pellet-${now.getTime()}-${pellet.id}`,
+      txId: `TX-PELLET-${now.getTime()}-${pellet.id}`,
+      date, time,
+      employee: s.currentUser.name,
+      employeeId: s.currentUser.employeeId,
+      role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
+      transactionType: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellets Received' : 'Recycled Pellet Stored',
+      materialCategory: pellet.type === 'Virgin' ? 'Virgin Pellet' : 'Recycled Pellet',
+      item: `${pellet.type} Pellets ${pellet.grade}`,
+      batch: pellet.batchNo,
+      barcode: pellet.barcode,
+      qtyBefore: pellet.availableKg,
+      qtyChanged: pellet.inventoryStatus === 'Pending Receipt' ? 25 : 0,
+      qtyAfter: 25,
+      source: pellet.currentLocation || 'Not Yet Assigned',
+      destination,
+      reference: pellet.inventoryStatus === 'Pending Receipt' ? s.materialRequests.find(request => request.refNo === transfer?.requestRef)?.refNo || transfer!.refNo : pellet.rrRef || pellet.recyclingBatchRef || pellet.batchNo,
+      status: 'Completed',
+      shift: scannerMeta?.shift,
+      scannerMode: scannerMeta?.scannerMode,
+    }, ...s.transactions],
+    auditLogs: [{
+      id: `al-pellet-${now.getTime()}-${pellet.id}`,
+      user: s.currentUser.name,
+      employeeId: s.currentUser.employeeId,
+      role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
+      action: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellet Received and Stored' : 'Recycled Pellet Stored',
+      date, time,
+      reference: pellet.barcode,
+      previousValue: pellet.currentLocation || 'Not Yet Assigned',
+      newValue: destination,
+    }, ...s.auditLogs],
+  };
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => hydratePipeRelationships(migrateFinishedPipeBarcodes(restoreAppState())));
@@ -2735,94 +2827,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const receivePellet = useCallback((pelletId: string, scannerMeta?: PhysicalScanMeta, storageLocation?: string) => {
     let received = false;
     flushSync(() => setState(s => {
-      // Plant Manager already receives transfers; Production already receives/scans bags.
-      if (!s.currentUser || !['production', 'plantmanager'].includes(s.currentUser.role)) return s;
-      if (!storageLocation || !activeLocationCodes(readStorageLocations()).includes(storageLocation as never)) return s;
-      const pellet = s.pellets.find(item => item.id === pelletId);
-      if (!pellet || !exactPhysicalScan(scannerMeta, pellet, s.pellets)) return s;
-      if (pellet.inventoryStatus === 'Pending Receipt') {
-        if (expectedPelletError(pellet, s.transfers, s.materialRequests)) return s;
-      } else if (s.currentUser?.role !== 'production' || pellet.type !== 'Recycled' || pellet.availableKg !== 25 || pellet.originalKg !== 25 || pellet.locationStatus !== 'Awaiting Storage') return s;
-      if (pellet && !['Pending Receipt', 'Available'].includes(pellet.inventoryStatus)) return s;
-      if (!pellet || (pellet.currentLocation && !['Awaiting Receipt', 'Awaiting Storage'].includes(pellet.locationStatus))) return s;
-      const transfer = s.transfers.find(item => item.refNo === pellet.transferRef && item.batchNo === pellet.batchNo && item.status === 'In Transit');
-      const destination = storageLocation;
-      const action = pellet.inventoryStatus === 'Pending Receipt' ? 'Received' as const : 'Stored' as const;
-      received = true;
-      const now = new Date();
-      const date = now.toISOString().slice(0, 10);
-      const time = now.toTimeString().slice(0, 5);
-      return {
-        ...s,
-        pellets: s.pellets.map(item => item.id === pelletId
-          ? {
-              ...item,
-              availableKg: 25,
-              inventoryStatus: 'Available' as const,
-              currentLocation: destination,
-              locationStatus: 'Stored' as const,
-              receivedDate: pellet.inventoryStatus === 'Pending Receipt' ? date : item.receivedDate,
-              receivedBy: pellet.inventoryStatus === 'Pending Receipt' ? s.currentUser!.name : item.receivedBy,
-              receivedAt: pellet.inventoryStatus === 'Pending Receipt' ? now.toISOString() : item.receivedAt,
-              storedBy: s.currentUser!.name,
-              storedAt: now.toISOString(),
-              lastScan: `${date} ${time}`,
-              scannedBy: s.currentUser!.name,
-              locationHistory: [...(item.locationHistory || []), {
-                from: item.currentLocation || 'Not Yet Assigned',
-                to: destination,
-                action,
-                employee: s.currentUser!.name,
-                employeeId: s.currentUser!.employeeId,
-                dateTime: now.toISOString(),
-              }],
-            }
-          : item),
-        transfers: transfer ? s.transfers.map(item => item.id === transfer.id
-          ? {
-              ...item,
-              receivedQuantity: Math.min(item.sentQuantity || item.numberOfBags || 0, (item.receivedQuantity || 0) + 1),
-              status: s.pellets.filter(bag => bag.batchNo === pellet.batchNo && bag.inventoryStatus === 'Pending Receipt').length <= 1 ? 'Received' as const : item.status,
-              receivedBy: s.currentUser!.name,
-              receivedDate: `${date} ${time}`,
-            }
-          : item) : s.transfers,
-        transactions: [{
-          id: `tx${Date.now()}`,
-          txId: `TX-${Date.now()}`,
-          date, time,
-          employee: s.currentUser.name,
-          employeeId: s.currentUser.employeeId,
-          role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
-          transactionType: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellets Received' : 'Recycled Pellet Stored',
-          materialCategory: pellet.type === 'Virgin' ? 'Virgin Pellet' : 'Recycled Pellet',
-          item: `${pellet.type} Pellets ${pellet.grade}`,
-          batch: pellet.batchNo,
-          barcode: pellet.barcode,
-          qtyBefore: pellet.availableKg,
-          qtyChanged: pellet.inventoryStatus === 'Pending Receipt' ? 25 : 0,
-          qtyAfter: 25,
-          source: pellet.currentLocation || 'Not Yet Assigned',
-          destination,
-          reference: pellet.inventoryStatus === 'Pending Receipt' ? s.materialRequests.find(request => request.refNo === transfer?.requestRef)?.refNo || transfer!.refNo : pellet.rrRef || pellet.recyclingBatchRef || pellet.batchNo,
-          status: 'Completed',
-          shift: scannerMeta?.shift,
-          scannerMode: scannerMeta?.scannerMode,
-        }, ...s.transactions],
-        auditLogs: [{
-          id: `al${Date.now()}`,
-          user: s.currentUser.name,
-          employeeId: s.currentUser.employeeId,
-          role: s.currentUser.role === 'plantmanager' ? 'Plant Manager' : 'Production',
-          action: pellet.inventoryStatus === 'Pending Receipt' ? 'Pellet Received and Stored' : 'Recycled Pellet Stored',
-          date, time,
-          reference: pellet.barcode,
-          previousValue: pellet.currentLocation || 'Not Yet Assigned',
-          newValue: destination,
-        }, ...s.auditLogs],
-      };
+      const next = applyPhysicalPelletReceipt(s, pelletId, scannerMeta, storageLocation);
+      received = next !== s;
+      return next;
     }));
     return received;
+  }, []);
+
+  const acceptScannedPelletTransfer = useCallback((transferId: string, barcodes: string[], location: string) => {
+    let result: { success: boolean; error?: string } = { success: false, error: 'Scan at least one expected bag before Accept Transfer.' };
+    flushSync(() => setState(s => {
+      if (s.currentUser?.role !== 'plantmanager') { result.error = 'Only Plant Manager can accept this delivery.'; return s; }
+      const transfer = s.transfers.find(item => item.id === transferId);
+      if (!transfer || !['In Transit', 'Receiving Discrepancy'].includes(transfer.status)) { result.error = 'Delivery must be In Transit or Partially Received.'; return s; }
+      if (!barcodes.length) return s;
+      if (!activeLocationCodes(readStorageLocations()).includes(location as never)) { result.error = 'Select Storage Location A-I before accepting.'; return s; }
+      const normalized = barcodes.map(normalizeBarcodeValue);
+      if (new Set(normalized).size !== normalized.length) { result.error = 'Duplicate scan. No bags were accepted.'; return s; }
+      const bags = normalized.map(barcode => s.pellets.find(item => exactPhysicalScan({ shift: s.currentShift, scannerMode: 'Receive Pellets', barcode }, item, s.pellets)));
+      if (bags.some(bag => !bag || bag.transferRef !== transfer.refNo || bag.batchNo !== transfer.batchNo || expectedPelletError(bag, s.transfers, s.materialRequests))) { result.error = 'Unknown, duplicate, unapproved or mismatched bag. Re-scan this delivery; no stock changed.'; return s; }
+      const sent = transfer.sentQuantity ?? transfer.numberOfBags ?? 0;
+      const existing = s.pellets.filter(bag => bag.transferRef === transfer.refNo && bag.batchNo === transfer.batchNo && bag.inventoryStatus !== 'Pending Receipt').length;
+      if (existing !== (transfer.receivedQuantity ?? existing)) { result.error = 'Existing received totals conflict with physical bag history. Restore canonical references first; no quantities were overwritten.'; return s; }
+      if (existing + bags.length > sent) { result.error = 'Scanned bags exceed Sent Quantity. Existing quantities were preserved.'; return s; }
+      let next = s;
+      for (const bag of bags) {
+        const updated = applyPhysicalPelletReceipt(next, bag!.id, { shift: s.currentShift, scannerMode: 'Receive Pellets', barcode: bag!.barcode }, location);
+        if (updated === next) { result.error = 'Receipt validation changed. No bags were accepted; re-scan.'; return s; }
+        next = updated;
+      }
+      const received = existing + bags.length, missing = sent - received;
+      result = { success: true };
+      return { ...next, transfers: next.transfers.map(item => item.id === transferId ? {
+        ...item, receivedQuantity: received, discrepancyQuantity: missing,
+        status: missing ? 'Receiving Discrepancy' as const : 'Received' as const,
+        discrepancyReason: missing ? item.discrepancyReason || 'Missing' as const : undefined,
+        discrepancyNotes: missing ? item.discrepancyNotes : undefined,
+        receivingLocation: item.receivingLocation && item.receivingLocation !== location ? 'Multiple Locations' : location,
+      } : item) };
+    }));
+    return result;
   }, []);
 
   const confirmTransferReceipt = useCallback((transferId: string, receivedQuantity: number, reason?: Transfer['discrepancyReason'], notes?: string, storageLocation?: string) => {
@@ -3427,7 +3471,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     acceptTurnover, addEmployee, updateEmployee, assignEmployeeShift, addCustomer, createCustomerOrder, createReceivingReport, createTransfer, ensureExpectedPelletBags, updatePO, startProduction, recordOutput,
     dispatchTransfer, finishWipBag, addMaterialRequest, loadPellets, recordColorantUsage, submitTurnover, updateFinishedGoodStorage,
     createProductionOrder, createStockReplenishmentPO,
-    receivePellet, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, markFinishedGoodLoaded, completeRecyclingBatch,
+    receivePellet, acceptScannedPelletTransfer, confirmTransferReceipt, relocatePhysicalItem, reserveFinishedGoods, rejectFinishedGood, releaseFinishedGood, markFinishedGoodLoaded, completeRecyclingBatch,
     updateRecyclingStage, confirmRecyclingForCrushing,
   };
 

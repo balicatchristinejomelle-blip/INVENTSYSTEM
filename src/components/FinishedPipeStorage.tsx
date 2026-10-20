@@ -5,17 +5,20 @@ import { useApp } from '../store';
 import { finishedPipeInventory, compatibleStorageLocations, readStorageLocations } from '../finishedGoodsInventory';
 import SearchableSelect from './SearchableSelect';
 import { exactPhysicalScan } from '../physicalScan';
+import PipeStorageSession from './PipeStorageSession';
 
 /** Plant Manager confirms a physical location, never a production purpose or buyer. */
 export default function FinishedPipeStorage({ pipe }: { pipe: FinishedGood }) {
   const app = useApp();
   const state = finishedPipeInventory(pipe, app);
+  const [scanSession] = useState(() => state.bucket === 'Awaiting Storage');
   const [location, setLocation] = useState('');
   const [reason, setReason] = useState('');
   const [feedback, setFeedback] = useState('');
   const [scannedBarcode, setScannedBarcode] = useState('');
   const [verifiedBarcode, setVerifiedBarcode] = useState('');
   useDraftProtection({ location, reason, scannedBarcode });
+  if (app.currentUser?.role === 'plantmanager' && scanSession) return <PipeStorageSession />;
   if (app.currentUser?.role !== 'plantmanager' || pipe.qualityStatus !== 'Pass' || !state.purpose || ['Rejected', 'Shipped'].includes(state.bucket)) return null;
   const moving = !['Awaiting Storage', 'Quality Pending'].includes(state.bucket);
   const master = readStorageLocations();
@@ -32,7 +35,7 @@ export default function FinishedPipeStorage({ pipe }: { pipe: FinishedGood }) {
     setFeedback(valid ? 'Physical barcode verified. Choose a compatible location and confirm storage.' : 'Wrong or unknown barcode. Scan the exact physical pipe shown in this record. No state changed.');
   };
   return <div className="app-card detail-card page-stack">
-    <div className="section-title">{moving ? 'Internal Storage Move / Ready for Ship Out' : 'Confirm Finished Pipe Storage'}</div>
+    <div className="section-title">{moving ? 'Internal Storage Move / Ready for Ship Out' : 'Pipe Storage'}</div>
     <div className="helper-text">Storage Purpose: {state.purpose} (automatic from production source)</div>
     <div className="field-value">Current Location: {pipe.currentLocation || 'Not Yet Assigned'}</div>
     {!moving && <div className="page-stack"><label className="block-label">Scan Pipe Barcode<input className="app-input font-mono" aria-label="Scan Pipe Barcode" autoComplete="off" value={scannedBarcode} onChange={event => { setScannedBarcode(event.target.value); setVerifiedBarcode(''); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); scan(); } }} placeholder="Honeywell scan + Enter, or type exact barcode" /></label><button className="btn-secondary" onClick={scan}>Validate Storage Scan</button></div>}
