@@ -4,6 +4,7 @@ import type { Transfer } from '../types';
 import LocationSelect from './LocationSelect';
 import SearchableDropdown from './SearchableDropdown';
 import ActionButton from './ActionButton';
+import { linkedMaterialRequest, approvedMaterialRequest } from '../materialRequestLink';
 
 /** Plant Manager counts unloaded bags; Production scans their labels later for WIP. */
 export default function CountedTransferAcceptance({ transferId }: { transferId: string }) {
@@ -12,8 +13,8 @@ export default function CountedTransferAcceptance({ transferId }: { transferId: 
   const [count, setCount] = useState(''), [location, setLocation] = useState('');
   const [reason, setReason] = useState<Transfer['discrepancyReason'] | ''>(''), [notes, setNotes] = useState(''), [feedback, setFeedback] = useState('');
   const [receiptError, setReceiptError] = useState(false);
-  const request = app.materialRequests.find(item => item.refNo === transfer?.requestRef);
-  if (app.currentUser?.role !== 'plantmanager' || !transfer || request?.status !== 'Approved' || !['In Transit', 'Receiving Discrepancy'].includes(transfer.status)) return null;
+  const request = linkedMaterialRequest(app.materialRequests, transfer?.requestRef);
+  if (app.currentUser?.role !== 'plantmanager' || !transfer || !approvedMaterialRequest(request) || !['In Transit', 'Receiving Discrepancy'].includes(transfer.status)) return null;
   const sent = transfer.sentQuantity ?? transfer.numberOfBags ?? 0, received = transfer.receivedQuantity || 0;
   const total = count === '' ? NaN : Number(count), missing = Number.isFinite(total) ? sent - total : sent - received;
   const short = Number.isInteger(total) && total >= received && total < sent;

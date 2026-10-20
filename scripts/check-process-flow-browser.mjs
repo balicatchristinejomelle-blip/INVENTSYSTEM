@@ -40,6 +40,11 @@ async function role(name,page,prefs={}){await evaluate('qa.role('+JSON.stringify
 const snapshot=()=>evaluate('JSON.parse(JSON.stringify(qa.app))');
 async function reload(){await evaluate('window.__processReloadPending=true');await send('Page.reload');await wait(()=>evaluate('!window.__processReloadPending&&!!window.qa?.app'),'new document after reload');await pause(100);}
 async function type(label,value){await evaluate('qa.type('+JSON.stringify(label)+','+JSON.stringify(value)+')');await pause(50);}
+async function hardwareBurst(value){
+  // One browser task models an actual scanner burst. CDP character messages can
+  // stall >80ms on a busy host, exercising debugger latency instead of HID input.
+  await evaluate('(()=>{const target=document.activeElement;for(const key of '+JSON.stringify([...value,'Enter'])+')target.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true,cancelable:true}));})()');await pause(150);
+}
 async function choose(label,value){await evaluate('document.querySelector('+JSON.stringify('[aria-label="Open '+label+' options"]')+').click()');await pause(50);await evaluate('[...document.querySelectorAll("[role=option]")].find(item=>item.textContent.trim().startsWith('+JSON.stringify(value)+')).click()');await pause(50);}
 async function click(label){await wait(()=>evaluate('(()=>{const scope=[...document.querySelectorAll(".modal-box")].at(-1)||document;return [...scope.querySelectorAll("button")].some(button=>button.textContent.trim()==='+JSON.stringify(label)+'&&!button.disabled);})()'),'enabled '+label);await evaluate('qa.click('+JSON.stringify(label)+',[...document.querySelectorAll(".modal-box")].at(-1)||document)');await pause(80);}
 async function confirm(){await wait(()=>evaluate('[...document.querySelectorAll(".modal-box")].some(box=>[...box.querySelectorAll("button")].some(button=>button.textContent.trim()==="Confirm"))'),'confirmation dialog');await evaluate("qa.click('Confirm',[...document.querySelectorAll('.modal-box')].at(-1))");await pause(100);}
@@ -107,20 +112,20 @@ try{
   await role('production');state=await snapshot();const extraBag=state.pellets.find(item=>item.grade===po.grade&&item.inventoryStatus==='Available'&&item.availableKg===25);assert.ok(extraBag);await action('loadPellets',extraBag.id,po.id);const beforeTen=state.finishedGoods.map(item=>item.id);assert.equal((await action('recordOutput',po.id,10,[],'browser-ten-good-pipes')).success,true);state=await snapshot();const tenPipes=state.finishedGoods.filter(item=>!beforeTen.includes(item.id));assert.equal(tenPipes.length,10);assert.equal(new Set(tenPipes.map(item=>item.barcode)).size,10);assert.ok(tenPipes.every(item=>qaUnused(item)));
   function qaUnused(pipe){return pipe.locationStatus==='Awaiting Storage'&&pipe.availableQty===0;}
   await evaluate('qa.pipeId='+JSON.stringify(tenPipes[0].id));await role('plantmanager','qa-storage');
-  await type('Scan Pipe Barcode',tenPipes[0].barcode);await click('Store Scanned Pipe');assert.equal((await snapshot()).finishedGoods.find(item=>item.id===tenPipes[0].id).locationStatus,'Awaiting Storage');
+  assert.equal(await evaluate('!!document.querySelector("[aria-label=\\\"Storage Location\\\"]")'),false);
+  await type('Scan Pipe Barcode',tenPipes[0].barcode);await click('Validate Pipe');await click('Confirm Storage');assert.equal((await snapshot()).finishedGoods.find(item=>item.id===tenPipes[0].id).locationStatus,'Awaiting Storage');
   await choose('Storage Location','A');
   for(const [index,pipe]of tenPipes.entries()){
     await type('Scan Pipe Barcode',pipe.barcode);await evaluate("document.querySelector('[aria-label=\\\"Scan Pipe Barcode\\\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");await pause(60);
+    assert.equal((await snapshot()).finishedGoods.find(item=>item.id===pipe.id).locationStatus,'Awaiting Storage');assert.equal(await evaluate('document.querySelector("[aria-label=\\\"Storage Location\\\"]").value'),'A');await click('Confirm Storage');
     assert.equal((await snapshot()).finishedGoods.find(item=>item.id===pipe.id).currentLocation,'A');
     assert.equal(await evaluate("document.activeElement.getAttribute('aria-label')"),'Scan Pipe Barcode');
-    if(index===0){await surface('pipe-storage-scan');const saved=await evaluate('qa.data()');await type('Scan Pipe Barcode',pipe.barcode);await click('Store Scanned Pipe');assert.deepEqual(await evaluate('qa.data()'),saved);}
+    if(index===0){await surface('pipe-storage-scan');const saved=await evaluate('qa.data()');await type('Scan Pipe Barcode',pipe.barcode);await click('Validate Pipe');assert.deepEqual(await evaluate('qa.data()'),saved);assert.equal(await evaluate('[...document.querySelectorAll("button")].some(item=>item.textContent==="Confirm Storage")'),false);}
   }
   state=await snapshot();assert.equal(state.transactions.filter(item=>tenPipes.some(pipe=>pipe.barcode===item.barcode)&&item.transactionType==='Finished Pipe Stored').reduce((sum,item)=>sum+item.qtyChanged,0),0);
   await role('marketing');const beforeShipIds=state.orders.map(item=>item.id);await action('createCustomerOrder',{customerId:state.customers[0].id,product:po.product,diameter:po.diameter,length:po.length,sdr:po.sdr,grade:po.grade,color:po.color,stripe:po.stripe,construction:po.construction,productForm:po.productForm,quantity:1,requiredDate:'2026-10-20'});state=await snapshot();const shipOrder=state.orders.find(item=>!beforeShipIds.includes(item.id));assert.ok(shipOrder,'Customer Order persisted after React state update');const shipPipe=state.finishedGoods.find(item=>item.reservedForOrderId===shipOrder.id);assert.ok(shipPipe);await role('plantmanager');await action('relocatePhysicalItem','Finished Pipe',shipPipe.id,'I','Browser physical shipment QA');await role('production','prod-scanner');
   await choose('Search options...','Release Finished Pipes');await choose('Shipment Customer Order',shipOrder.orderNo);await evaluate("document.querySelector('[aria-label^=\"Hardware barcode capture\"]').focus()");
-  // Queue the HID burst together: per-character debugger round trips can exceed
-  // the real scanner's inter-key timeout and are not representative keyboard input.
-  await Promise.all([...shipPipe.barcode].map(char=>send('Input.dispatchKeyEvent',{type:'keyDown',key:char,text:char})));await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await pause(150);
+  await hardwareBurst(shipPipe.barcode);
   assert.notEqual((await snapshot()).finishedGoods.find(item=>item.id===shipPipe.id).releaseStatus,'Released');await surface('shipment-scan-confirmation');await click('Confirm Release');await confirm();state=await snapshot();assert.equal(state.finishedGoods.find(item=>item.id===shipPipe.id).releaseStatus,'Released');assert.equal(state.finishedGoods.find(item=>item.id===shipPipe.id).barcode,shipPipe.barcode);assert.equal(state.transactions.filter(item=>item.transactionType==='Finished Pipe Released'&&item.barcode===shipPipe.barcode).length,1);
   console.log('PASS actual Good Output 10 -> ten Awaiting Storage barcodes -> ten scan-to-store confirmations; same barcode HID scan + selected order + explicit shipment confirmation creates one Stock Out');
   // Approved-request entry point, missing-only labels, real batch print controls and partial receiving.
@@ -152,9 +157,9 @@ try{
   await role('production','prod-scanner');assert.equal((await action('startProduction',po.id)).success,true);
   const loadBag=(await snapshot()).pellets.find(bag=>bag.inventoryStatus==='Available'&&scanBags.some(item=>item.id===bag.id));assert.ok(loadBag);
   const beforeLoad=await evaluate('qa.operational.pelletBalances(qa.app.pellets)');await evaluate("document.querySelector('[aria-label^=\\\"Hardware barcode capture\\\"]').focus()");
-  await Promise.all([...loadBag.barcode].map(char=>send('Input.dispatchKeyEvent',{type:'keyDown',key:char,text:char})));await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await pause(150);await wait(()=>evaluate('qa.app.pellets.find(item=>item.id==='+JSON.stringify(loadBag.id)+').inventoryStatus==="Loaded"'),'auto-loaded stored bag');
+  await hardwareBurst(loadBag.barcode);await wait(()=>evaluate('qa.app.pellets.find(item=>item.id==='+JSON.stringify(loadBag.id)+').inventoryStatus==="Loaded"'),'auto-loaded stored bag');
   const afterLoad=await evaluate('qa.operational.pelletBalances(qa.app.pellets)');assert.equal(afterLoad.virgin,beforeLoad.virgin-25);assert.equal(afterLoad.wip,beforeLoad.wip+25);state=await snapshot();const loaded=state.pellets.find(item=>item.id===loadBag.id);assert.equal(loaded.barcode,loadBag.barcode);assert.equal(loaded.inventoryStatus,'Loaded');
-  await pause(350);const beforeDuplicate=await evaluate('qa.data()');await evaluate("document.querySelector('[aria-label^=\\\"Hardware barcode capture\\\"]').focus()");await Promise.all([...loadBag.barcode].map(char=>send('Input.dispatchKeyEvent',{type:'keyDown',key:char,text:char})));await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await pause(150);assert.deepEqual(await evaluate('qa.data()'),beforeDuplicate);await surface('production-counted-pellet-load');
+  await pause(350);const beforeDuplicate=await evaluate('qa.data()');await evaluate("document.querySelector('[aria-label^=\\\"Hardware barcode capture\\\"]').focus()");await hardwareBurst(loadBag.barcode);assert.deepEqual(await evaluate('qa.data()'),beforeDuplicate);await surface('production-counted-pellet-load');
   console.log('PASS Production scans the accepted stored bag into active-order WIP: raw -25, WIP +25; duplicate scan changes no stock');
   const shared=await evaluate('qa.data()');
   for(const name of ['OWNER_SUPER_ADMIN','accounting','marketing','management','plantmanager','production']){
@@ -196,7 +201,10 @@ try{
     await action('addMaterialRequest',{refNo:ref,date:'2026-10-20',requestedBy:'Real-shell isolated QA',materialCategory:'Virgin Pellet',pelletType:'Virgin',grade:'PE100',color:'White',requestedKg:500,requestedBags:20,status:'New',destination:'Branch Plant'});
     state=await snapshot();const request=state.materialRequests.find(item=>item.refNo===ref);assert.ok(request);
     await role('accounting');await action('approveMaterialRequest',request.id);await action('createTransfer',request.id);state=await snapshot();const transfer=state.transfers.find(item=>item.requestRef===ref);assert.ok(transfer);await action('dispatchTransfer',transfer.id);
-    await role('plantmanager','pm-dashboard');const before=await snapshot();await evaluate('qa.shell()');await wait(()=>evaluate('!!document.querySelector(".app-shell")'),'actual App');
+    await role('plantmanager','pm-dashboard');
+    const legacyLink=suffix==='FULL'?request.id:'  '+request.refNo.toLowerCase()+'  ';
+    await evaluate('(()=>{const fixture=qa.saved();fixture.transfers=fixture.transfers.map(item=>item.id==='+JSON.stringify(transfer.id)+'?{...item,requestRef:'+JSON.stringify(legacyLink)+'}:item);localStorage.setItem("hpai:shared-app-state-v1",JSON.stringify(fixture));qa.mount();})()');await wait(()=>evaluate('!!qa.app'),'explicit legacy-link fixture');
+    const before=await snapshot();await evaluate('qa.shell()');await wait(()=>evaluate('!!document.querySelector(".app-shell")'),'actual App');
     await nav('Materials & Requests');await nav('Incoming Transfers');await wait(async()=>((await saved()).currentPage==='pm-transfers'),'real incoming route');
     const row='[...document.querySelectorAll("tr")].find(item=>item.textContent.includes('+JSON.stringify(transfer.refNo)+'))';
     await evaluate('qa.click("Accept Transfer",'+row+')');await pause(120);
@@ -209,7 +217,7 @@ try{
     await shellSurface('shell-counted-'+suffix.toLowerCase());await click('Accept Transfer');await confirm();await wait(async()=>((await saved()).transfers.find(item=>item.id===transfer.id)?.receivedQuantity===total),'accepted count visible immediately');
     let accepted=await saved();const bags=accepted.pellets.filter(item=>item.transferRef===transfer.refNo);
     assert.equal(bags.length,total);assert.equal(new Set(bags.map(item=>item.barcode)).size,total);assert.equal(bags.reduce((sum,item)=>sum+item.availableKg,0),total*25);
-    const delivery=accepted.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.sentQuantity,20);assert.equal(delivery.discrepancyQuantity,20-total);assert.equal(delivery.status,total===20?'Received':'Receiving Discrepancy');
+    const delivery=accepted.transfers.find(item=>item.id===transfer.id);assert.equal(delivery.requestRef,legacyLink);assert.equal(delivery.sentQuantity,20);assert.equal(delivery.discrepancyQuantity,20-total);assert.equal(delivery.status,total===20?'Received':'Receiving Discrepancy');
     for(const bag of before.pellets)assert.deepEqual(accepted.pellets.find(item=>item.id===bag.id),bag);
     assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify('Accepted receipt: '+total+' of 20 bags')+')'));
     await shellSurface('shell-accepted-'+suffix.toLowerCase());await click('View Barcodes');assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify(bags[0].barcode)+')'));assert.deepEqual((await saved()).pellets,accepted.pellets);
@@ -221,26 +229,30 @@ try{
     assert.deepEqual(accepted.pellets.filter(item=>item.transferRef===transfer.refNo).map(item=>[item.id,item.barcode]),bags.map(item=>[item.id,item.barcode]));
     await shellReload();assert.deepEqual((await saved()).pellets,accepted.pellets);assert.deepEqual((await saved()).transfers,accepted.transfers);assert.deepEqual((await saved()).transactions,accepted.transactions);
     await evaluate('qa.click("View",'+row+')');await pause(100);await click('View Barcodes');assert.ok(await evaluate('document.body.textContent.includes('+JSON.stringify(bags[0].barcode)+')'));
-    console.log('PASS actual App sidebar -> Incoming Transfers -> '+total+'/20 counted acceptance -> View Barcodes -> direct Print Barcodes -> refresh preserves exact records');
+    console.log('PASS actual App sidebar -> existing approved ID/reference link -> '+total+'/20 counted acceptance -> View Barcodes -> direct Print Barcodes -> refresh preserves exact records and original link');
   }
   await shellReload();await nav('Scanner');await wait(async()=>((await saved()).currentPage==='pm-scanner'),'Scanner navigation');
   assert.equal(await evaluate('!!document.querySelector(".sidebar-nav [aria-label=\\\"Store Pipes\\\"]")'),false);
   assert.equal(await evaluate('document.body.textContent.includes("Inspect Finished Pipe Storage")'),false);
   assert.equal(await evaluate('document.querySelector(".scanner-context-status strong").textContent'),'Store Pipes');
   assert.ok(await evaluate('[...document.querySelectorAll("h3")].some(node=>node.textContent==="Pipe Storage")'));
-  await choose('Search options...','Store Pipes');await choose('Storage Location','A');
+  await choose('Search options...','Store Pipes');assert.equal(await evaluate('!!document.querySelector("[aria-label=\\\"Storage Location\\\"]")'),false);
   const storageBefore=await saved();
   for(const pipe of produced.slice(1,3)){
     assert.equal(storageBefore.finishedGoods.find(item=>item.id===pipe.id).locationStatus,'Awaiting Storage');
+    const beforeScan=await saved();
     await type('Scan Pipe Barcode',pipe.barcode);await evaluate('document.querySelector("[aria-label=\\\"Scan Pipe Barcode\\\"]").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}))');await pause(100);
+    assert.deepEqual(await saved(),beforeScan);
+    assert.equal((await saved()).finishedGoods.find(item=>item.id===pipe.id).locationStatus,'Awaiting Storage');
+    if(pipe.id===produced[1].id){await shellSurface('shell-scanner-validated-pipe');await click('Confirm Storage');assert.equal((await saved()).finishedGoods.find(item=>item.id===pipe.id).locationStatus,'Awaiting Storage');await choose('Storage Location','A');}
+    assert.equal(await evaluate('document.querySelector("[aria-label=\\\"Storage Location\\\"]").value'),'A');await click('Confirm Storage');
     const stored=(await saved()).finishedGoods.find(item=>item.id===pipe.id);assert.equal(stored.barcode,pipe.barcode);assert.equal(stored.locationStatus,'Stored');assert.equal(stored.currentLocation,'A');assert.equal(stored.inventoryPurpose,'General Inventory');
-    assert.equal(await evaluate('document.querySelector("[aria-label=\\\"Storage Location\\\"]").value'),'A');
     assert.equal(await evaluate('document.activeElement.getAttribute("aria-label")'),'Scan Pipe Barcode');
   }
-  await shellSurface('shell-scanner-store-pipes');const beforeDuplicateStorage=await saved();await type('Scan Pipe Barcode',produced[1].barcode);await click('Store Scanned Pipe');assert.deepEqual(await saved(),beforeDuplicateStorage);
+  await shellSurface('shell-scanner-store-pipes');const beforeDuplicateStorage=await saved();await type('Scan Pipe Barcode',produced[1].barcode);await click('Validate Pipe');assert.deepEqual(await saved(),beforeDuplicateStorage);
   assert.equal(beforeDuplicateStorage.transactions.slice(0,2).reduce((sum,item)=>sum+item.qtyChanged,0),0);
   await shellReload();assert.equal((await saved()).currentPage,'pm-scanner');assert.equal((await saved()).finishedGoods.find(item=>item.id===produced[1].id).locationStatus,'Stored');
-  console.log('PASS real Scanner -> Store Pipes -> one location -> multiple unchanged barcodes stored; duplicate scan and refresh preserve stock/history; no standalone Store Pipes menu');
+  console.log('PASS real Scanner -> Store Pipes -> scan/validate -> Location A-I -> explicit Confirm Storage -> multiple unchanged pipes stored; duplicate scan and refresh preserve stock/history; no standalone Store Pipes menu');
 
   assert.deepEqual(errors,[]);console.log('PASS process-flow browser verification; isolated profile '+profile);
 }catch(error){if(socket?.readyState===WebSocket.OPEN)console.error(await evaluate('document.body.innerText').catch(()=>''));throw error;}finally{if(socket?.readyState===WebSocket.OPEN){try{await send('Browser.close');}catch{}socket.close();}chrome?.kill();await server.close();}

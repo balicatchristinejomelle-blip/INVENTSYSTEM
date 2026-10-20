@@ -5,6 +5,7 @@ import DocumentPrintButton from '../../components/DocumentPrintButton';
 import LocationSelect from '../../components/LocationSelect';
 import ExpectedPelletReceiving from '../../components/ExpectedPelletReceiving';
 import RequestPelletBarcodeButton from '../../components/RequestPelletBarcodes';
+import { linkedMaterialRequest, approvedMaterialRequest } from '../../materialRequestLink';
 import RecordRows from "../../components/RecordRows"
 
 import {
@@ -194,8 +195,8 @@ function IncomingTransfers() {
                           View
                         </button>
                         <DocumentPrintButton className="btn-secondary btn-compact" recordId={t.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: t.id, autoPrint: true })} />
-                        <RequestPelletBarcodeButton request={materialRequests.find(request => request.refNo === t.requestRef)} />
-                        {transferCategory(t) !== 'Colorant' && ['In Transit', 'Receiving Discrepancy'].includes(effectiveStatus) && materialRequests.some(request => request.refNo === t.requestRef && request.status === 'Approved') && <button className="btn-success btn-compact" onClick={() => setViewId(t.id)}>Accept Transfer</button>}
+                        <RequestPelletBarcodeButton request={linkedMaterialRequest(materialRequests, t.requestRef)} />
+                        {transferCategory(t) !== 'Colorant' && ['In Transit', 'Receiving Discrepancy'].includes(effectiveStatus) && approvedMaterialRequest(linkedMaterialRequest(materialRequests, t.requestRef)) && <button className="btn-success btn-compact" onClick={() => setViewId(t.id)}>Accept Transfer</button>}
                         {effectiveStatus === 'In Transit' && transferCategory(t) === 'Colorant' && (
                           <button
                             className="btn-success btn-compact"
@@ -333,7 +334,7 @@ function IncomingTransfers() {
           )}
 
           <div className="form-actions">
-            <RequestPelletBarcodeButton request={materialRequests.find(request => request.refNo === detail.requestRef)} />
+            <RequestPelletBarcodeButton request={linkedMaterialRequest(materialRequests, detail.requestRef)} />
             <button className="btn-secondary" onClick={() => setDocumentAction({ id: detail.id, autoPrint: false })}>View Document</button>
             <DocumentPrintButton className="btn-primary" recordId={detail.id} recordType="MATERIAL TRANSFER" onClick={() => setDocumentAction({ id: detail.id, autoPrint: true })} />
             <button className="btn-secondary" onClick={() => setViewId(null)}>Close</button>

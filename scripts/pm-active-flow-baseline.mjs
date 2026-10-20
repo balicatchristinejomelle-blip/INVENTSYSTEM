@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { restoreReceivingLinkFile } from './receiving-link-baseline.mjs';
 export const activePmDeltas = {
   "src/App.tsx": "d64181b2db4f91ad815e1c9d82bd86290c2d488e0ee20acaeb95ba4c417a224f",
   "src/components/Sidebar.tsx": "59c35b5da277523258c0bcc0dd784c3bb5ec68a3839dbc44b018bd40359d1ff7",
@@ -12,7 +13,7 @@ export const activePmDeltas = {
 const markers = {"src/App.tsx":"'pm-scanner'","src/components/Sidebar.tsx":"id: 'scanner', label: 'Scanner'","src/components/Header.tsx":"'pm-scanner'","src/components/ExpectedPelletReceiving.tsx":"Accepted Bags / Label History","src/components/CountedTransferAcceptance.tsx":"setReceiptError","src/components/RequestPelletBarcodes.tsx":"label=\"Print Barcodes\"","src/pages/production/BarcodeScanner.tsx":"managerStorage"}, previous = new Map();
 /** Only exact reviewed active UI/navigation changes normalize for historical guards. */
 export function restoreActivePmFile(file, text) {
-  const source = text.replace(/\r/g, ''), reviewed = activePmDeltas[file];
+  const source = restoreReceivingLinkFile(file, text), reviewed = activePmDeltas[file];
   if (!reviewed || !source.includes(markers[file])) return source;
   if (createHash('sha256').update(source).digest('hex') !== reviewed) throw Error('Unreviewed incoming-printing delta (active PM flow): ' + file);
   if (!previous.has(file)) previous.set(file, execFileSync('git', ['show', 'd8c2e7f:' + file], { encoding: 'utf8' }).replace(/\r/g, ''));

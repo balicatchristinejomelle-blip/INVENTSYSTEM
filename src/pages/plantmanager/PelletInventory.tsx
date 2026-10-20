@@ -1,4 +1,5 @@
 import { pelletColorLabel } from '../../pelletColors';
+import { linkedMaterialRequest } from '../../materialRequestLink';
 import PeriodSelector, { dateInPeriod, usePeriod } from '../../components/PeriodSelector';
 import RecordReference from '../../components/RecordReference';
 import { useViewState } from '../../uiViewState';
@@ -124,7 +125,7 @@ export default function PelletInventory() {
       ? colorants.filter(item => item.color === target.color && item.usageType === target.colorantUsageType).reduce((sum, item) => sum + item.availableKg, 0)
       : pellets.filter(item => item.type === (target.inventoryType === 'Virgin Pellet' ? 'Virgin' : 'Recycled') && item.grade === target.materialGrade && item.inventoryStatus === 'Available' && item.availableKg > 0).reduce((sum, item) => sum + item.availableKg, 0);
     const openRequest = materialRequests.find(item => {
-      const replenishmentReceived = transfers.some(transfer => transfer.requestRef === item.refNo && transfer.status === 'Received');
+      const replenishmentReceived = transfers.some(transfer => linkedMaterialRequest(materialRequests, transfer.requestRef)?.id === item.id && transfer.status === 'Received');
       if (replenishmentReceived || !['New', 'Pending', 'Approved'].includes(item.status) || (item.destination || 'Branch Plant') !== 'Branch Plant') return false;
       if (target.inventoryType === 'Colorant') return item.materialCategory === 'Colorant' && item.color === target.color && item.colorantUsageType === target.colorantUsageType;
       return item.materialCategory === target.inventoryType && item.grade === target.materialGrade;

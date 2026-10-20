@@ -7,12 +7,13 @@ import { canPrint, metadataFor } from '../reprintWorkflow';
 import PrintAction, { BatchPrintAction } from './PrintAction';
 import { printBarcodeBatch } from './BarcodeLabel';
 import Modal from './Modal';
+import { approvedMaterialRequest } from '../materialRequestLink';
 
 export function RequestPelletBarcodes({ requestId }: { requestId: string }) {
   const app = useApp();
   const [selected, setSelected] = useState<string[]>([]);
   const request = app.materialRequests.find(item => item.id === requestId);
-  if (!request || request.status !== 'Approved') return <div className="alert-error" role="alert">An Approved Material Request is required.</div>;
+  if (!request || !approvedMaterialRequest(request)) return <div className="alert-error" role="alert">An Approved Material Request is required.</div>;
   const bags = requestPelletBags(app, request).filter(bag => bag.inventoryStatus !== 'Pending Receipt');
   const expected = request.requestedBags ?? request.requestedKg / 25, received = bags.length;
   const records = printableRecords(app).filter(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && bags.some(bag => bag.id === record.recordId));
@@ -50,7 +51,7 @@ export function RequestPelletBarcodes({ requestId }: { requestId: string }) {
 export default function RequestPelletBarcodeButton({ request }: { request?: MaterialRequest }) {
   const app = useApp();
   const [open, setOpen] = useState(false), [error, setError] = useState('');
-  if (app.currentUser?.role !== 'plantmanager' || !request || request.status !== 'Approved' || request.materialCategory === 'Colorant') return null;
+  if (app.currentUser?.role !== 'plantmanager' || !request || !approvedMaterialRequest(request) || request.materialCategory === 'Colorant') return null;
   const bags = requestPelletBags(app, request).filter(bag => bag.inventoryStatus !== 'Pending Receipt');
   const records = printableRecords(app).filter(record => record.kind === 'Barcode' && record.recordType === 'Pellet' && bags.some(bag => bag.id === record.recordId) && canPrint(app.currentUser, record) && metadataFor(app, record).printCount === 0);
   const show = () => {

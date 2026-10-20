@@ -5,6 +5,7 @@ import { printableRecords } from '../printableRecords';
 import { printBarcodeBatch } from './BarcodeLabel';
 import CountedTransferAcceptance from './CountedTransferAcceptance';
 import RequestPelletBarcodeButton from './RequestPelletBarcodes';
+import { linkedMaterialRequest, approvedMaterialRequest } from '../materialRequestLink';
 
 /** Same expected bag records used for approved labels and physical receiving. */
 export default function ExpectedPelletReceiving({ transferId }: { transferId: string }) {
@@ -13,13 +14,13 @@ export default function ExpectedPelletReceiving({ transferId }: { transferId: st
   if (!transfer || !['Preparing', 'In Transit', 'Receiving Discrepancy', 'Received'].includes(transfer.status)) return null;
   const bags = app.pellets.filter(item => item.transferRef === transfer.refNo && item.batchNo === transfer.batchNo && item.inventoryStatus !== 'Pending Receipt');
   const received = transfer.receivedQuantity ?? bags.length;
-  const request = app.materialRequests.find(item => item.refNo === transfer.requestRef);
+  const request = linkedMaterialRequest(app.materialRequests, transfer.requestRef);
   const expected = transfer.sentQuantity ?? transfer.numberOfBags ?? bags.length;
   const remaining = Math.max(0, expected - received);
   return <section className="page-stack">
     <CountedTransferAcceptance key={transfer.id} transferId={transfer.id} />
-    {request?.status !== 'Approved' && <div className="alert-warning" role="status">This delivery needs an Approved Material Request before receiving or label printing. Existing records are unchanged.</div>}
-    {request?.status === 'Approved' && transfer.status === 'Preparing' && <div className="alert-info" role="status">Waiting for Accounting dispatch. Count and accept this delivery when it is In Transit.</div>}
+    {!approvedMaterialRequest(request) && <div className="alert-warning" role="status">This delivery needs an Approved Material Request before receiving or label printing. Existing records are unchanged.</div>}
+    {approvedMaterialRequest(request) && transfer.status === 'Preparing' && <div className="alert-info" role="status">Waiting for Accounting dispatch. Count and accept this delivery when it is In Transit.</div>}
     {received > 0 ? <>
     <div className="alert-info" role="status">Accepted receipt: {received} of {expected} bags · {received * 25} kg. Remaining: {remaining} bags / {remaining * 25} kg. Labels are available for accepted bags below.</div>
     <div className="button-group"><RequestPelletBarcodeButton request={request} /></div>
