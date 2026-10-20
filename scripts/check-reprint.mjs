@@ -1,4 +1,5 @@
 import { restorePelletMasterFile } from './pellet-master-baseline.mjs';
+import { restoreActivePmFile } from './pm-active-flow-baseline.mjs';
 import { restoreStorageCallback } from './storage-inventory-baseline.mjs';
 import { restoreSummaryColorsFile } from './summary-colors-baseline.mjs';
 import assert from 'node:assert/strict';
@@ -373,7 +374,7 @@ try {
   const updatedBarcodes = namedSources(fs.readFileSync('src/components/BarcodeLabel.tsx', 'utf8'));
   for (const name of ['CODE_128_PATTERNS', 'getCode128Bars', 'barcodeSvgMarkup', 'barcodeValidationError', 'BarcodeSvg']) check(`Barcode encoding/format unchanged: ${name}`, () => assert.equal(updatedBarcodes.get(name), originalBarcodes.get(name)));
   check('Existing official document contents unchanged except stable record ID metadata', () => assert.equal(restorePelletMasterFile('src/documentPrint.ts', fs.readFileSync('src/documentPrint.ts', 'utf8')).replace(/^  recordId: .*\r?\n/gm, '').replace(/\r/g, ''), baseFile('src/documentPrint.ts').replace(/\r/g, '')));
-  check('Sidebar unchanged and no new roles added', () => assert.equal(fs.readFileSync('src/components/Sidebar.tsx', 'utf8').replace(/\r/g, ''), baseFile('src/components/Sidebar.tsx').replace(/\r/g, '')));
+  check('Sidebar unchanged outside the exact PM Scanner entry; no standalone Store Pipes or new roles', () => assert.equal(restoreActivePmFile('src/components/Sidebar.tsx',fs.readFileSync('src/components/Sidebar.tsx', 'utf8')), baseFile('src/components/Sidebar.tsx').replace(/\r/g, '')));
   console.log(`Completed ${checks} reprint workflow, authorization, persistence, inventory-safety and regression checks.`);
 } finally {
   if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;

@@ -7,6 +7,7 @@ import FinishedPipeDetails from '../../components/FinishedPipeDetails';
 import { resolveFinishedPipe } from '../../finishedPipeRelations';
 import { finishedPipeInventory } from '../../finishedGoodsInventory';
 import { expectedPelletError } from '../../physicalScan';
+import PipeStorageSession from '../../components/PipeStorageSession';
 
 import React, { useEffect, useRef, useState } from "react"
 
@@ -62,7 +63,7 @@ export default function BarcodeScanner() {
     currentUser, currentShift, barcodeResetVersion, barcodeRegistry, navigate,
   } = app;
 
-  const [mode, setMode] = useState<ScannerMode>('Load Pellets');
+  const [mode, setMode] = useState<ScannerMode>(() => currentUser?.role === 'plantmanager' ? 'Store Finished Pipes' : 'Load Pellets');
 
   const expected: Category = mode === 'Receive Pellets' || mode === 'Load Pellets' ? 'Pellet' : 'Finished Pipe';
 
@@ -127,7 +128,8 @@ export default function BarcodeScanner() {
 
   const storedThisSession = scans.reduce((sum, item) => sum + item.quantity, 0);
 
-  const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode === 'Store Finished Pipes' ? 'Inspect Finished Pipe Storage' : mode;
+  const modeLabel = mode === 'Release Finished Goods' ? 'Release Finished Pipes' : mode === 'Store Finished Pipes' ? 'Store Pipes' : mode;
+  const managerStorage = currentUser?.role === 'plantmanager' && mode === 'Store Finished Pipes';
 
   const focusHardwareInput = () => {
     window.requestAnimationFrame(() => {
@@ -536,11 +538,11 @@ export default function BarcodeScanner() {
   return (
     <div className={`scanner-page page-stack${hasBottomAction ? ' has-bottom-action' : ''}`}>
       <div>
-      <div className="section-title">Production Barcode Scanner</div>
+      <div className="section-title">{currentUser?.role === 'plantmanager' ? 'Scanner' : 'Production Barcode Scanner'}</div>
       <div className="helper-text">Honeywell Voyager XP 1470g hardware scanning with manual entry fallback.</div>
       <div className="helper-text">Current Shift: {currentShift} · Operator: {currentUser?.name} · {currentUser?.employeeId}</div>
     </div>
-      {sessionStorage.getItem('hpai:production-output-draft') && <div className="alert-info">
+      {currentUser?.role === 'production' && sessionStorage.getItem('hpai:production-output-draft') && <div className="alert-info">
       Production output entry is paused while materials are loaded.
       <button className="btn-secondary btn-compact ml-2" onClick={() => navigate('prod-orders')}>Return to Production Output</button>
     </div>}
@@ -553,14 +555,15 @@ export default function BarcodeScanner() {
           </div>
         </div>
         <div className="scanner-context-control"><SearchableDropdown
-          className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setLegacyPipe(null); setStorageLocation(''); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
+          className="app-select" value={mode} onChange={e => { if (currentUser?.role === 'plantmanager' && e.target.value !== 'Store Finished Pipes') return; setMode(e.target.value as ScannerMode); setLegacyPipe(null); setStorageLocation(''); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
         >
-          <option value="Receive Pellets">Store Recycled Output</option>
-          <option>Load Pellets</option>
-          <option value="Store Finished Pipes">Inspect Finished Pipe Storage</option>
-          <option value="Release Finished Goods">Release Finished Pipes</option>
+          {currentUser?.role === 'production' && <option value="Receive Pellets">Store Recycled Output</option>}
+          <option disabled={currentUser?.role !== 'production'}>Load Pellets</option>
+          <option value="Store Finished Pipes">Store Pipes</option>
+          <option value="Release Finished Goods" disabled={currentUser?.role !== 'production'}>Release Finished Pipes</option>
         </SearchableDropdown></div>
       </div>
+      {managerStorage ? <PipeStorageSession /> : <>
       {mode === 'Release Finished Goods' && <label className="block-label">Shipment Customer Order<SearchableDropdown className="app-select" aria-label="Shipment Customer Order" value={releaseOrderId} onChange={event => { setReleaseOrderId(event.target.value);setResult(null);setError(''); }}><option value="">Select the expected shipment order</option>{orders.filter(order => finishedGoods.some(pipe => finishedPipeInventory(pipe, app).bucket === 'Ready for Ship Out' && resolveFinishedPipe(pipe, app).order?.id === order.id)).map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.customerName}</option>)}</SearchableDropdown></label>}
       <section className="app-card detail-card hardware-scanner-card">
         <div className="hardware-scanner-heading">
@@ -812,7 +815,7 @@ export default function BarcodeScanner() {
         <Info label="Reference" value={reference} />
         <Info label="Scanned By" value={currentUser?.name || '—'} />
       </div>}
-      </section>
+      </section></>}
     </div>
   )
 }

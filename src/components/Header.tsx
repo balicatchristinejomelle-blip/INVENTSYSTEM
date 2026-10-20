@@ -36,6 +36,7 @@ const PAGE_TITLES: Record<string, string> = {
   'pm-transfers': 'Incoming Transfers',
   'pm-requests': 'Main Plant Requests',
   'pm-finished-goods': 'Finished Goods',
+  'pm-scanner': 'Scanner',
   'pm-recycling': 'Rejected & Recycling',
   'pm-attendance': 'Attendance',
   'pm-turnover': 'Shift Turnover',

@@ -112,6 +112,7 @@ function getNavItems(role: Role, clockedIn: boolean): NavItem[] {
         { id: 'requests', label: 'Main Plant Requests', page: 'pm-requests' },
       ]},
       { id: 'fg', label: 'Finished Goods', icon: icons.fg, page: 'pm-finished-goods' },
+      { id: 'scanner', label: 'Scanner', icon: icons.barcode, page: 'pm-scanner' },
       { id: 'recycling', label: 'Rejected & Recycling', icon: icons.recycling, page: 'pm-recycling' },
       { id: 'shifts', label: 'Shifts', icon: icons.shifts, children: [
         { id: 'attendance', label: 'Attendance', page: 'pm-attendance' },
