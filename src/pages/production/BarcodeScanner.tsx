@@ -294,7 +294,7 @@ export default function BarcodeScanner() {
     }
 
     if (mode === 'Receive Pellets' && found.category === 'Pellet') {
-      const validation = found.record.inventoryStatus === 'Pending Receipt' ? expectedPelletError(found.record, transfers, app.materialRequests) : found.record.type === 'Recycled' && found.record.locationStatus === 'Awaiting Storage' ? null : 'Bag is not awaiting physical receiving.';
+      const validation = found.record.inventoryStatus === 'Pending Receipt' ? 'Incoming deliveries must first be counted and accepted by Plant Manager. Scan stored labels in Load Pellets for WIP.' : found.record.type === 'Recycled' && found.record.locationStatus === 'Awaiting Storage' ? null : 'Bag is not awaiting physical receiving.';
       if (validation) { setResult(null); setError(validation); return; }
       setScannerStatus('ITEM FOUND');
       setResult(found);
@@ -555,7 +555,7 @@ export default function BarcodeScanner() {
         <div className="scanner-context-control"><SearchableDropdown
           className="app-select" value={mode} onChange={e => { setMode(e.target.value as ScannerMode); setLegacyPipe(null); setStorageLocation(''); setResult(null); setError(''); setLastScan(null); setCompletion(''); setScannerStatus('READY TO SCAN'); focusHardwareInput(); }}
         >
-          <option>Receive Pellets</option>
+          <option value="Receive Pellets">Store Recycled Output</option>
           <option>Load Pellets</option>
           <option value="Store Finished Pipes">Inspect Finished Pipe Storage</option>
           <option value="Release Finished Goods">Release Finished Pipes</option>

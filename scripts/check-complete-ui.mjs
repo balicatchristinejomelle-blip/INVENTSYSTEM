@@ -11,6 +11,7 @@ import { restoreUXFile, UX_NEW_FILES } from './ux-baseline.mjs';
 import { reviewedProductionOutputAdditions } from './production-output-baseline.mjs';
 import { reviewedProcessFlowAdditions } from './process-flow-baseline.mjs';
 import { approvalScanAdditions } from './approval-scan-baseline.mjs';
+import { countedReceivingAdditions } from './counted-receiving-baseline.mjs';
 import { scanSessionAdditions } from './scan-session-baseline.mjs';
 import { incomingPrintingAdditions } from './incoming-printing-baseline.mjs';
 import { reviewedSummaryColorsAdditions } from './summary-colors-baseline.mjs';
@@ -54,7 +55,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
 const oldWindow = globalThis.window, oldSession = globalThis.sessionStorage;
 try {
   // Audit all source files, not a hand-picked edit whitelist. Non-UI source is byte-guarded.
-  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file] && !reviewedProductionOutputAdditions[file] && !reviewedProcessFlowAdditions[file] && !approvalScanAdditions[file] && !incomingPrintingAdditions[file] && !scanSessionAdditions[file])) {
+  for (const file of files('src').filter(file => /\.(ts|tsx)$/.test(file) && !UX_NEW_FILES.includes(file) && !reviewedSummaryColorsAdditions[file] && !reviewedPelletMasterAdditions[file] && !reviewedProductionOutputAdditions[file] && !reviewedProcessFlowAdditions[file] && !approvalScanAdditions[file] && !incomingPrintingAdditions[file] && !scanSessionAdditions[file] && !countedReceivingAdditions[file])) {
     const current = read(file), baseline = completeUIBaseline(file);
     if (current === baseline) check(`Unchanged source: ${file}`, () => assert.equal(current, baseline));
     else {

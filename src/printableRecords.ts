@@ -16,9 +16,11 @@ export function printableRecords(source: PrintableSource): PrintableRecord[] {
     const request = source.materialRequests.find(item => item.refNo === reference);
     return request?.status === 'Approved' ? undefined : 'Approved Material Request required before printing. Pending and Rejected records are view only.';
   };
-  const pelletApproval = (item: PelletInventory) => item.materialRequestRef
+  const pelletApproval = (item: PelletInventory) => item.inventoryStatus === 'Pending Receipt'
+    ? 'Accept the counted received quantity before printing bag labels.'
+    : item.materialRequestRef
     ? requestApproval(item.materialRequestRef)
-    : item.transferRef && item.inventoryStatus === 'Pending Receipt' ? requestApproval(source.transfers.find(transfer => transfer.refNo === item.transferRef)?.requestRef) : undefined;
+    : item.transferRef ? requestApproval(source.transfers.find(transfer => transfer.refNo === item.transferRef)?.requestRef) : undefined;
   const documents = [
     ...source.orders.map(customerOrderDocument), ...source.manufacturingOrders.map(item => manufacturingOrderDocument(item)),
     ...source.productionOrders.map(productionOrderDocument), ...source.rrRecords.map(receivingReportDocument),
